@@ -360,6 +360,8 @@ function AppContent() {
               onChange={handleNoteChange}
               onLinkClick={handleNoteLinkClick}
               onTagClick={handleTagSelect}
+              notes={notes}
+              tags={tags}
             />
           </div>
         </Panel>

@@ -699,3 +699,41 @@ body, html {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* CodeMirror Autocomplete Styling */
+.cm-tooltip-autocomplete {
+  background-color: #2a2d2e !important;
+  border: 1px solid #3e3e42 !important;
+  border-radius: 4px !important;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3) !important;
+}
+
+.cm-tooltip-autocomplete ul {
+  font-family: inherit !important;
+  max-height: 200px !important;
+}
+
+.cm-tooltip-autocomplete ul li {
+  padding: 4px 8px !important;
+  color: #d4d4d4 !important;
+}
+
+.cm-tooltip-autocomplete ul li[aria-selected] {
+  background-color: #094771 !important;
+  color: #ffffff !important;
+}
+
+.cm-completionIcon {
+  padding-right: 4px !important;
+  opacity: 0.7;
+}
+
+.cm-completionIcon-note::after {
+  content: '📄';
+}
+
+.cm-completionIcon-tag::after {
+  content: '#';
+  color: #e5c07b;
+  font-weight: bold;
+}

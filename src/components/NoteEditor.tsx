@@ -4,7 +4,8 @@ import { EditorState } from '@codemirror/state';
 import { markdown } from '@codemirror/lang-markdown';
 import { oneDark } from '@codemirror/theme-one-dark';
 import { MarkdownRenderer } from './MarkdownRenderer';
-import { Note } from '../types';
+import { Note, NoteMetadata } from '../types';
+import { createAutocompleteExtension } from '../utils/editorAutocomplete';
 
 interface NoteEditorProps {
   note: Note | null;
@@ -12,11 +13,19 @@ interface NoteEditorProps {
   onChange: (content: string) => void;
   onLinkClick: (noteName: string) => void;
   onTagClick?: (tag: string) => void;
+  notes: NoteMetadata[];
+  tags: string[];
 }
 
-export const NoteEditor: React.FC<NoteEditorProps> = ({ note, isPreview, onChange, onLinkClick, onTagClick }) => {
+export const NoteEditor: React.FC<NoteEditorProps> = ({ note, isPreview, onChange, onLinkClick, onTagClick, notes, tags }) => {
   const editorRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
+  const autocompleteDataRef = useRef({ notes, tags });
+  
+  // Update autocomplete data when notes or tags change
+  useEffect(() => {
+    autocompleteDataRef.current = { notes, tags };
+  }, [notes, tags]);
 
   useEffect(() => {
     if (!note || isPreview || !editorRef.current) return;
@@ -31,6 +40,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, isPreview, onChang
         basicSetup,
         markdown(),
         oneDark,
+        createAutocompleteExtension(autocompleteDataRef),
         EditorView.updateListener.of((update) => {
           if (update.docChanged) {
             onChange(update.state.doc.toString());
