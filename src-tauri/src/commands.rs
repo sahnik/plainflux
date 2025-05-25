@@ -166,3 +166,41 @@ pub async fn move_note(
     
     Ok(new_path)
 }
+
+#[tauri::command]
+pub async fn get_folder_contents(
+    folder_path: String,
+    state: State<'_, AppState>,
+) -> Result<Vec<String>, String> {
+    note_manager::delete_folder(&folder_path, &state.notes_dir)
+}
+
+#[tauri::command]
+pub async fn delete_folder(
+    folder_path: String,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    // Delete the folder
+    note_manager::delete_folder_confirmed(&folder_path, &state.notes_dir)?;
+    
+    // Clear cache for all deleted notes
+    let cache_db = state.cache_db.lock()
+        .map_err(|_| "Failed to lock cache database")?;
+    
+    // We should clear cache for all notes in the deleted folder
+    // For simplicity, we'll rebuild the entire cache
+    drop(cache_db);
+    
+    // Rebuild cache
+    let notes = note_manager::list_notes(&state.notes_dir)?;
+    let cache_db = state.cache_db.lock()
+        .map_err(|_| "Failed to lock cache database")?;
+    
+    for note in notes {
+        if let Ok(content) = std::fs::read_to_string(&note.path) {
+            let _ = cache_db.update_note_cache(&note.path, &content);
+        }
+    }
+    
+    Ok(())
+}

@@ -10,6 +10,7 @@ import { TagsList } from './components/TagsList';
 import { SearchPanel } from './components/SearchPanel';
 import { NoteEditor } from './components/NoteEditor';
 import { BacklinksPanel } from './components/BacklinksPanel';
+import { ConfirmDialog } from './components/ConfirmDialog';
 
 import { tauriApi } from './api/tauri';
 import { ViewType, Note, NoteMetadata } from './types';
@@ -21,6 +22,12 @@ function AppContent() {
   const [selectedNote, setSelectedNote] = useState<Note | null>(null);
   const [isPreview, setIsPreview] = useState(false);
   const [searchResults, setSearchResults] = useState<Note[]>([]);
+  const [deleteDialog, setDeleteDialog] = useState<{
+    isOpen: boolean;
+    type: 'note' | 'folder';
+    item: any;
+    message: string;
+  } | null>(null);
 
   const { data: notes = [] } = useQuery({
     queryKey: ['notes'],
@@ -124,6 +131,59 @@ function AppContent() {
     }
   };
 
+  const handleNoteDelete = async (note: NoteMetadata) => {
+    setDeleteDialog({
+      isOpen: true,
+      type: 'note',
+      item: note,
+      message: `Are you sure you want to delete "${note.title}"? This action cannot be undone.`
+    });
+  };
+
+  const handleFolderDelete = async (folderPath: string) => {
+    try {
+      const contents = await tauriApi.getFolderContents(folderPath);
+      const noteCount = contents.length;
+      
+      setDeleteDialog({
+        isOpen: true,
+        type: 'folder',
+        item: { path: folderPath },
+        message: `Are you sure you want to delete this folder? This will permanently delete ${noteCount} note${noteCount !== 1 ? 's' : ''}. This action cannot be undone.`
+      });
+    } catch (error) {
+      console.error('Failed to get folder contents:', error);
+    }
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteDialog) return;
+
+    try {
+      if (deleteDialog.type === 'note') {
+        await tauriApi.deleteNote(deleteDialog.item.path);
+        
+        // If the deleted note was selected, clear selection
+        if (selectedNote && selectedNote.path === deleteDialog.item.path) {
+          setSelectedNote(null);
+        }
+      } else {
+        await tauriApi.deleteFolder(deleteDialog.item.path);
+        
+        // If a note in the deleted folder was selected, clear selection
+        if (selectedNote && selectedNote.path.startsWith(deleteDialog.item.path)) {
+          setSelectedNote(null);
+        }
+      }
+      
+      // Refresh the notes list
+      queryClient.invalidateQueries({ queryKey: ['notes'] });
+      queryClient.invalidateQueries({ queryKey: ['tags'] });
+    } catch (error) {
+      console.error(`Failed to delete ${deleteDialog.type}:`, error);
+    }
+  };
+
   const renderListPanel = () => {
     switch (currentView) {
       case 'notes':
@@ -133,6 +193,8 @@ function AppContent() {
             selectedPath={selectedNote?.path}
             onNoteSelect={handleNoteSelect}
             onNoteMove={handleNoteMove}
+            onNoteDelete={handleNoteDelete}
+            onFolderDelete={handleFolderDelete}
           />
         );
       case 'tags':
@@ -204,6 +266,18 @@ function AppContent() {
           </div>
         </Panel>
       </PanelGroup>
+      
+      {deleteDialog && (
+        <ConfirmDialog
+          isOpen={deleteDialog.isOpen}
+          onClose={() => setDeleteDialog(null)}
+          onConfirm={confirmDelete}
+          title={`Delete ${deleteDialog.type === 'note' ? 'Note' : 'Folder'}`}
+          message={deleteDialog.message}
+          confirmText="Delete"
+          cancelText="Cancel"
+        />
+      )}
     </div>
   );
 }

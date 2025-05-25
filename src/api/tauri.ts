@@ -53,4 +53,12 @@ export const tauriApi = {
   async moveNote(oldPath: string, newFolder: string): Promise<string> {
     return invoke('move_note', { oldPath, newFolder });
   },
+
+  async getFolderContents(folderPath: string): Promise<string[]> {
+    return invoke('get_folder_contents', { folderPath });
+  },
+
+  async deleteFolder(folderPath: string): Promise<void> {
+    return invoke('delete_folder', { folderPath });
+  },
 };

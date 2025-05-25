@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { ChevronRight, ChevronDown, Folder, FileText } from 'lucide-react';
+import { ChevronRight, ChevronDown, Folder, FileText, Trash2 } from 'lucide-react';
 import { NoteMetadata } from '../types';
 
 interface NotesTreeProps {
@@ -7,6 +7,8 @@ interface NotesTreeProps {
   selectedPath?: string;
   onNoteSelect: (note: NoteMetadata) => void;
   onNoteMove: (note: NoteMetadata, targetFolder: string) => void;
+  onNoteDelete: (note: NoteMetadata) => void;
+  onFolderDelete: (folderPath: string) => void;
 }
 
 interface FolderNode {
@@ -73,11 +75,15 @@ export const NotesTree: React.FC<NotesTreeProps> = ({
   notes, 
   selectedPath, 
   onNoteSelect, 
-  onNoteMove 
+  onNoteMove,
+  onNoteDelete,
+  onFolderDelete
 }) => {
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const [draggedNote, setDraggedNote] = useState<NoteMetadata | null>(null);
   const [dropTargetFolder, setDropTargetFolder] = useState<string | null>(null);
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; type: 'note' | 'folder'; item: any } | null>(null);
+  
   const folderTree = useMemo(() => buildFolderTree(notes), [notes]);
 
   // Handle the actual drop
@@ -95,6 +101,15 @@ export const NotesTree: React.FC<NotesTreeProps> = ({
       return () => document.removeEventListener('mouseup', handleMouseUp);
     }
   }, [draggedNote, dropTargetFolder, onNoteMove]);
+
+  // Close context menu on click outside
+  useEffect(() => {
+    const handleClick = () => setContextMenu(null);
+    if (contextMenu) {
+      document.addEventListener('click', handleClick);
+      return () => document.removeEventListener('click', handleClick);
+    }
+  }, [contextMenu]);
 
   const handleToggle = (path: string) => {
     const newExpanded = new Set(expandedFolders);
@@ -115,11 +130,37 @@ export const NotesTree: React.FC<NotesTreeProps> = ({
         onToggle={handleToggle}
         selectedPath={selectedPath}
         onNoteSelect={onNoteSelect}
+        onNoteDelete={onNoteDelete}
+        onFolderDelete={onFolderDelete}
         draggedNote={draggedNote}
         setDraggedNote={setDraggedNote}
         dropTargetFolder={dropTargetFolder}
         setDropTargetFolder={setDropTargetFolder}
+        setContextMenu={setContextMenu}
       />
+      
+      {contextMenu && (
+        <div 
+          className="context-menu"
+          style={{ left: contextMenu.x, top: contextMenu.y }}
+        >
+          <button
+            className="context-menu-item"
+            onClick={(e) => {
+              e.stopPropagation();
+              if (contextMenu.type === 'note') {
+                onNoteDelete(contextMenu.item);
+              } else {
+                onFolderDelete(contextMenu.item.path);
+              }
+              setContextMenu(null);
+            }}
+          >
+            <Trash2 size={14} />
+            <span>Delete {contextMenu.type}</span>
+          </button>
+        </div>
+      )}
     </div>
   );
 };
@@ -131,21 +172,27 @@ const FolderItem: React.FC<{
   onToggle: (path: string) => void;
   selectedPath?: string;
   onNoteSelect: (note: NoteMetadata) => void;
+  onNoteDelete: (note: NoteMetadata) => void;
+  onFolderDelete: (folderPath: string) => void;
   draggedNote: NoteMetadata | null;
   setDraggedNote: (note: NoteMetadata | null) => void;
   dropTargetFolder: string | null;
   setDropTargetFolder: (folder: string | null) => void;
+  setContextMenu: (menu: { x: number; y: number; type: 'note' | 'folder'; item: any } | null) => void;
 }> = ({ 
   folder, 
   level, 
   expandedFolders, 
   onToggle, 
   selectedPath, 
-  onNoteSelect, 
+  onNoteSelect,
+  onNoteDelete,
+  onFolderDelete,
   draggedNote,
   setDraggedNote,
   dropTargetFolder,
-  setDropTargetFolder
+  setDropTargetFolder,
+  setContextMenu
 }) => {
   const isExpanded = expandedFolders.has(folder.path);
   const hasContent = folder.children.length > 0 || folder.notes.length > 0;
@@ -175,6 +222,19 @@ const FolderItem: React.FC<{
     }
   };
 
+  const handleContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (level > 0) { // Don't allow deleting root folder
+      setContextMenu({
+        x: e.clientX,
+        y: e.clientY,
+        type: 'folder',
+        item: folder
+      });
+    }
+  };
+
   if (level === 0) {
     // Root folder
     return (
@@ -190,8 +250,10 @@ const FolderItem: React.FC<{
             level={0}
             selected={selectedPath === note.path}
             onSelect={onNoteSelect}
+            onDelete={onNoteDelete}
             setDraggedNote={setDraggedNote}
             isDragging={draggedNote?.path === note.path}
+            setContextMenu={setContextMenu}
           />
         ))}
         {folder.children.map(child => (
@@ -203,10 +265,13 @@ const FolderItem: React.FC<{
             onToggle={onToggle}
             selectedPath={selectedPath}
             onNoteSelect={onNoteSelect}
+            onNoteDelete={onNoteDelete}
+            onFolderDelete={onFolderDelete}
             draggedNote={draggedNote}
             setDraggedNote={setDraggedNote}
             dropTargetFolder={dropTargetFolder}
             setDropTargetFolder={setDropTargetFolder}
+            setContextMenu={setContextMenu}
           />
         ))}
       </div>
@@ -219,6 +284,7 @@ const FolderItem: React.FC<{
         className={`folder-header ${isDropTarget ? 'drag-over' : ''}`}
         style={{ paddingLeft: `${(level - 1) * 16 + 8}px` }}
         onClick={handleClick}
+        onContextMenu={handleContextMenu}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
       >
@@ -238,8 +304,10 @@ const FolderItem: React.FC<{
               level={level}
               selected={selectedPath === note.path}
               onSelect={onNoteSelect}
+              onDelete={onNoteDelete}
               setDraggedNote={setDraggedNote}
               isDragging={draggedNote?.path === note.path}
+              setContextMenu={setContextMenu}
             />
           ))}
           {folder.children.map(child => (
@@ -251,10 +319,13 @@ const FolderItem: React.FC<{
               onToggle={onToggle}
               selectedPath={selectedPath}
               onNoteSelect={onNoteSelect}
+              onNoteDelete={onNoteDelete}
+              onFolderDelete={onFolderDelete}
               draggedNote={draggedNote}
               setDraggedNote={setDraggedNote}
               dropTargetFolder={dropTargetFolder}
               setDropTargetFolder={setDropTargetFolder}
+              setContextMenu={setContextMenu}
             />
           ))}
         </>
@@ -268,9 +339,11 @@ const NoteItem: React.FC<{
   level: number;
   selected: boolean;
   onSelect: (note: NoteMetadata) => void;
+  onDelete: (note: NoteMetadata) => void;
   setDraggedNote: (note: NoteMetadata | null) => void;
   isDragging: boolean;
-}> = ({ note, level, selected, onSelect, setDraggedNote, isDragging }) => {
+  setContextMenu: (menu: { x: number; y: number; type: 'note' | 'folder'; item: any } | null) => void;
+}> = ({ note, level, selected, onSelect, onDelete, setDraggedNote, isDragging, setContextMenu }) => {
   const [mouseDownPos, setMouseDownPos] = useState<{ x: number; y: number } | null>(null);
 
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -301,6 +374,17 @@ const NoteItem: React.FC<{
     setMouseDownPos(null);
   };
 
+  const handleContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setContextMenu({
+      x: e.clientX,
+      y: e.clientY,
+      type: 'note',
+      item: note
+    });
+  };
+
   return (
     <div
       className={`note-item ${selected ? 'selected' : ''} ${isDragging ? 'dragging' : ''}`}
@@ -314,6 +398,7 @@ const NoteItem: React.FC<{
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
       onMouseLeave={() => setMouseDownPos(null)}
+      onContextMenu={handleContextMenu}
     >
       <FileText size={14} />
       <span className="note-title">{note.title}</span>

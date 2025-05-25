@@ -1,5 +1,5 @@
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 use walkdir::WalkDir;
 
@@ -181,4 +181,57 @@ pub fn move_note(old_path: &str, new_folder: &str, base_path: &str) -> Result<St
         .map_err(|e| format!("Failed to move note: {}", e))?;
     
     Ok(new_path.to_string_lossy().to_string())
+}
+
+pub fn delete_folder(folder_path: &str, base_path: &str) -> Result<Vec<String>, String> {
+    let base = Path::new(base_path);
+    let full_path = base.join(folder_path);
+    
+    if !full_path.exists() {
+        return Err("Folder does not exist".to_string());
+    }
+    
+    if !full_path.is_dir() {
+        return Err("Path is not a folder".to_string());
+    }
+    
+    // Get all files that will be deleted for confirmation
+    let mut files_to_delete = Vec::new();
+    collect_files_recursive(&full_path, &mut files_to_delete)?;
+    
+    // Convert to relative paths for display
+    let relative_files: Vec<String> = files_to_delete.iter()
+        .filter_map(|path| path.strip_prefix(base).ok())
+        .map(|p| p.to_string_lossy().to_string())
+        .collect();
+    
+    Ok(relative_files)
+}
+
+pub fn delete_folder_confirmed(folder_path: &str, base_path: &str) -> Result<(), String> {
+    let base = Path::new(base_path);
+    let full_path = base.join(folder_path);
+    
+    fs::remove_dir_all(&full_path)
+        .map_err(|e| format!("Failed to delete folder: {}", e))?;
+    
+    Ok(())
+}
+
+fn collect_files_recursive(dir: &Path, files: &mut Vec<PathBuf>) -> Result<(), String> {
+    let entries = fs::read_dir(dir)
+        .map_err(|e| format!("Failed to read directory: {}", e))?;
+    
+    for entry in entries {
+        let entry = entry.map_err(|e| format!("Failed to read entry: {}", e))?;
+        let path = entry.path();
+        
+        if path.is_file() && path.extension().and_then(|s| s.to_str()) == Some("md") {
+            files.push(path);
+        } else if path.is_dir() {
+            collect_files_recursive(&path, files)?;
+        }
+    }
+    
+    Ok(())
 }
