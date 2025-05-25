@@ -5,7 +5,7 @@ import { Eye, Edit } from 'lucide-react';
 import './App.css';
 
 import { Sidebar } from './components/Sidebar';
-import { NotesList } from './components/NotesList';
+import { NotesTree } from './components/NotesTree';
 import { TagsList } from './components/TagsList';
 import { SearchPanel } from './components/SearchPanel';
 import { NoteEditor } from './components/NoteEditor';
@@ -86,6 +86,22 @@ function AppContent() {
     setSelectedNote(note);
   };
 
+  const handleNoteMove = async (note: NoteMetadata, targetFolder: string) => {
+    try {
+      const newPath = await tauriApi.moveNote(note.path, targetFolder);
+      
+      // If this is the currently selected note, update its path
+      if (selectedNote && selectedNote.path === note.path) {
+        setSelectedNote({ ...selectedNote, path: newPath });
+      }
+      
+      // Refresh the notes list
+      queryClient.invalidateQueries({ queryKey: ['notes'] });
+    } catch (error) {
+      console.error('Failed to move note:', error);
+    }
+  };
+
   const handleNoteLinkClick = async (noteName: string) => {
     try {
       // Check if note exists using the new command
@@ -112,10 +128,11 @@ function AppContent() {
     switch (currentView) {
       case 'notes':
         return (
-          <NotesList
+          <NotesTree
             notes={notes}
             selectedPath={selectedNote?.path}
             onNoteSelect={handleNoteSelect}
+            onNoteMove={handleNoteMove}
           />
         );
       case 'tags':

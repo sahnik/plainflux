@@ -16,6 +16,8 @@ pub struct NoteMetadata {
     pub path: String,
     pub title: String,
     pub last_modified: i64,
+    pub relative_path: String,
+    pub folder: String,
 }
 
 pub fn read_note(path: &str) -> Result<Note, String> {
@@ -61,6 +63,7 @@ pub fn write_note(path: &str, content: &str) -> Result<(), String> {
 
 pub fn list_notes(base_path: &str) -> Result<Vec<NoteMetadata>, String> {
     let mut notes = Vec::new();
+    let base_path_buf = Path::new(base_path);
     
     for entry in WalkDir::new(base_path)
         .follow_links(true)
@@ -81,14 +84,34 @@ pub fn list_notes(base_path: &str) -> Result<Vec<NoteMetadata>, String> {
                     .unwrap_or("Untitled")
                     .to_string();
                 
+                // Calculate relative path and folder
+                let relative_path = path.strip_prefix(base_path_buf)
+                    .map(|p| p.to_string_lossy().to_string())
+                    .unwrap_or_else(|_| path.to_string_lossy().to_string());
+                
+                let folder = path.parent()
+                    .and_then(|p| p.strip_prefix(base_path_buf).ok())
+                    .map(|p| p.to_string_lossy().to_string())
+                    .unwrap_or_else(|| String::new());
+                
                 notes.push(NoteMetadata {
                     path: path.to_string_lossy().to_string(),
                     title,
                     last_modified,
+                    relative_path,
+                    folder,
                 });
             }
         }
     }
+    
+    // Sort notes alphabetically by folder and then by title
+    notes.sort_by(|a, b| {
+        match a.folder.cmp(&b.folder) {
+            std::cmp::Ordering::Equal => a.title.cmp(&b.title),
+            other => other,
+        }
+    });
     
     Ok(notes)
 }
@@ -134,4 +157,28 @@ pub fn search_notes(base_path: &str, query: &str) -> Result<Vec<Note>, String> {
     }
     
     Ok(results)
+}
+
+pub fn move_note(old_path: &str, new_folder: &str, base_path: &str) -> Result<String, String> {
+    let old_path_buf = Path::new(old_path);
+    let filename = old_path_buf.file_name()
+        .ok_or_else(|| "Invalid file path".to_string())?;
+    
+    let new_path = if new_folder.is_empty() {
+        Path::new(base_path).join(filename)
+    } else {
+        Path::new(base_path).join(new_folder).join(filename)
+    };
+    
+    // Create the target directory if it doesn't exist
+    if let Some(parent) = new_path.parent() {
+        fs::create_dir_all(parent)
+            .map_err(|e| format!("Failed to create directory: {}", e))?;
+    }
+    
+    // Move the file
+    fs::rename(old_path, &new_path)
+        .map_err(|e| format!("Failed to move note: {}", e))?;
+    
+    Ok(new_path.to_string_lossy().to_string())
 }

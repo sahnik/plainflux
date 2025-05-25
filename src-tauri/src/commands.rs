@@ -140,3 +140,29 @@ pub async fn find_note_by_name(
     
     Ok(None)
 }
+
+#[tauri::command]
+pub async fn move_note(
+    old_path: String,
+    new_folder: String,
+    state: State<'_, AppState>,
+) -> Result<String, String> {
+    // First, get the note content to preserve cache
+    let content = std::fs::read_to_string(&old_path)
+        .map_err(|e| format!("Failed to read note: {}", e))?;
+    
+    // Move the note
+    let new_path = note_manager::move_note(&old_path, &new_folder, &state.notes_dir)?;
+    
+    // Update cache for the new location
+    let cache_db = state.cache_db.lock()
+        .map_err(|_| "Failed to lock cache database")?;
+    
+    // Clear old cache
+    cache_db.clear_note_cache(&old_path)?;
+    
+    // Update cache with new path
+    cache_db.update_note_cache(&new_path, &content)?;
+    
+    Ok(new_path)
+}

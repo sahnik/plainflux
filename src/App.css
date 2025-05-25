@@ -100,19 +100,62 @@ body, html {
   background-color: #007acc;
 }
 
-/* Notes List */
-.notes-list {
-  padding: 8px;
+/* Notes Tree */
+.notes-tree {
+  padding: 8px 0;
   overflow-y: auto;
   height: 100%;
+  user-select: none;
+}
+
+.folder-item {
+  position: relative;
+}
+
+.folder-header {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+  font-size: 14px;
+}
+
+.folder-header:hover {
+  background-color: #2a2d2e;
+}
+
+.folder-header.drag-over {
+  background-color: #094771;
+  outline: 2px solid #007acc;
+}
+
+.folder-name {
+  flex: 1;
+}
+
+.root-folder {
+  min-height: 100%;
+  padding: 8px;
+}
+
+.root-folder.drag-over {
+  background-color: rgba(0, 122, 204, 0.1);
+  outline: 2px dashed #007acc;
 }
 
 .note-item {
-  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
   cursor: pointer;
   border-radius: 4px;
-  margin-bottom: 2px;
+  margin-bottom: 1px;
   transition: background-color 0.2s;
+  font-size: 14px;
 }
 
 .note-item:hover {
@@ -123,15 +166,19 @@ body, html {
   background-color: #094771;
 }
 
-.note-title {
-  font-size: 14px;
-  font-weight: 500;
-  margin-bottom: 2px;
+.note-item[draggable="true"] {
+  cursor: move;
 }
 
-.note-date {
-  font-size: 12px;
-  color: #858585;
+.note-item[draggable="true"]:active {
+  opacity: 0.5;
+}
+
+.note-title {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* Tags List */

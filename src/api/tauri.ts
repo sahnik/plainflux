@@ -49,4 +49,8 @@ export const tauriApi = {
   async findNoteByName(name: string): Promise<string | null> {
     return invoke('find_note_by_name', { name });
   },
+
+  async moveNote(oldPath: string, newFolder: string): Promise<string> {
+    return invoke('move_note', { oldPath, newFolder });
+  },
 };

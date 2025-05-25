@@ -9,6 +9,8 @@ export interface NoteMetadata {
   path: string;
   title: string;
   last_modified: number;
+  relative_path: string;
+  folder: string;
 }
 
 export type ViewType = 'notes' | 'tags' | 'search';
