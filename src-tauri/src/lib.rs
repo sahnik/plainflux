@@ -6,6 +6,20 @@ use cache::CacheDb;
 use commands::AppState;
 use std::sync::Mutex;
 
+fn rebuild_cache(state: &AppState) -> Result<(), String> {
+    let notes = note_manager::list_notes(&state.notes_dir)?;
+    let cache_db = state.cache_db.lock()
+        .map_err(|_| "Failed to lock cache database")?;
+    
+    for note in notes {
+        if let Ok(content) = std::fs::read_to_string(&note.path) {
+            let _ = cache_db.update_note_cache(&note.path, &content, &state.notes_dir);
+        }
+    }
+    
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let app_data_dir = std::path::PathBuf::from(".");
@@ -27,6 +41,11 @@ pub fn run() {
         cache_db: Mutex::new(cache_db),
         notes_dir: default_notes_dir.to_string_lossy().to_string(),
     };
+    
+    // Rebuild cache on startup
+    rebuild_cache(&app_state).unwrap_or_else(|e| {
+        eprintln!("Failed to rebuild cache: {}", e);
+    });
     
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())

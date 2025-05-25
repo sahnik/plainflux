@@ -1,6 +1,7 @@
 use rusqlite::{Connection, params};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
+use walkdir::WalkDir;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Link {
@@ -67,12 +68,15 @@ impl CacheDb {
         Ok(())
     }
     
-    pub fn update_note_cache(&self, note_path: &str, content: &str) -> Result<(), String> {
+    pub fn update_note_cache(&self, note_path: &str, content: &str, notes_dir: &str) -> Result<(), String> {
         self.clear_note_cache(note_path)?;
         
         let links = extract_links(content);
         for link in links {
-            self.add_link(note_path, &link)?;
+            // Try to find the actual file path for this link
+            if let Ok(link_path) = resolve_note_link(&link, notes_dir) {
+                self.add_link(note_path, &link_path)?;
+            }
         }
         
         let tags = extract_tags(content);
@@ -177,4 +181,51 @@ fn extract_tags(content: &str) -> Vec<String> {
     re.captures_iter(content)
         .map(|cap| cap[1].to_string())
         .collect()
+}
+
+fn resolve_note_link(link_name: &str, notes_dir: &str) -> Result<String, String> {
+    // Remove .md extension if present
+    let name_without_ext = link_name.trim_end_matches(".md");
+    
+    // Walk through all files in the notes directory
+    for entry in WalkDir::new(notes_dir)
+        .follow_links(true)
+        .into_iter()
+        .filter_map(|e| e.ok())
+    {
+        let path = entry.path();
+        if path.is_file() && path.extension().and_then(|s| s.to_str()) == Some("md") {
+            // Get the filename without extension
+            if let Some(filename) = path.file_stem() {
+                if filename.to_string_lossy().eq_ignore_ascii_case(name_without_ext) {
+                    return Ok(path.to_string_lossy().to_string());
+                }
+            }
+        }
+    }
+    
+    Err(format!("Note not found: {}", link_name))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    
+    #[test]
+    fn test_extract_links() {
+        let content = "This is a [[Test Note]] and another [[Second Note]]";
+        let links = extract_links(content);
+        assert_eq!(links.len(), 2);
+        assert_eq!(links[0], "Test Note");
+        assert_eq!(links[1], "Second Note");
+    }
+    
+    #[test]
+    fn test_extract_tags() {
+        let content = "This has #tag1 and #tag2 tags";
+        let tags = extract_tags(content);
+        assert_eq!(tags.len(), 2);
+        assert_eq!(tags[0], "tag1");
+        assert_eq!(tags[1], "tag2");
+    }
 }

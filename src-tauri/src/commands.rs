@@ -28,7 +28,7 @@ pub async fn save_note(
     
     let cache_db = state.cache_db.lock()
         .map_err(|_| "Failed to lock cache database")?;
-    cache_db.update_note_cache(&path, &content)?;
+    cache_db.update_note_cache(&path, &content, &state.notes_dir)?;
     
     Ok(())
 }
@@ -49,7 +49,19 @@ pub async fn create_note(
         return Ok(path_str);
     }
     
-    note_manager::write_note(&path_str, &format!("# {}\n\n", filename))?;
+    let content = format!("# {}\n\n", filename);
+    note_manager::write_note(&path_str, &content)?;
+    
+    // Update cache for the new note
+    let cache_db = state.cache_db.lock()
+        .map_err(|_| "Failed to lock cache database")?;
+    cache_db.update_note_cache(&path_str, &content, &state.notes_dir)?;
+    
+    // Also need to check if any existing notes link to this new note
+    // and update their cache entries
+    drop(cache_db);
+    rebuild_cache_for_new_note(&filename, &state)?;
+    
     Ok(path_str)
 }
 
@@ -162,7 +174,7 @@ pub async fn move_note(
     cache_db.clear_note_cache(&old_path)?;
     
     // Update cache with new path
-    cache_db.update_note_cache(&new_path, &content)?;
+    cache_db.update_note_cache(&new_path, &content, &state.notes_dir)?;
     
     Ok(new_path)
 }
@@ -198,7 +210,7 @@ pub async fn delete_folder(
     
     for note in notes {
         if let Ok(content) = std::fs::read_to_string(&note.path) {
-            let _ = cache_db.update_note_cache(&note.path, &content);
+            let _ = cache_db.update_note_cache(&note.path, &content, &state.notes_dir);
         }
     }
     
@@ -216,4 +228,26 @@ pub async fn create_folder(
 #[tauri::command]
 pub async fn get_all_folders(state: State<'_, AppState>) -> Result<Vec<String>, String> {
     note_manager::get_all_folders(&state.notes_dir)
+}
+
+fn rebuild_cache_for_new_note(note_name: &str, state: &AppState) -> Result<(), String> {
+    // Get all notes
+    let notes = note_manager::list_notes(&state.notes_dir)?;
+    let cache_db = state.cache_db.lock()
+        .map_err(|_| "Failed to lock cache database")?;
+    
+    // Check each note to see if it contains a link to the new note
+    for note in notes {
+        if let Ok(content) = std::fs::read_to_string(&note.path) {
+            // Check if this note contains a link to the new note
+            let note_name_without_ext = note_name.trim_end_matches(".md");
+            if content.contains(&format!("[[{}]]", note_name_without_ext)) || 
+               content.contains(&format!("[[{}.md]]", note_name_without_ext)) {
+                // Re-update the cache for this note to include the new link
+                let _ = cache_db.update_note_cache(&note.path, &content, &state.notes_dir);
+            }
+        }
+    }
+    
+    Ok(())
 }
