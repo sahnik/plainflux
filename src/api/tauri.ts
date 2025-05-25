@@ -61,4 +61,12 @@ export const tauriApi = {
   async deleteFolder(folderPath: string): Promise<void> {
     return invoke('delete_folder', { folderPath });
   },
+
+  async createFolder(folderPath: string): Promise<void> {
+    return invoke('create_folder', { folderPath });
+  },
+
+  async getAllFolders(): Promise<string[]> {
+    return invoke('get_all_folders');
+  },
 };

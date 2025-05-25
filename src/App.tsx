@@ -11,6 +11,7 @@ import { SearchPanel } from './components/SearchPanel';
 import { NoteEditor } from './components/NoteEditor';
 import { BacklinksPanel } from './components/BacklinksPanel';
 import { ConfirmDialog } from './components/ConfirmDialog';
+import { InputDialog } from './components/InputDialog';
 
 import { tauriApi } from './api/tauri';
 import { ViewType, Note, NoteMetadata } from './types';
@@ -28,10 +29,23 @@ function AppContent() {
     item: any;
     message: string;
   } | null>(null);
+  const [createFolderDialog, setCreateFolderDialog] = useState<{
+    isOpen: boolean;
+    parentPath: string;
+  } | null>(null);
+  const [createNoteDialog, setCreateNoteDialog] = useState<{
+    isOpen: boolean;
+    folderPath: string;
+  } | null>(null);
 
   const { data: notes = [] } = useQuery({
     queryKey: ['notes'],
     queryFn: tauriApi.getNotesList,
+  });
+
+  const { data: folders = [] } = useQuery({
+    queryKey: ['folders'],
+    queryFn: tauriApi.getAllFolders,
   });
 
   const { data: tags = [] } = useQuery({
@@ -178,9 +192,65 @@ function AppContent() {
       
       // Refresh the notes list
       queryClient.invalidateQueries({ queryKey: ['notes'] });
+      queryClient.invalidateQueries({ queryKey: ['folders'] });
       queryClient.invalidateQueries({ queryKey: ['tags'] });
     } catch (error) {
       console.error(`Failed to delete ${deleteDialog.type}:`, error);
+    }
+  };
+
+  const handleFolderCreate = (parentPath: string) => {
+    setCreateFolderDialog({
+      isOpen: true,
+      parentPath
+    });
+  };
+
+  const confirmCreateFolder = async (folderName: string) => {
+    if (!createFolderDialog) return;
+
+    try {
+      // Create the full folder path
+      const fullPath = createFolderDialog.parentPath 
+        ? `${createFolderDialog.parentPath}/${folderName}`
+        : folderName;
+      
+      await tauriApi.createFolder(fullPath);
+      
+      // Refresh the notes and folders list to show the new folder
+      queryClient.invalidateQueries({ queryKey: ['notes'] });
+      queryClient.invalidateQueries({ queryKey: ['folders'] });
+    } catch (error) {
+      console.error('Failed to create folder:', error);
+    }
+  };
+
+  const handleNoteCreate = (folderPath: string) => {
+    setCreateNoteDialog({
+      isOpen: true,
+      folderPath
+    });
+  };
+
+  const confirmCreateNote = async (noteName: string) => {
+    if (!createNoteDialog) return;
+
+    try {
+      // Create the full note path
+      const fullPath = createNoteDialog.folderPath 
+        ? `${createNoteDialog.folderPath}/${noteName}`
+        : noteName;
+      
+      const newNotePath = await tauriApi.createNote(fullPath);
+      
+      // Open the newly created note
+      const note = await tauriApi.readNote(newNotePath);
+      setSelectedNote(note);
+      
+      // Refresh the notes list to show the new note
+      queryClient.invalidateQueries({ queryKey: ['notes'] });
+    } catch (error) {
+      console.error('Failed to create note:', error);
     }
   };
 
@@ -190,11 +260,14 @@ function AppContent() {
         return (
           <NotesTree
             notes={notes}
+            folders={folders}
             selectedPath={selectedNote?.path}
             onNoteSelect={handleNoteSelect}
             onNoteMove={handleNoteMove}
             onNoteDelete={handleNoteDelete}
             onFolderDelete={handleFolderDelete}
+            onFolderCreate={handleFolderCreate}
+            onNoteCreate={handleNoteCreate}
           />
         );
       case 'tags':
@@ -275,6 +348,32 @@ function AppContent() {
           title={`Delete ${deleteDialog.type === 'note' ? 'Note' : 'Folder'}`}
           message={deleteDialog.message}
           confirmText="Delete"
+          cancelText="Cancel"
+        />
+      )}
+      
+      {createFolderDialog && (
+        <InputDialog
+          isOpen={createFolderDialog.isOpen}
+          onClose={() => setCreateFolderDialog(null)}
+          onConfirm={confirmCreateFolder}
+          title="Create New Folder"
+          label="Folder name:"
+          placeholder="Enter folder name"
+          confirmText="Create"
+          cancelText="Cancel"
+        />
+      )}
+      
+      {createNoteDialog && (
+        <InputDialog
+          isOpen={createNoteDialog.isOpen}
+          onClose={() => setCreateNoteDialog(null)}
+          onConfirm={confirmCreateNote}
+          title="Create New Note"
+          label="Note name:"
+          placeholder="Enter note name (without .md extension)"
+          confirmText="Create"
           cancelText="Cancel"
         />
       )}

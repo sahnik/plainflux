@@ -204,3 +204,16 @@ pub async fn delete_folder(
     
     Ok(())
 }
+
+#[tauri::command]
+pub async fn create_folder(
+    folder_path: String,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    note_manager::create_folder(&folder_path, &state.notes_dir)
+}
+
+#[tauri::command]
+pub async fn get_all_folders(state: State<'_, AppState>) -> Result<Vec<String>, String> {
+    note_manager::get_all_folders(&state.notes_dir)
+}

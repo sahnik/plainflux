@@ -1,14 +1,17 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { ChevronRight, ChevronDown, Folder, FileText, Trash2 } from 'lucide-react';
+import { ChevronRight, ChevronDown, Folder, FileText, Trash2, FolderPlus, FilePlus } from 'lucide-react';
 import { NoteMetadata } from '../types';
 
 interface NotesTreeProps {
   notes: NoteMetadata[];
+  folders: string[];
   selectedPath?: string;
   onNoteSelect: (note: NoteMetadata) => void;
   onNoteMove: (note: NoteMetadata, targetFolder: string) => void;
   onNoteDelete: (note: NoteMetadata) => void;
   onFolderDelete: (folderPath: string) => void;
+  onFolderCreate: (parentPath: string) => void;
+  onNoteCreate: (folderPath: string) => void;
 }
 
 interface FolderNode {
@@ -18,7 +21,7 @@ interface FolderNode {
   notes: NoteMetadata[];
 }
 
-const buildFolderTree = (notes: NoteMetadata[]): FolderNode => {
+const buildFolderTree = (notes: NoteMetadata[], folders: string[]): FolderNode => {
   const root: FolderNode = {
     name: 'Notes',
     path: '',
@@ -29,10 +32,15 @@ const buildFolderTree = (notes: NoteMetadata[]): FolderNode => {
   const folderMap = new Map<string, FolderNode>();
   folderMap.set('', root);
 
-  // First, create all folders
-  notes.forEach(note => {
-    if (note.folder && !folderMap.has(note.folder)) {
-      const parts = note.folder.split('/').filter(p => p);
+  // First, create all folders (from both notes and the folders list)
+  const allFolderPaths = new Set([
+    ...notes.map(note => note.folder).filter(f => f),
+    ...folders
+  ]);
+
+  allFolderPaths.forEach(folderPath => {
+    if (folderPath && !folderMap.has(folderPath)) {
+      const parts = folderPath.split('/').filter(p => p);
       let currentPath = '';
       let parent = root;
 
@@ -73,18 +81,21 @@ const buildFolderTree = (notes: NoteMetadata[]): FolderNode => {
 
 export const NotesTree: React.FC<NotesTreeProps> = ({ 
   notes, 
+  folders,
   selectedPath, 
   onNoteSelect, 
   onNoteMove,
   onNoteDelete,
-  onFolderDelete
+  onFolderDelete,
+  onFolderCreate,
+  onNoteCreate
 }) => {
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const [draggedNote, setDraggedNote] = useState<NoteMetadata | null>(null);
   const [dropTargetFolder, setDropTargetFolder] = useState<string | null>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; type: 'note' | 'folder'; item: any } | null>(null);
   
-  const folderTree = useMemo(() => buildFolderTree(notes), [notes]);
+  const folderTree = useMemo(() => buildFolderTree(notes, folders), [notes, folders]);
 
   // Handle the actual drop
   useEffect(() => {
@@ -132,6 +143,8 @@ export const NotesTree: React.FC<NotesTreeProps> = ({
         onNoteSelect={onNoteSelect}
         onNoteDelete={onNoteDelete}
         onFolderDelete={onFolderDelete}
+        onFolderCreate={onFolderCreate}
+        onNoteCreate={onNoteCreate}
         draggedNote={draggedNote}
         setDraggedNote={setDraggedNote}
         dropTargetFolder={dropTargetFolder}
@@ -144,6 +157,33 @@ export const NotesTree: React.FC<NotesTreeProps> = ({
           className="context-menu"
           style={{ left: contextMenu.x, top: contextMenu.y }}
         >
+          {contextMenu.type === 'folder' && (
+            <>
+              <button
+                className="context-menu-item"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onNoteCreate(contextMenu.item.path);
+                  setContextMenu(null);
+                }}
+              >
+                <FilePlus size={14} />
+                <span>New note</span>
+              </button>
+              <button
+                className="context-menu-item"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onFolderCreate(contextMenu.item.path);
+                  setContextMenu(null);
+                }}
+              >
+                <FolderPlus size={14} />
+                <span>New folder</span>
+              </button>
+            </>
+          )}
+          {contextMenu.type === 'folder' && <div className="context-menu-separator" />}
           <button
             className="context-menu-item"
             onClick={(e) => {
@@ -174,6 +214,8 @@ const FolderItem: React.FC<{
   onNoteSelect: (note: NoteMetadata) => void;
   onNoteDelete: (note: NoteMetadata) => void;
   onFolderDelete: (folderPath: string) => void;
+  onFolderCreate: (parentPath: string) => void;
+  onNoteCreate: (folderPath: string) => void;
   draggedNote: NoteMetadata | null;
   setDraggedNote: (note: NoteMetadata | null) => void;
   dropTargetFolder: string | null;
@@ -188,6 +230,8 @@ const FolderItem: React.FC<{
   onNoteSelect,
   onNoteDelete,
   onFolderDelete,
+  onFolderCreate,
+  onNoteCreate,
   draggedNote,
   setDraggedNote,
   dropTargetFolder,
@@ -235,6 +279,17 @@ const FolderItem: React.FC<{
     }
   };
 
+  const handleRootContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setContextMenu({
+      x: e.clientX,
+      y: e.clientY,
+      type: 'folder',
+      item: { path: '' } // Root folder has empty path
+    });
+  };
+
   if (level === 0) {
     // Root folder
     return (
@@ -242,6 +297,7 @@ const FolderItem: React.FC<{
         className={`root-folder ${isDropTarget ? 'drag-over' : ''}`}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
+        onContextMenu={handleRootContextMenu}
       >
         {folder.notes.map(note => (
           <NoteItem
@@ -267,6 +323,8 @@ const FolderItem: React.FC<{
             onNoteSelect={onNoteSelect}
             onNoteDelete={onNoteDelete}
             onFolderDelete={onFolderDelete}
+            onFolderCreate={onFolderCreate}
+            onNoteCreate={onNoteCreate}
             draggedNote={draggedNote}
             setDraggedNote={setDraggedNote}
             dropTargetFolder={dropTargetFolder}
@@ -321,6 +379,8 @@ const FolderItem: React.FC<{
               onNoteSelect={onNoteSelect}
               onNoteDelete={onNoteDelete}
               onFolderDelete={onFolderDelete}
+              onFolderCreate={onFolderCreate}
+              onNoteCreate={onNoteCreate}
               draggedNote={draggedNote}
               setDraggedNote={setDraggedNote}
               dropTargetFolder={dropTargetFolder}

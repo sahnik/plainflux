@@ -479,6 +479,12 @@ body, html {
   background-color: #094771;
 }
 
+.context-menu-separator {
+  height: 1px;
+  background-color: #3e3e42;
+  margin: 4px 0;
+}
+
 /* Dialog */
 .dialog-overlay {
   position: fixed;
@@ -576,4 +582,48 @@ body, html {
 
 .dialog-button.confirm-button-danger:hover {
   background-color: #d13438;
+}
+
+.dialog-button.confirm-button-primary {
+  background-color: #0078d4;
+  color: white;
+}
+
+.dialog-button.confirm-button-primary:hover {
+  background-color: #106ebe;
+}
+
+.dialog-button.confirm-button-primary:disabled {
+  background-color: #666;
+  color: #999;
+  cursor: not-allowed;
+}
+
+/* Input Dialog */
+.input-label {
+  display: block;
+  font-size: 14px;
+  font-weight: 500;
+  color: #d4d4d4;
+  margin-bottom: 8px;
+}
+
+.input-field {
+  width: 100%;
+  padding: 8px 12px;
+  background-color: #3c3c3c;
+  border: 1px solid #3e3e42;
+  border-radius: 4px;
+  color: #d4d4d4;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.input-field:focus {
+  border-color: #0078d4;
+}
+
+.input-field::placeholder {
+  color: #858585;
 }

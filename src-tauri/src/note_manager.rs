@@ -116,6 +116,31 @@ pub fn list_notes(base_path: &str) -> Result<Vec<NoteMetadata>, String> {
     Ok(notes)
 }
 
+pub fn get_all_folders(base_path: &str) -> Result<Vec<String>, String> {
+    let mut folders = Vec::new();
+    let base_path_buf = Path::new(base_path);
+    
+    for entry in WalkDir::new(base_path)
+        .follow_links(true)
+        .into_iter()
+        .filter_map(|e| e.ok())
+    {
+        let path = entry.path();
+        if path.is_dir() && path != base_path_buf {
+            let relative_path = path.strip_prefix(base_path_buf)
+                .map(|p| p.to_string_lossy().to_string())
+                .unwrap_or_else(|_| path.to_string_lossy().to_string());
+            
+            if !relative_path.is_empty() {
+                folders.push(relative_path);
+            }
+        }
+    }
+    
+    folders.sort();
+    Ok(folders)
+}
+
 pub fn create_daily_note(base_path: &str) -> Result<String, String> {
     use chrono::Local;
     
@@ -214,6 +239,20 @@ pub fn delete_folder_confirmed(folder_path: &str, base_path: &str) -> Result<(),
     
     fs::remove_dir_all(&full_path)
         .map_err(|e| format!("Failed to delete folder: {}", e))?;
+    
+    Ok(())
+}
+
+pub fn create_folder(folder_path: &str, base_path: &str) -> Result<(), String> {
+    let base = Path::new(base_path);
+    let full_path = base.join(folder_path);
+    
+    if full_path.exists() {
+        return Err("Folder already exists".to_string());
+    }
+    
+    fs::create_dir_all(&full_path)
+        .map_err(|e| format!("Failed to create folder: {}", e))?;
     
     Ok(())
 }
