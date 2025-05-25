@@ -340,10 +340,24 @@ body, html {
 .markdown-preview a {
   color: #4ec9b0;
   text-decoration: none;
+  cursor: pointer;
 }
 
 .markdown-preview a:hover {
   text-decoration: underline;
+}
+
+/* Note links */
+.markdown-preview a[href^="#"] {
+  color: #4ec9b0;
+  background-color: rgba(78, 201, 176, 0.1);
+  padding: 2px 4px;
+  border-radius: 3px;
+  transition: background-color 0.2s;
+}
+
+.markdown-preview a[href^="#"]:hover {
+  background-color: rgba(78, 201, 176, 0.2);
 }
 
 /* Backlinks Panel */

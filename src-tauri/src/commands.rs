@@ -45,7 +45,8 @@ pub async fn create_note(
     let path_str = path.to_string_lossy().to_string();
     
     if path.exists() {
-        return Err("Note already exists".to_string());
+        // Return the existing path instead of an error
+        return Ok(path_str);
     }
     
     note_manager::write_note(&path_str, &format!("# {}\n\n", filename))?;
@@ -117,4 +118,25 @@ pub async fn set_notes_directory(
     // For now, we'll just validate the path
     
     Ok(())
+}
+
+#[tauri::command]
+pub async fn find_note_by_name(
+    name: String,
+    state: State<'_, AppState>,
+) -> Result<Option<String>, String> {
+    let notes = note_manager::list_notes(&state.notes_dir)?;
+    
+    // Try exact match first
+    if let Some(note) = notes.iter().find(|n| n.title.eq_ignore_ascii_case(&name)) {
+        return Ok(Some(note.path.clone()));
+    }
+    
+    // Try without .md extension
+    let name_without_ext = name.trim_end_matches(".md");
+    if let Some(note) = notes.iter().find(|n| n.title.eq_ignore_ascii_case(name_without_ext)) {
+        return Ok(Some(note.path.clone()));
+    }
+    
+    Ok(None)
 }

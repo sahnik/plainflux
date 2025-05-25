@@ -86,6 +86,28 @@ function AppContent() {
     setSelectedNote(note);
   };
 
+  const handleNoteLinkClick = async (noteName: string) => {
+    try {
+      // Check if note exists using the new command
+      const existingNotePath = await tauriApi.findNoteByName(noteName);
+      
+      if (existingNotePath) {
+        // Note exists, open it
+        const note = await tauriApi.readNote(existingNotePath);
+        setSelectedNote(note);
+      } else {
+        // Note doesn't exist, create it
+        const newNotePath = await tauriApi.createNote(noteName);
+        const note = await tauriApi.readNote(newNotePath);
+        setSelectedNote(note);
+        // Refresh the notes list
+        queryClient.invalidateQueries({ queryKey: ['notes'] });
+      }
+    } catch (error) {
+      console.error('Failed to handle note link:', error);
+    }
+  };
+
   const renderListPanel = () => {
     switch (currentView) {
       case 'notes':
@@ -149,6 +171,7 @@ function AppContent() {
               note={selectedNote}
               isPreview={isPreview}
               onChange={handleNoteChange}
+              onLinkClick={handleNoteLinkClick}
             />
           </div>
         </Panel>

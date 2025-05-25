@@ -43,6 +43,7 @@ pub fn run() {
             commands::get_all_tags,
             commands::get_notes_by_tag,
             commands::set_notes_directory,
+            commands::find_note_by_name,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

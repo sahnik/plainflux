@@ -165,7 +165,7 @@ impl CacheDb {
     }
 }
 
-fn extract_links(content: &str) -> Vec<String> {
+pub fn extract_links(content: &str) -> Vec<String> {
     let re = Regex::new(r"\[\[([^\]]+)\]\]").unwrap();
     re.captures_iter(content)
         .map(|cap| cap[1].to_string())
