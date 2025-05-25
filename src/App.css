@@ -627,3 +627,71 @@ body, html {
 .input-field::placeholder {
   color: #858585;
 }
+
+/* Tag Filter View */
+.tag-filter-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.tag-filter-header {
+  padding: 16px;
+  border-bottom: 1px solid #3e3e42;
+  background-color: #252526;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tag-filter-label {
+  color: #8b8b8b;
+  font-size: 14px;
+}
+
+.tag-filter-tag {
+  color: #e5c07b;
+  font-size: 16px;
+  font-weight: 500;
+  background-color: rgba(229, 192, 123, 0.1);
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+.tag-filter-notes {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+}
+
+.tag-filter-note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  margin-bottom: 2px;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.tag-filter-note:hover {
+  background-color: #2a2d2e;
+}
+
+.tag-filter-note.selected {
+  background-color: #094771;
+}
+
+.tag-filter-note .note-icon {
+  color: #8b8b8b;
+  flex-shrink: 0;
+}
+
+.tag-filter-note .note-title {
+  color: #d4d4d4;
+  font-size: 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

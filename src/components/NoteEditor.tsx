@@ -11,9 +11,10 @@ interface NoteEditorProps {
   isPreview: boolean;
   onChange: (content: string) => void;
   onLinkClick: (noteName: string) => void;
+  onTagClick?: (tag: string) => void;
 }
 
-export const NoteEditor: React.FC<NoteEditorProps> = ({ note, isPreview, onChange, onLinkClick }) => {
+export const NoteEditor: React.FC<NoteEditorProps> = ({ note, isPreview, onChange, onLinkClick, onTagClick }) => {
   const editorRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
 
@@ -76,6 +77,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, isPreview, onChang
         <MarkdownRenderer 
           content={note.content}
           onLinkClick={onLinkClick}
+          onTagClick={onTagClick}
         />
       </div>
     );

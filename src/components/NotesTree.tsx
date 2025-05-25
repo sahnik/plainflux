@@ -403,7 +403,7 @@ const NoteItem: React.FC<{
   setDraggedNote: (note: NoteMetadata | null) => void;
   isDragging: boolean;
   setContextMenu: (menu: { x: number; y: number; type: 'note' | 'folder'; item: any } | null) => void;
-}> = ({ note, level, selected, onSelect, onDelete, setDraggedNote, isDragging, setContextMenu }) => {
+}> = ({ note, level, selected, onSelect, setDraggedNote, isDragging, setContextMenu }) => {
   const [mouseDownPos, setMouseDownPos] = useState<{ x: number; y: number } | null>(null);
 
   const handleMouseDown = (e: React.MouseEvent) => {

@@ -5,30 +5,53 @@ import remarkGfm from 'remark-gfm';
 interface MarkdownRendererProps {
   content: string;
   onLinkClick: (noteName: string) => void;
+  onTagClick?: (tag: string) => void;
 }
 
-export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, onLinkClick }) => {
-  // Store link handlers in a ref to avoid stale closures
+export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, onLinkClick, onTagClick }) => {
+  // Store link and tag handlers in a ref to avoid stale closures
   const linkHandlersRef = React.useRef<{ [key: string]: () => void }>({});
+  const tagHandlersRef = React.useRef<{ [key: string]: () => void }>({});
   
   // Replace [[Note]] syntax with special markers
   let linkCounter = 0;
-  const processedContent = content.replace(/\[\[([^\]]+)\]\]/g, (_match, noteName) => {
+  let tagCounter = 0;
+  
+  let processedContent = content.replace(/\[\[([^\]]+)\]\]/g, (_match, noteName) => {
     const linkId = `note-link-${linkCounter++}`;
     linkHandlersRef.current[linkId] = () => onLinkClick(noteName);
     return `[${noteName}](#${linkId})`;
   });
+  
+  // Replace #tag syntax with clickable links if onTagClick is provided
+  if (onTagClick) {
+    processedContent = processedContent.replace(/(^|\s)#(\w+)/g, (_match, prefix, tagName) => {
+      const tagId = `tag-link-${tagCounter++}`;
+      tagHandlersRef.current[tagId] = () => onTagClick(tagName);
+      return `${prefix}[#${tagName}](#${tagId})`;
+    });
+  }
 
   return (
     <div 
       onClick={(e) => {
         // Handle clicks on links using event delegation
         const target = e.target as HTMLElement;
-        if (target.tagName === 'A' && target.getAttribute('href')?.startsWith('#note-link-')) {
-          e.preventDefault();
-          const linkId = target.getAttribute('href')?.substring(1);
-          if (linkId && linkHandlersRef.current[linkId]) {
-            linkHandlersRef.current[linkId]();
+        const href = target.getAttribute('href');
+        
+        if (target.tagName === 'A' && href) {
+          if (href.startsWith('#note-link-')) {
+            e.preventDefault();
+            const linkId = href.substring(1);
+            if (linkHandlersRef.current[linkId]) {
+              linkHandlersRef.current[linkId]();
+            }
+          } else if (href.startsWith('#tag-link-')) {
+            e.preventDefault();
+            const tagId = href.substring(1);
+            if (tagHandlersRef.current[tagId]) {
+              tagHandlersRef.current[tagId]();
+            }
           }
         }
       }}
@@ -49,6 +72,23 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, onL
                     cursor: 'pointer',
                     textDecoration: 'none',
                     backgroundColor: 'rgba(78, 201, 176, 0.1)',
+                    padding: '2px 4px',
+                    borderRadius: '3px'
+                  }}
+                />
+              );
+            }
+            
+            // Style tag links differently
+            if (href.startsWith('#tag-link-')) {
+              return (
+                <a
+                  {...props}
+                  style={{ 
+                    color: '#e5c07b', 
+                    cursor: 'pointer',
+                    textDecoration: 'none',
+                    backgroundColor: 'rgba(229, 192, 123, 0.1)',
                     padding: '2px 4px',
                     borderRadius: '3px'
                   }}

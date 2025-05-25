@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { QueryClient, QueryClientProvider, useQuery, useMutation } from '@tanstack/react-query';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
-import { Eye, Edit } from 'lucide-react';
+import { Eye, Edit, FileText } from 'lucide-react';
 import './App.css';
 
 import { Sidebar } from './components/Sidebar';
@@ -23,6 +23,8 @@ function AppContent() {
   const [selectedNote, setSelectedNote] = useState<Note | null>(null);
   const [isPreview, setIsPreview] = useState(false);
   const [searchResults, setSearchResults] = useState<Note[]>([]);
+  const [selectedTag, setSelectedTag] = useState<string | null>(null);
+  const [tagFilteredNotes, setTagFilteredNotes] = useState<NoteMetadata[]>([]);
   const [deleteDialog, setDeleteDialog] = useState<{
     isOpen: boolean;
     type: 'note' | 'folder';
@@ -96,10 +98,15 @@ function AppContent() {
 
   const handleTagSelect = async (tag: string) => {
     const notePaths = await tauriApi.getNotesByTag(tag);
-    if (notePaths.length > 0) {
-      const note = await tauriApi.readNote(notePaths[0]);
-      setSelectedNote(note);
-    }
+    
+    // Filter notes to show only those with the selected tag
+    const filteredNotes = notes.filter(note => 
+      notePaths.includes(note.path)
+    );
+    
+    setSelectedTag(tag);
+    setTagFilteredNotes(filteredNotes);
+    setCurrentView('tag-filter');
   };
 
   const handleBacklinkClick = async (path: string) => {
@@ -280,6 +287,27 @@ function AppContent() {
             onResultSelect={setSelectedNote}
           />
         );
+      case 'tag-filter':
+        return (
+          <div className="tag-filter-panel">
+            <div className="tag-filter-header">
+              <span className="tag-filter-label">Notes tagged with</span>
+              <span className="tag-filter-tag">#{selectedTag}</span>
+            </div>
+            <div className="tag-filter-notes">
+              {tagFilteredNotes.map(note => (
+                <div
+                  key={note.path}
+                  className={`tag-filter-note ${selectedNote?.path === note.path ? 'selected' : ''}`}
+                  onClick={() => handleNoteSelect(note)}
+                >
+                  <FileText size={16} className="note-icon" />
+                  <span className="note-title">{note.title}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
     }
   };
 
@@ -324,6 +352,7 @@ function AppContent() {
               isPreview={isPreview}
               onChange={handleNoteChange}
               onLinkClick={handleNoteLinkClick}
+              onTagClick={handleTagSelect}
             />
           </div>
         </Panel>

@@ -13,7 +13,7 @@ export interface NoteMetadata {
   folder: string;
 }
 
-export type ViewType = 'notes' | 'tags' | 'search';
+export type ViewType = 'notes' | 'tags' | 'search' | 'tag-filter';
 
 export interface AppState {
   currentView: ViewType;
