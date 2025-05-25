@@ -275,6 +275,11 @@ body, html {
   font-weight: 500;
 }
 
+.toolbar-buttons {
+  display: flex;
+  gap: 4px;
+}
+
 .toolbar-button {
   width: 32px;
   height: 32px;
@@ -286,7 +291,6 @@ body, html {
   color: #cccccc;
   cursor: pointer;
   border-radius: 4px;
-  margin-left: 4px;
   transition: background-color 0.2s;
 }
 

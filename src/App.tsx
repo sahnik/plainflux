@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { QueryClient, QueryClientProvider, useQuery, useMutation } from '@tanstack/react-query';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 import { Eye, Edit, FileText } from 'lucide-react';
@@ -69,6 +69,11 @@ function AppContent() {
       queryClient.invalidateQueries({ queryKey: ['tags'] });
     },
   });
+
+  // Open daily note on startup
+  useEffect(() => {
+    handleDailyNote();
+  }, []); // Empty dependency array means this runs once on mount
 
   const handleNoteSelect = async (noteMetadata: NoteMetadata) => {
     const note = await tauriApi.readNote(noteMetadata.path);
@@ -332,20 +337,22 @@ function AppContent() {
           <div className="panel editor-panel">
             <div className="editor-toolbar">
               <h2>{selectedNote?.title || 'No note selected'}</h2>
-              <button
-                className={`toolbar-button ${!isPreview ? 'active' : ''}`}
-                onClick={() => setIsPreview(false)}
-                title="Edit"
-              >
-                <Edit size={16} />
-              </button>
-              <button
-                className={`toolbar-button ${isPreview ? 'active' : ''}`}
-                onClick={() => setIsPreview(true)}
-                title="Preview"
-              >
-                <Eye size={16} />
-              </button>
+              <div className="toolbar-buttons">
+                <button
+                  className={`toolbar-button ${!isPreview ? 'active' : ''}`}
+                  onClick={() => setIsPreview(false)}
+                  title="Edit"
+                >
+                  <Edit size={16} />
+                </button>
+                <button
+                  className={`toolbar-button ${isPreview ? 'active' : ''}`}
+                  onClick={() => setIsPreview(true)}
+                  title="Preview"
+                >
+                  <Eye size={16} />
+                </button>
+              </div>
             </div>
             <NoteEditor
               note={selectedNote}

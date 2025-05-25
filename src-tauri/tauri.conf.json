@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "notes-tauri",
+  "productName": "Plainflux",
   "version": "0.1.0",
-  "identifier": "com.notes-tauri.app",
+  "identifier": "com.plainflux.app",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "notes-tauri",
+        "title": "Plainflux",
         "width": 800,
         "height": 600
       }
