@@ -133,6 +133,10 @@ function AppContent() {
   };
 
   const handleSearch = async (query: string) => {
+    if (query.trim() === '') {
+      setSearchResults([]);
+      return;
+    }
     const results = await tauriApi.searchNotes(query);
     setSearchResults(results);
   };

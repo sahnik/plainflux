@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Search } from 'lucide-react';
 import { Note } from '../types';
 
@@ -10,9 +10,30 @@ interface SearchPanelProps {
 
 export const SearchPanel: React.FC<SearchPanelProps> = ({ onSearch, results, onResultSelect }) => {
   const [query, setQuery] = useState('');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
+
+  // Debounce the search query
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedQuery(query);
+    }, 300); // 300ms delay
+
+    return () => clearTimeout(timer);
+  }, [query]);
+
+  // Trigger search when debounced query changes
+  useEffect(() => {
+    if (debouncedQuery) {
+      onSearch(debouncedQuery);
+    } else if (debouncedQuery === '') {
+      // Clear results when query is empty
+      onSearch('');
+    }
+  }, [debouncedQuery, onSearch]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    // Still allow immediate search on Enter
     onSearch(query);
   };
 
