@@ -1,19 +1,19 @@
 #[macro_use]
 mod macros;
-mod note_manager;
 mod cache;
 mod commands;
 mod error;
+mod note_manager;
 mod utils;
 
 use cache::CacheDb;
 use commands::AppState;
-use std::sync::Mutex;
 use error::Result;
+use std::sync::Mutex;
 
 fn rebuild_cache(state: &AppState) -> Result<()> {
     let notes = note_manager::list_notes(&state.notes_dir)?;
-    
+
     // Handle mutex with proper poisoning recovery
     let cache_db = match state.cache_db.lock() {
         Ok(guard) => guard,
@@ -22,7 +22,7 @@ fn rebuild_cache(state: &AppState) -> Result<()> {
             poisoned.into_inner()
         }
     };
-    
+
     for note in notes {
         if let Ok(content) = std::fs::read_to_string(&note.path) {
             // Ignore individual cache update errors during rebuild
@@ -31,38 +31,37 @@ fn rebuild_cache(state: &AppState) -> Result<()> {
             }
         }
     }
-    
+
     Ok(())
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let app_data_dir = std::path::PathBuf::from(".");
-    
+
     let cache_db_path = app_data_dir.join("notes_cache.db");
     let cache_db = CacheDb::new(&cache_db_path.to_string_lossy())
         .expect("Failed to initialize cache database");
-    
-    let home_dir = dirs::home_dir()
-        .unwrap_or_else(|| std::path::PathBuf::from("."));
+
+    let home_dir = dirs::home_dir().unwrap_or_else(|| std::path::PathBuf::from("."));
     let default_notes_dir = home_dir.join("Notes");
-    
+
     if !default_notes_dir.exists() {
         std::fs::create_dir_all(&default_notes_dir)
             .expect("Failed to create default notes directory");
     }
-    
+
     let app_state = AppState {
         cache_db: Mutex::new(cache_db),
         notes_dir: default_notes_dir.to_string_lossy().to_string(),
     };
-    
+
     // Rebuild cache on startup (non-blocking, don't fail app startup)
     if let Err(e) = rebuild_cache(&app_state) {
         eprintln!("Warning: Failed to rebuild cache on startup: {}", e);
         // Continue anyway - cache will be rebuilt as notes are accessed
     }
-    
+
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .manage(app_state)
@@ -97,3 +96,4 @@ pub fn run() {
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
+
