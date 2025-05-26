@@ -1,0 +1,105 @@
+.help-container {
+  height: 100%;
+  overflow-y: auto;
+  padding: 24px;
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.help-container h1 {
+  font-size: 32px;
+  margin-bottom: 24px;
+  color: var(--text-primary);
+}
+
+.help-section {
+  margin-bottom: 48px;
+}
+
+.help-section h2 {
+  font-size: 24px;
+  margin-bottom: 16px;
+  color: var(--text-primary);
+  border-bottom: 2px solid var(--border-color);
+  padding-bottom: 8px;
+}
+
+.feature {
+  margin-bottom: 24px;
+  padding: 16px;
+  background-color: var(--bg-secondary);
+  border-radius: 8px;
+}
+
+.feature h3 {
+  font-size: 18px;
+  margin-bottom: 8px;
+  color: var(--text-primary);
+}
+
+.feature p {
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.syntax-item {
+  margin-bottom: 24px;
+}
+
+.syntax-item h3 {
+  font-size: 18px;
+  margin-bottom: 8px;
+  color: var(--text-primary);
+}
+
+.syntax-item pre {
+  background-color: var(--bg-secondary);
+  padding: 12px;
+  border-radius: 4px;
+  overflow-x: auto;
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text-primary);
+}
+
+.shortcut {
+  margin-bottom: 12px;
+  padding: 12px;
+  background-color: var(--bg-secondary);
+  border-radius: 4px;
+  font-size: 14px;
+  color: var(--text-primary);
+}
+
+.shortcut kbd {
+  display: inline-block;
+  padding: 3px 6px;
+  margin: 0 2px;
+  font-size: 12px;
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  line-height: 1.4;
+  color: var(--text-primary);
+  background-color: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 3px;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.1);
+}
+
+/* Scrollbar styling */
+.help-container::-webkit-scrollbar {
+  width: 8px;
+}
+
+.help-container::-webkit-scrollbar-track {
+  background: var(--bg-primary);
+}
+
+.help-container::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 4px;
+}
+
+.help-container::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+}

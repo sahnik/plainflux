@@ -14,6 +14,7 @@ import { ConfirmDialog } from './components/ConfirmDialog';
 import { InputDialog } from './components/InputDialog';
 import { GraphView } from './components/GraphView';
 import { TodosList } from './components/TodosList';
+import { Help } from './components/Help';
 
 import { tauriApi, Todo } from './api/tauri';
 import { ViewType, Note, NoteMetadata } from './types';
@@ -26,6 +27,7 @@ function AppContent() {
   const [isPreview, setIsPreview] = useState(false);
   const [showLocalGraph, setShowLocalGraph] = useState(false);
   const [showGlobalGraph, setShowGlobalGraph] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
   const [searchResults, setSearchResults] = useState<Note[]>([]);
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [tagFilteredNotes, setTagFilteredNotes] = useState<NoteMetadata[]>([]);
@@ -400,8 +402,15 @@ function AppContent() {
             setShowGlobalGraph(false);
             setShowLocalGraph(false);
           }
+          setShowHelp(false);
         }}
         onDailyNote={handleDailyNote}
+        onHelp={() => {
+          setShowHelp(!showHelp);
+          setShowLocalGraph(false);
+          setShowGlobalGraph(false);
+        }}
+        showHelp={showHelp}
       />
       
       <PanelGroup direction="horizontal" className="panels-container">
@@ -416,29 +425,31 @@ function AppContent() {
         <Panel defaultSize={60}>
           <div className="panel editor-panel">
             <div className="editor-toolbar">
-              <h2>{showGlobalGraph ? 'Knowledge Graph' : (selectedNote?.title || 'No note selected')}</h2>
+              <h2>{showHelp ? 'Help' : showGlobalGraph ? 'Knowledge Graph' : (selectedNote?.title || 'No note selected')}</h2>
               <div className="toolbar-buttons">
                 <button
-                  className={`toolbar-button ${!isPreview && !showLocalGraph && !showGlobalGraph ? 'active' : ''}`}
+                  className={`toolbar-button ${!isPreview && !showLocalGraph && !showGlobalGraph && !showHelp ? 'active' : ''}`}
                   onClick={() => {
                     setIsPreview(false);
                     setShowLocalGraph(false);
                     setShowGlobalGraph(false);
+                    setShowHelp(false);
                   }}
                   title="Edit"
-                  disabled={!selectedNote}
+                  disabled={!selectedNote || showHelp}
                 >
                   <Edit size={16} />
                 </button>
                 <button
-                  className={`toolbar-button ${isPreview && !showLocalGraph && !showGlobalGraph ? 'active' : ''}`}
+                  className={`toolbar-button ${isPreview && !showLocalGraph && !showGlobalGraph && !showHelp ? 'active' : ''}`}
                   onClick={() => {
                     setIsPreview(true);
                     setShowLocalGraph(false);
                     setShowGlobalGraph(false);
+                    setShowHelp(false);
                   }}
                   title="Preview"
-                  disabled={!selectedNote}
+                  disabled={!selectedNote || showHelp}
                 >
                   <Eye size={16} />
                 </button>
@@ -447,15 +458,18 @@ function AppContent() {
                   onClick={() => {
                     setShowLocalGraph(true);
                     setShowGlobalGraph(false);
+                    setShowHelp(false);
                   }}
                   title="Local Graph"
-                  disabled={!selectedNote}
+                  disabled={!selectedNote || showHelp}
                 >
                   <Network size={16} />
                 </button>
               </div>
             </div>
-            {showGlobalGraph ? (
+            {showHelp ? (
+              <Help />
+            ) : showGlobalGraph ? (
               <GraphView
                 data={globalGraphData}
                 onNodeClick={async (nodeId) => {

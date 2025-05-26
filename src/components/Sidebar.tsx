@@ -1,14 +1,16 @@
 import React from 'react';
-import { FileText, Hash, Search, Calendar, Network, CheckSquare } from 'lucide-react';
+import { FileText, Hash, Search, Calendar, Network, CheckSquare, HelpCircle } from 'lucide-react';
 import { ViewType } from '../types';
 
 interface SidebarProps {
   currentView: ViewType;
   onViewChange: (view: ViewType) => void;
   onDailyNote: () => void;
+  onHelp: () => void;
+  showHelp: boolean;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ currentView, onViewChange, onDailyNote }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ currentView, onViewChange, onDailyNote, onHelp, showHelp }) => {
   const iconSize = 20;
   
   return (
@@ -61,6 +63,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, onViewChange, onD
         title="Daily Note"
       >
         <Calendar size={iconSize} />
+      </button>
+      
+      <button
+        className={`sidebar-icon ${showHelp ? 'active' : ''}`}
+        onClick={onHelp}
+        title="Help"
+      >
+        <HelpCircle size={iconSize} />
       </button>
     </div>
   );
