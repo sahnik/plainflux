@@ -75,6 +75,8 @@ pub fn run() {
             commands::toggle_todo,
             commands::get_daily_note_template,
             commands::save_daily_note_template,
+            commands::rename_note,
+            commands::rename_folder,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

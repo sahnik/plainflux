@@ -492,3 +492,62 @@ pub async fn save_daily_note_template(template: String, state: State<'_, AppStat
     Ok(())
 }
 
+#[tauri::command]
+pub async fn rename_note(
+    old_path: String,
+    new_name: String,
+    state: State<'_, AppState>,
+) -> Result<String, String> {
+    // Rename the file
+    let new_path = note_manager::rename_note(&old_path, &new_name)?;
+    
+    // Update cache
+    let cache_db = state.cache_db.lock()
+        .map_err(|_| "Failed to lock cache database")?;
+    
+    // Clear old cache
+    cache_db.clear_note_cache(&old_path)?;
+    
+    // Read content and update cache with new path
+    if let Ok(content) = std::fs::read_to_string(&new_path) {
+        cache_db.update_note_cache(&new_path, &content, &state.notes_dir)?;
+    }
+    
+    Ok(new_path)
+}
+
+#[tauri::command]
+pub async fn rename_folder(
+    old_path: String,
+    new_name: String,
+    state: State<'_, AppState>,
+) -> Result<String, String> {
+    // Get all notes in the folder before renaming
+    let notes_in_folder = note_manager::list_notes(&state.notes_dir)?
+        .into_iter()
+        .filter(|note| note.path.contains(&format!("{}/", &old_path)))
+        .collect::<Vec<_>>();
+    
+    // Rename the folder
+    let new_path = note_manager::rename_folder(&old_path, &new_name, &state.notes_dir)?;
+    
+    // Update cache for all notes in the renamed folder
+    let cache_db = state.cache_db.lock()
+        .map_err(|_| "Failed to lock cache database")?;
+    
+    for old_note in notes_in_folder {
+        // Clear old cache
+        cache_db.clear_note_cache(&old_note.path)?;
+        
+        // Calculate new note path
+        let new_note_path = old_note.path.replace(&old_path, &new_path);
+        
+        // Update cache with new path
+        if let Ok(content) = std::fs::read_to_string(&new_note_path) {
+            cache_db.update_note_cache(&new_note_path, &content, &state.notes_dir)?;
+        }
+    }
+    
+    Ok(new_path)
+}
+

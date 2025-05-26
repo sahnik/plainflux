@@ -101,6 +101,14 @@ export const tauriApi = {
   async saveDailyNoteTemplate(template: string): Promise<void> {
     return invoke('save_daily_note_template', { template });
   },
+
+  async renameNote(oldPath: string, newName: string): Promise<string> {
+    return invoke('rename_note', { oldPath, newName });
+  },
+
+  async renameFolder(oldPath: string, newName: string): Promise<string> {
+    return invoke('rename_folder', { oldPath, newName });
+  },
 };
 
 export interface GraphNode {

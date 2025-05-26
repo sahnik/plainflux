@@ -281,6 +281,75 @@ pub fn create_folder(folder_path: &str, base_path: &str) -> Result<(), String> {
     Ok(())
 }
 
+pub fn rename_note(old_path: &str, new_name: &str) -> Result<String, String> {
+    let old_path_buf = Path::new(old_path);
+    
+    // Ensure the note exists
+    if !old_path_buf.exists() {
+        return Err("Note does not exist".to_string());
+    }
+    
+    // Get the parent directory
+    let parent = old_path_buf.parent()
+        .ok_or_else(|| "Invalid note path".to_string())?;
+    
+    // Ensure the new name has .md extension
+    let new_filename = if new_name.ends_with(".md") {
+        new_name.to_string()
+    } else {
+        format!("{}.md", new_name)
+    };
+    
+    // Create the new path
+    let new_path = parent.join(&new_filename);
+    
+    // Check if a file with the new name already exists
+    if new_path.exists() {
+        return Err("A note with this name already exists".to_string());
+    }
+    
+    // Rename the file
+    fs::rename(old_path, &new_path)
+        .map_err(|e| format!("Failed to rename note: {}", e))?;
+    
+    Ok(new_path.to_string_lossy().to_string())
+}
+
+pub fn rename_folder(old_path: &str, new_name: &str, base_path: &str) -> Result<String, String> {
+    let base = Path::new(base_path);
+    let old_full_path = base.join(old_path);
+    
+    // Ensure the folder exists
+    if !old_full_path.exists() {
+        return Err("Folder does not exist".to_string());
+    }
+    
+    if !old_full_path.is_dir() {
+        return Err("Path is not a folder".to_string());
+    }
+    
+    // Get the parent directory of the old folder
+    let parent = old_full_path.parent()
+        .ok_or_else(|| "Invalid folder path".to_string())?;
+    
+    // Create the new path
+    let new_full_path = parent.join(new_name);
+    
+    // Check if a folder with the new name already exists
+    if new_full_path.exists() {
+        return Err("A folder with this name already exists".to_string());
+    }
+    
+    // Rename the folder
+    fs::rename(&old_full_path, &new_full_path)
+        .map_err(|e| format!("Failed to rename folder: {}", e))?;
+    
+    // Return the relative path from base_path
+    new_full_path.strip_prefix(base)
+        .map(|p| p.to_string_lossy().to_string())
+        .map_err(|_| "Failed to calculate relative path".to_string())
+}
+
 fn collect_files_recursive(dir: &Path, files: &mut Vec<PathBuf>) -> Result<(), String> {
     let entries = fs::read_dir(dir)
         .map_err(|e| format!("Failed to read directory: {}", e))?;

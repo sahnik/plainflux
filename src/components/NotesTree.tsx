@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { ChevronRight, ChevronDown, Folder, FileText, Trash2, FolderPlus, FilePlus } from 'lucide-react';
+import { ChevronRight, ChevronDown, Folder, FileText, Trash2, FolderPlus, FilePlus, Edit } from 'lucide-react';
 import { NoteMetadata } from '../types';
 
 interface NotesTreeProps {
@@ -12,6 +12,8 @@ interface NotesTreeProps {
   onFolderDelete: (folderPath: string) => void;
   onFolderCreate: (parentPath: string) => void;
   onNoteCreate: (folderPath: string) => void;
+  onNoteRename?: (note: NoteMetadata) => void;
+  onFolderRename?: (folderPath: string, currentName: string) => void;
 }
 
 interface FolderNode {
@@ -88,7 +90,9 @@ export const NotesTree: React.FC<NotesTreeProps> = ({
   onNoteDelete,
   onFolderDelete,
   onFolderCreate,
-  onNoteCreate
+  onNoteCreate,
+  onNoteRename,
+  onFolderRename
 }) => {
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const [draggedNote, setDraggedNote] = useState<NoteMetadata | null>(null);
@@ -184,6 +188,23 @@ export const NotesTree: React.FC<NotesTreeProps> = ({
             </>
           )}
           {contextMenu.type === 'folder' && <div className="context-menu-separator" />}
+          <button
+            className="context-menu-item"
+            onClick={(e) => {
+              e.stopPropagation();
+              // Trigger rename dialog
+              if (contextMenu.type === 'note') {
+                onNoteRename?.(contextMenu.item);
+              } else {
+                onFolderRename?.(contextMenu.item.path, contextMenu.item.name);
+              }
+              setContextMenu(null);
+            }}
+          >
+            <Edit size={14} />
+            <span>Rename</span>
+          </button>
+          <div className="context-menu-separator" />
           <button
             className="context-menu-item"
             onClick={(e) => {

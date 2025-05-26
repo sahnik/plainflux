@@ -47,6 +47,12 @@ function AppContent() {
     isOpen: boolean;
     folderPath: string;
   } | null>(null);
+  const [renameDialog, setRenameDialog] = useState<{
+    isOpen: boolean;
+    type: 'note' | 'folder';
+    oldPath: string;
+    currentName: string;
+  } | null>(null);
 
   const { data: notes = [] } = useQuery({
     queryKey: ['notes'],
@@ -313,6 +319,50 @@ function AppContent() {
     }
   };
 
+  const handleNoteRename = (note: NoteMetadata) => {
+    setRenameDialog({
+      isOpen: true,
+      type: 'note',
+      oldPath: note.path,
+      currentName: note.title
+    });
+  };
+
+  const handleFolderRename = (folderPath: string, currentName: string) => {
+    setRenameDialog({
+      isOpen: true,
+      type: 'folder',
+      oldPath: folderPath,
+      currentName: currentName
+    });
+  };
+
+  const confirmRename = async (newName: string) => {
+    if (!renameDialog) return;
+
+    try {
+      if (renameDialog.type === 'note') {
+        const newPath = await tauriApi.renameNote(renameDialog.oldPath, newName);
+        
+        // If the renamed note was selected, update its path
+        if (selectedNote?.path === renameDialog.oldPath) {
+          const updatedNote = await tauriApi.readNote(newPath);
+          setSelectedNote(updatedNote);
+        }
+      } else {
+        await tauriApi.renameFolder(renameDialog.oldPath, newName);
+      }
+      
+      // Refresh the lists
+      queryClient.invalidateQueries({ queryKey: ['notes'] });
+      queryClient.invalidateQueries({ queryKey: ['folders'] });
+      queryClient.invalidateQueries({ queryKey: ['tags'] });
+      queryClient.invalidateQueries({ queryKey: ['backlinks'] });
+    } catch (error) {
+      console.error(`Failed to rename ${renameDialog.type}:`, error);
+    }
+  };
+
   const handleTodoToggle = async (lineNumber: number) => {
     if (!selectedNote) return;
     
@@ -367,6 +417,8 @@ function AppContent() {
             onFolderDelete={handleFolderDelete}
             onFolderCreate={handleFolderCreate}
             onNoteCreate={handleNoteCreate}
+            onNoteRename={handleNoteRename}
+            onFolderRename={handleFolderRename}
           />
         );
       case 'tags':
@@ -573,6 +625,20 @@ function AppContent() {
           label="Note name:"
           placeholder="Enter note name (without .md extension)"
           confirmText="Create"
+          cancelText="Cancel"
+        />
+      )}
+      
+      {renameDialog && (
+        <InputDialog
+          isOpen={renameDialog.isOpen}
+          onClose={() => setRenameDialog(null)}
+          onConfirm={confirmRename}
+          title={`Rename ${renameDialog.type === 'note' ? 'Note' : 'Folder'}`}
+          label="New name:"
+          placeholder={`Enter new ${renameDialog.type} name`}
+          initialValue={renameDialog.currentName}
+          confirmText="Rename"
           cancelText="Cancel"
         />
       )}
