@@ -322,11 +322,10 @@ body, html {
 
 /* Markdown Preview */
 .markdown-preview {
-  padding: 24px;
+  padding: 16px 20px;
   overflow-y: auto;
   height: 100%;
-  max-width: 800px;
-  margin: 0 auto;
+  text-align: left;
 }
 
 .markdown-preview h1,
