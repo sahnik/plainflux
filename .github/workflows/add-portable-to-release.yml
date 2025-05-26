@@ -1,0 +1,267 @@
+name: Add Portable Builds to Existing Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Release tag to add portable builds to (e.g., v0.9.0)'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  build-portable-windows:
+    name: Build Portable Windows
+    runs-on: windows-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag_name }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Build Rust app
+        run: |
+          cd src-tauri
+          cargo build --release
+
+      - name: Create Portable Package
+        run: |
+          mkdir -p portable
+          cp "src-tauri/target/release/plainflux.exe" portable/
+          
+          # Copy WebView2 loader if exists
+          if (Test-Path "src-tauri/target/release/WebView2Loader.dll") {
+            cp "src-tauri/target/release/WebView2Loader.dll" portable/
+          }
+          
+          # Create batch launcher
+          @"
+          @echo off
+          title Plainflux
+          echo Starting Plainflux...
+          "%~dp0plainflux.exe"
+          "@ | Out-File -FilePath "portable/Plainflux.bat" -Encoding ASCII
+          
+          # Create README
+          @"
+          Plainflux Portable Edition for Windows
+          =====================================
+          
+          Version: ${{ github.event.inputs.tag_name }}
+          
+          QUICK START:
+          - Double-click Plainflux.bat to run
+          
+          REQUIREMENTS:
+          - Windows 10/11
+          - WebView2 Runtime (will prompt to install if missing)
+          
+          NOTES:
+          - Your notes are stored in: %USERPROFILE%\Notes
+          - Settings are in: %APPDATA%\com.plainflux.app
+          "@ | Out-File -FilePath "portable/README.txt" -Encoding UTF8
+          
+          # Create ZIP
+          Compress-Archive -Path portable/* -DestinationPath "Plainflux-${{ github.event.inputs.tag_name }}-windows-portable.zip"
+
+      - name: Upload to Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ github.event.inputs.tag_name }}
+          files: Plainflux-*.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build-portable-macos:
+    name: Build Portable macOS
+    runs-on: macos-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag_name }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Build for Intel
+        run: |
+          cd src-tauri
+          cargo build --release --target x86_64-apple-darwin
+
+      - name: Build for Apple Silicon
+        run: |
+          cd src-tauri
+          cargo build --release --target aarch64-apple-darwin
+
+      - name: Create Universal Binary
+        run: |
+          lipo -create \
+            src-tauri/target/x86_64-apple-darwin/release/plainflux \
+            src-tauri/target/aarch64-apple-darwin/release/plainflux \
+            -output plainflux-universal
+          chmod +x plainflux-universal
+
+      - name: Create Portable Package
+        run: |
+          mkdir -p portable
+          cp plainflux-universal "portable/Plainflux"
+          
+          # Create launcher
+          cat > "portable/Plainflux.command" << 'EOF'
+          #!/bin/bash
+          cd "$(dirname "$0")"
+          ./Plainflux
+          EOF
+          chmod +x "portable/Plainflux.command"
+          
+          # Create README
+          cat > "portable/README.txt" << EOF
+          Plainflux Portable Edition for macOS
+          ===================================
+          
+          Version: ${{ github.event.inputs.tag_name }}
+          Universal Binary (Intel + Apple Silicon)
+          
+          QUICK START:
+          - Double-click Plainflux.command to run
+          - First run may require right-click > Open due to Gatekeeper
+          
+          NOTES:
+          - Your notes are stored in: ~/Notes
+          - Settings are in: ~/Library/Application Support/com.plainflux.app
+          EOF
+          
+          # Create tarball
+          tar -czf "Plainflux-${{ github.event.inputs.tag_name }}-macos-universal-portable.tar.gz" -C portable .
+
+      - name: Upload to Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ github.event.inputs.tag_name }}
+          files: Plainflux-*.tar.gz
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build-portable-linux:
+    name: Build Portable Linux
+    runs-on: ubuntu-22.04
+    
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag_name }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Build Rust app
+        run: |
+          cd src-tauri
+          cargo build --release
+
+      - name: Create Portable Package
+        run: |
+          mkdir -p portable
+          cp "src-tauri/target/release/plainflux" "portable/Plainflux"
+          chmod +x "portable/Plainflux"
+          
+          # Create launcher
+          cat > "portable/Plainflux.sh" << 'EOF'
+          #!/bin/bash
+          SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+          cd "$SCRIPT_DIR"
+          ./Plainflux "$@"
+          EOF
+          chmod +x "portable/Plainflux.sh"
+          
+          # Create desktop file
+          cat > "portable/Plainflux.desktop" << EOF
+          [Desktop Entry]
+          Version=1.0
+          Type=Application
+          Name=Plainflux
+          Comment=Modern note-taking app
+          Exec=/path/to/Plainflux.sh
+          Icon=/path/to/icon.png
+          Categories=Utility;TextEditor;
+          EOF
+          
+          # Create README
+          cat > "portable/README.txt" << EOF
+          Plainflux Portable Edition for Linux
+          ===================================
+          
+          Version: ${{ github.event.inputs.tag_name }}
+          
+          QUICK START:
+          - Run: ./Plainflux.sh
+          - Or make executable: chmod +x Plainflux && ./Plainflux
+          
+          REQUIREMENTS:
+          - WebKitGTK 4.1 (install: sudo apt install libwebkit2gtk-4.1-0)
+          
+          DESKTOP INTEGRATION:
+          - Edit Plainflux.desktop with correct paths
+          - Copy to ~/.local/share/applications/
+          
+          NOTES:
+          - Your notes are stored in: ~/Notes
+          - Settings are in: ~/.config/com.plainflux.app
+          EOF
+          
+          # Create tarball
+          tar -czf "Plainflux-${{ github.event.inputs.tag_name }}-linux-x64-portable.tar.gz" -C portable .
+
+      - name: Upload to Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ github.event.inputs.tag_name }}
+          files: Plainflux-*.tar.gz
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

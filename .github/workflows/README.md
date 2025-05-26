@@ -31,6 +31,13 @@ Dedicated workflow for portable builds:
 - Supports Windows (.zip), macOS (.tar.gz), and Linux (.tar.gz)
 - No installation required - just extract and run
 
+### Add Portable to Release (`add-portable-to-release.yml`)
+Manually triggered workflow to add portable builds to existing releases:
+- Input: release tag (e.g., v0.9.0)
+- Builds portable versions for all platforms
+- Uploads them to the specified release
+- Useful for adding portable builds to releases created before this feature
+
 ### Manual Release (`release.yml`)
 Manually triggered workflow for creating releases:
 - Input: version number (e.g., 1.0.0)

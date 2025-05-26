@@ -142,6 +142,18 @@ Contributions are welcome! Please feel free to submit a Pull Request. For major 
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
+## Building and Releasing
+
+See [PORTABLE_BUILD_GUIDE.md](PORTABLE_BUILD_GUIDE.md) for detailed information on creating portable builds.
+
+### Adding Portable Builds to Existing Releases
+
+If you have a release without portable builds:
+1. Go to [Actions](https://github.com/sahnik/plainflux/actions)
+2. Run "Add Portable Builds to Existing Release" workflow
+3. Enter the release tag (e.g., v0.9.0)
+4. Portable builds will be automatically added
+
 ## Acknowledgments
 
 - Inspired by [Obsidian](https://obsidian.md/) and [Logseq](https://logseq.com/)
