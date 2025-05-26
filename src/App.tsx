@@ -13,8 +13,9 @@ import { BacklinksPanel } from './components/BacklinksPanel';
 import { ConfirmDialog } from './components/ConfirmDialog';
 import { InputDialog } from './components/InputDialog';
 import { GraphView } from './components/GraphView';
+import { TodosList } from './components/TodosList';
 
-import { tauriApi } from './api/tauri';
+import { tauriApi, Todo } from './api/tauri';
 import { ViewType, Note, NoteMetadata } from './types';
 
 const queryClient = new QueryClient();
@@ -76,12 +77,19 @@ function AppContent() {
     enabled: showLocalGraph && !!selectedNote,
   });
 
+  const { data: incompleteTodos = [] } = useQuery({
+    queryKey: ['incompleteTodos'],
+    queryFn: tauriApi.getIncompleteTodos,
+    enabled: currentView === 'todos',
+  });
+
   const saveMutation = useMutation({
     mutationFn: ({ path, content }: { path: string; content: string }) =>
       tauriApi.saveNote(path, content),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notes'] });
       queryClient.invalidateQueries({ queryKey: ['tags'] });
+      queryClient.invalidateQueries({ queryKey: ['incompleteTodos'] });
     },
   });
 
@@ -281,6 +289,46 @@ function AppContent() {
     }
   };
 
+  const handleTodoToggle = async (lineNumber: number) => {
+    if (!selectedNote) return;
+    
+    try {
+      const updatedContent = await tauriApi.toggleTodo(selectedNote.path, lineNumber);
+      setSelectedNote({ ...selectedNote, content: updatedContent });
+      
+      // Invalidate todos query to refresh the list
+      queryClient.invalidateQueries({ queryKey: ['incompleteTodos'] });
+    } catch (error) {
+      console.error('Failed to toggle todo:', error);
+    }
+  };
+
+  const handleTodoToggleFromList = async (todo: Todo) => {
+    try {
+      const updatedContent = await tauriApi.toggleTodo(todo.note_path, todo.line_number);
+      
+      // If this is the currently selected note, update its content
+      if (selectedNote && selectedNote.path === todo.note_path) {
+        setSelectedNote({ ...selectedNote, content: updatedContent });
+      }
+      
+      // Invalidate todos query to refresh the list
+      queryClient.invalidateQueries({ queryKey: ['incompleteTodos'] });
+    } catch (error) {
+      console.error('Failed to toggle todo:', error);
+    }
+  };
+
+  const handleTodoNoteClick = async (notePath: string) => {
+    try {
+      const note = await tauriApi.readNote(notePath);
+      setSelectedNote(note);
+      setCurrentView('notes');
+    } catch (error) {
+      console.error('Failed to open note:', error);
+    }
+  };
+
   const renderListPanel = () => {
     switch (currentView) {
       case 'notes':
@@ -327,6 +375,14 @@ function AppContent() {
               ))}
             </div>
           </div>
+        );
+      case 'todos':
+        return (
+          <TodosList
+            todos={incompleteTodos}
+            onTodoToggle={handleTodoToggleFromList}
+            onNoteClick={handleTodoNoteClick}
+          />
         );
     }
   };
@@ -426,6 +482,7 @@ function AppContent() {
                 onChange={handleNoteChange}
                 onLinkClick={handleNoteLinkClick}
                 onTagClick={handleTagSelect}
+                onTodoToggle={handleTodoToggle}
                 notes={notes}
                 tags={tags}
               />

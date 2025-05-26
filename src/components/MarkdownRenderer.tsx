@@ -7,23 +7,42 @@ interface MarkdownRendererProps {
   content: string;
   onLinkClick: (noteName: string) => void;
   onTagClick?: (tag: string) => void;
+  onTodoToggle?: (lineNumber: number) => void;
   notePath?: string;
 }
 
-export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, onLinkClick, onTagClick, notePath }) => {
+export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, onLinkClick, onTagClick, onTodoToggle, notePath }) => {
   // Store link and tag handlers in a ref to avoid stale closures
   const linkHandlersRef = React.useRef<{ [key: string]: () => void }>({});
   const tagHandlersRef = React.useRef<{ [key: string]: () => void }>({});
+  const todoHandlersRef = React.useRef<{ [key: string]: () => void }>({});
   
   // Replace [[Note]] syntax with special markers
   let linkCounter = 0;
   let tagCounter = 0;
   
-  let processedContent = content.replace(/\[\[([^\]]+)\]\]/g, (_match, noteName) => {
-    const linkId = `note-link-${linkCounter++}`;
-    linkHandlersRef.current[linkId] = () => onLinkClick(noteName);
-    return `[${noteName}](#${linkId})`;
+  // Process content line by line to handle todos
+  const lines = content.split('\n');
+  const processedLines = lines.map((line, index) => {
+    // Handle [[Note]] links
+    line = line.replace(/\[\[([^\]]+)\]\]/g, (_match, noteName) => {
+      const linkId = `note-link-${linkCounter++}`;
+      linkHandlersRef.current[linkId] = () => onLinkClick(noteName);
+      return `[${noteName}](#${linkId})`;
+    });
+    
+    // Don't process checkboxes here, we'll handle them in the component
+    // Just track line numbers for todos
+    if (onTodoToggle && /^(\s*[-*]\s*)\[([ xX])\]/.test(line)) {
+      const lineNumber = index + 1;
+      const todoId = `todo-line-${lineNumber}`;
+      todoHandlersRef.current[todoId] = () => onTodoToggle(lineNumber);
+    }
+    
+    return line;
   });
+  
+  let processedContent = processedLines.join('\n');
   
   // Replace #tag syntax with clickable links if onTagClick is provided
   if (onTagClick) {
@@ -126,6 +145,42 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, onL
             
             // External images
             return <img {...props} style={{ maxWidth: '100%', height: 'auto' }} />;
+          },
+          li: ({ node, children, ...props }) => {
+            // Check if this is a task list item
+            const text = node?.children?.[0]?.type === 'text' ? node.children[0].value : '';
+            const match = text.match(/^\[([ xX])\]\s*(.*)$/);
+            
+            if (match && onTodoToggle) {
+              const isChecked = match[1] !== ' ';
+              const content = match[2];
+              
+              // Find the line number for this todo
+              const lineText = `${isChecked ? '[x]' : '[ ]'} ${content}`;
+              const lineIndex = lines.findIndex(line => line.includes(lineText));
+              const lineNumber = lineIndex + 1;
+              const todoId = `todo-line-${lineNumber}`;
+              
+              return (
+                <li style={{ listStyle: 'none' }}>
+                  <label style={{ display: 'flex', alignItems: 'flex-start', cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={isChecked}
+                      onChange={() => {
+                        if (todoHandlersRef.current[todoId]) {
+                          todoHandlersRef.current[todoId]();
+                        }
+                      }}
+                      style={{ marginRight: '8px', marginTop: '3px' }}
+                    />
+                    <span>{content}</span>
+                  </label>
+                </li>
+              );
+            }
+            
+            return <li {...props}>{children}</li>;
           }
         }}
       >

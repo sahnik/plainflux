@@ -85,6 +85,14 @@ export const tauriApi = {
       notePath 
     });
   },
+
+  async getIncompleteTodos(): Promise<Todo[]> {
+    return invoke('get_incomplete_todos');
+  },
+
+  async toggleTodo(notePath: string, lineNumber: number): Promise<string> {
+    return invoke('toggle_todo', { notePath, lineNumber });
+  },
 };
 
 export interface GraphNode {
@@ -101,4 +109,12 @@ export interface GraphEdge {
 export interface GraphData {
   nodes: GraphNode[];
   edges: GraphEdge[];
+}
+
+export interface Todo {
+  id: number;
+  note_path: string;
+  line_number: number;
+  content: string;
+  is_completed: boolean;
 }

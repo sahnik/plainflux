@@ -1,5 +1,5 @@
 import React from 'react';
-import { FileText, Hash, Search, Calendar, Network } from 'lucide-react';
+import { FileText, Hash, Search, Calendar, Network, CheckSquare } from 'lucide-react';
 import { ViewType } from '../types';
 
 interface SidebarProps {
@@ -43,6 +43,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, onViewChange, onD
         title="Knowledge Graph"
       >
         <Network size={iconSize} />
+      </button>
+      
+      <button
+        className={`sidebar-icon ${currentView === 'todos' ? 'active' : ''}`}
+        onClick={() => onViewChange('todos')}
+        title="Tasks"
+      >
+        <CheckSquare size={iconSize} />
       </button>
       
       <div className="sidebar-spacer" />

@@ -1,5 +1,5 @@
 use crate::note_manager::{self, Note, NoteMetadata};
-use crate::cache::CacheDb;
+use crate::cache::{CacheDb, Todo};
 use std::sync::Mutex;
 use tauri::State;
 use serde::{Deserialize, Serialize};
@@ -401,4 +401,61 @@ pub async fn save_image(
     
     // Return relative path from note location
     Ok(format!("images/{}", final_filename))
+}
+
+#[tauri::command]
+pub async fn get_incomplete_todos(state: State<'_, AppState>) -> Result<Vec<Todo>, String> {
+    let cache_db = state.cache_db.lock()
+        .map_err(|_| "Failed to lock cache database")?;
+    
+    cache_db.get_incomplete_todos()
+}
+
+#[tauri::command]
+pub async fn toggle_todo(
+    note_path: String,
+    line_number: i32,
+    state: State<'_, AppState>,
+) -> Result<String, String> {
+    let cache_db = state.cache_db.lock()
+        .map_err(|_| "Failed to lock cache database")?;
+    
+    // Toggle the todo in the database
+    let new_state = cache_db.toggle_todo(&note_path, line_number)?;
+    
+    // Read the note content
+    let mut content = std::fs::read_to_string(&note_path)
+        .map_err(|e| format!("Failed to read note: {}", e))?;
+    
+    // Update the content
+    let lines: Vec<&str> = content.lines().collect();
+    let line_index = (line_number - 1) as usize;
+    
+    if line_index < lines.len() {
+        let line = lines[line_index];
+        let updated_line = if new_state {
+            line.replace("- [ ]", "- [x]").replace("* [ ]", "* [x]")
+        } else {
+            line.replace("- [x]", "- [ ]").replace("* [x]", "* [ ]")
+                .replace("- [X]", "- [ ]").replace("* [X]", "* [ ]")
+        };
+        
+        // Reconstruct the content
+        let mut new_lines = lines.to_vec();
+        new_lines[line_index] = &updated_line;
+        content = new_lines.join("\n");
+        
+        // If original content ended with newline, preserve it
+        if std::fs::read_to_string(&note_path)
+            .map_err(|e| format!("Failed to read note: {}", e))?
+            .ends_with('\n') {
+            content.push('\n');
+        }
+        
+        // Save the updated content
+        std::fs::write(&note_path, &content)
+            .map_err(|e| format!("Failed to write note: {}", e))?;
+    }
+    
+    Ok(content)
 }

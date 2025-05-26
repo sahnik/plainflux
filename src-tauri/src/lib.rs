@@ -71,6 +71,8 @@ pub fn run() {
             commands::get_global_graph,
             commands::get_local_graph,
             commands::save_image,
+            commands::get_incomplete_todos,
+            commands::toggle_todo,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

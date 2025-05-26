@@ -14,11 +14,12 @@ interface NoteEditorProps {
   onChange: (content: string) => void;
   onLinkClick: (noteName: string) => void;
   onTagClick?: (tag: string) => void;
+  onTodoToggle?: (lineNumber: number) => void;
   notes: NoteMetadata[];
   tags: string[];
 }
 
-export const NoteEditor: React.FC<NoteEditorProps> = ({ note, isPreview, onChange, onLinkClick, onTagClick, notes, tags }) => {
+export const NoteEditor: React.FC<NoteEditorProps> = ({ note, isPreview, onChange, onLinkClick, onTagClick, onTodoToggle, notes, tags }) => {
   const editorRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   const autocompleteDataRef = useRef({ notes, tags });
@@ -90,6 +91,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, isPreview, onChang
           content={note.content}
           onLinkClick={onLinkClick}
           onTagClick={onTagClick}
+          onTodoToggle={onTodoToggle}
           notePath={note.path}
         />
       </div>

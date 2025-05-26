@@ -15,6 +15,15 @@ pub struct Tag {
     pub note_path: String,
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct Todo {
+    pub id: i32,
+    pub note_path: String,
+    pub line_number: i32,
+    pub content: String,
+    pub is_completed: bool,
+}
+
 pub struct CacheDb {
     conn: Connection,
 }
@@ -65,6 +74,28 @@ impl CacheDb {
             [],
         ).map_err(|e| format!("Failed to create index: {}", e))?;
         
+        self.conn.execute(
+            "CREATE TABLE IF NOT EXISTS todos (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                note_path TEXT NOT NULL,
+                line_number INTEGER NOT NULL,
+                content TEXT NOT NULL,
+                is_completed BOOLEAN NOT NULL DEFAULT 0,
+                UNIQUE(note_path, line_number)
+            )",
+            [],
+        ).map_err(|e| format!("Failed to create todos table: {}", e))?;
+        
+        self.conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_todos_note ON todos(note_path)",
+            [],
+        ).map_err(|e| format!("Failed to create index: {}", e))?;
+        
+        self.conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_todos_completed ON todos(is_completed)",
+            [],
+        ).map_err(|e| format!("Failed to create index: {}", e))?;
+        
         Ok(())
     }
     
@@ -84,6 +115,11 @@ impl CacheDb {
             self.add_tag(&tag, note_path)?;
         }
         
+        let todos = extract_todos(content);
+        for todo in todos {
+            self.add_todo(note_path, todo.0, &todo.1, todo.2)?;
+        }
+        
         Ok(())
     }
     
@@ -97,6 +133,11 @@ impl CacheDb {
             "DELETE FROM tags WHERE note_path = ?1",
             params![note_path],
         ).map_err(|e| format!("Failed to clear tags: {}", e))?;
+        
+        self.conn.execute(
+            "DELETE FROM todos WHERE note_path = ?1",
+            params![note_path],
+        ).map_err(|e| format!("Failed to clear todos: {}", e))?;
         
         Ok(())
     }
@@ -208,6 +249,59 @@ impl CacheDb {
         
         Ok(result)
     }
+    
+    pub fn add_todo(&self, note_path: &str, line_number: i32, content: &str, is_completed: bool) -> Result<(), String> {
+        self.conn.execute(
+            "INSERT OR REPLACE INTO todos (note_path, line_number, content, is_completed) VALUES (?1, ?2, ?3, ?4)",
+            params![note_path, line_number, content, is_completed],
+        ).map_err(|e| format!("Failed to add todo: {}", e))?;
+        
+        Ok(())
+    }
+    
+    pub fn get_incomplete_todos(&self) -> Result<Vec<Todo>, String> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, note_path, line_number, content, is_completed FROM todos WHERE is_completed = 0 ORDER BY note_path, line_number"
+        ).map_err(|e| format!("Failed to prepare statement: {}", e))?;
+        
+        let todos = stmt.query_map([], |row| {
+            Ok(Todo {
+                id: row.get(0)?,
+                note_path: row.get(1)?,
+                line_number: row.get(2)?,
+                content: row.get(3)?,
+                is_completed: row.get(4)?,
+            })
+        }).map_err(|e| format!("Failed to query todos: {}", e))?;
+        
+        let mut result = Vec::new();
+        for todo in todos {
+            result.push(todo.map_err(|e| format!("Failed to get todo: {}", e))?);
+        }
+        
+        Ok(result)
+    }
+    
+    pub fn toggle_todo(&self, note_path: &str, line_number: i32) -> Result<bool, String> {
+        // Get current state
+        let mut stmt = self.conn.prepare(
+            "SELECT is_completed FROM todos WHERE note_path = ?1 AND line_number = ?2"
+        ).map_err(|e| format!("Failed to prepare statement: {}", e))?;
+        
+        let current_state: bool = stmt.query_row(params![note_path, line_number], |row| {
+            row.get(0)
+        }).map_err(|e| format!("Failed to get todo state: {}", e))?;
+        
+        let new_state = !current_state;
+        
+        // Update state
+        self.conn.execute(
+            "UPDATE todos SET is_completed = ?1 WHERE note_path = ?2 AND line_number = ?3",
+            params![new_state, note_path, line_number],
+        ).map_err(|e| format!("Failed to update todo: {}", e))?;
+        
+        Ok(new_state)
+    }
 }
 
 pub fn extract_links(content: &str) -> Vec<String> {
@@ -246,6 +340,21 @@ fn resolve_note_link(link_name: &str, notes_dir: &str) -> Result<String, String>
     }
     
     Err(format!("Note not found: {}", link_name))
+}
+
+fn extract_todos(content: &str) -> Vec<(i32, String, bool)> {
+    let mut todos = Vec::new();
+    
+    for (line_number, line) in content.lines().enumerate() {
+        // Match markdown checkbox syntax: - [ ] or - [x]
+        if let Some(captures) = Regex::new(r"^\s*[-*]\s*\[([ xX])\]\s*(.+)$").unwrap().captures(line) {
+            let is_completed = captures.get(1).map_or(false, |m| m.as_str() != " ");
+            let content = captures.get(2).map_or("", |m| m.as_str()).trim().to_string();
+            todos.push((line_number as i32 + 1, content, is_completed)); // +1 for 1-based line numbers
+        }
+    }
+    
+    todos
 }
 
 #[cfg(test)]
