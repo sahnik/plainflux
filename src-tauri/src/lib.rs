@@ -68,6 +68,8 @@ pub fn run() {
             commands::delete_folder,
             commands::create_folder,
             commands::get_all_folders,
+            commands::get_global_graph,
+            commands::get_local_graph,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

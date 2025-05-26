@@ -69,4 +69,28 @@ export const tauriApi = {
   async getAllFolders(): Promise<string[]> {
     return invoke('get_all_folders');
   },
+
+  async getGlobalGraph(): Promise<GraphData> {
+    return invoke('get_global_graph');
+  },
+
+  async getLocalGraph(notePath: string): Promise<GraphData> {
+    return invoke('get_local_graph', { notePath });
+  },
 };
+
+export interface GraphNode {
+  id: string;
+  label: string;
+  title: string;
+}
+
+export interface GraphEdge {
+  from: string;
+  to: string;
+}
+
+export interface GraphData {
+  nodes: GraphNode[];
+  edges: GraphEdge[];
+}

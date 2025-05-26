@@ -167,6 +167,47 @@ impl CacheDb {
         
         Ok(result)
     }
+    
+    pub fn get_all_links(&self) -> Result<Vec<Link>, String> {
+        let mut stmt = self.conn.prepare(
+            "SELECT from_note, to_note FROM links"
+        ).map_err(|e| format!("Failed to prepare statement: {}", e))?;
+        
+        let links = stmt.query_map([], |row| {
+            Ok(Link {
+                from_note: row.get(0)?,
+                to_note: row.get(1)?,
+            })
+        }).map_err(|e| format!("Failed to query links: {}", e))?;
+        
+        let mut result = Vec::new();
+        for link in links {
+            result.push(link.map_err(|e| format!("Failed to get link: {}", e))?);
+        }
+        
+        Ok(result)
+    }
+    
+    pub fn get_links_for_note(&self, note_path: &str) -> Result<Vec<Link>, String> {
+        let mut stmt = self.conn.prepare(
+            "SELECT from_note, to_note FROM links 
+             WHERE from_note = ?1 OR to_note = ?1"
+        ).map_err(|e| format!("Failed to prepare statement: {}", e))?;
+        
+        let links = stmt.query_map(params![note_path], |row| {
+            Ok(Link {
+                from_note: row.get(0)?,
+                to_note: row.get(1)?,
+            })
+        }).map_err(|e| format!("Failed to query links: {}", e))?;
+        
+        let mut result = Vec::new();
+        for link in links {
+            result.push(link.map_err(|e| format!("Failed to get link: {}", e))?);
+        }
+        
+        Ok(result)
+    }
 }
 
 pub fn extract_links(content: &str) -> Vec<String> {

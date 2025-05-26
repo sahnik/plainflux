@@ -2,6 +2,8 @@ use crate::note_manager::{self, Note, NoteMetadata};
 use crate::cache::CacheDb;
 use std::sync::Mutex;
 use tauri::State;
+use serde::{Deserialize, Serialize};
+use std::collections::{HashMap, HashSet};
 
 pub struct AppState {
     pub cache_db: Mutex<CacheDb>,
@@ -250,4 +252,113 @@ fn rebuild_cache_for_new_note(note_name: &str, state: &AppState) -> Result<(), S
     }
     
     Ok(())
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct GraphNode {
+    id: String,
+    label: String,
+    title: String,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct GraphEdge {
+    from: String,
+    to: String,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct GraphData {
+    nodes: Vec<GraphNode>,
+    edges: Vec<GraphEdge>,
+}
+
+#[tauri::command]
+pub async fn get_global_graph(state: State<'_, AppState>) -> Result<GraphData, String> {
+    let cache_db = state.cache_db.lock()
+        .map_err(|_| "Failed to lock cache database")?;
+    
+    let links = cache_db.get_all_links()?;
+    let notes = note_manager::list_notes(&state.notes_dir)?;
+    
+    // Create a set of all note paths that have links
+    let mut linked_notes = HashSet::new();
+    for link in &links {
+        linked_notes.insert(link.from_note.clone());
+        linked_notes.insert(link.to_note.clone());
+    }
+    
+    // Create nodes only for notes that have links
+    let mut nodes = Vec::new();
+    let mut node_map = HashMap::new();
+    
+    for note in notes {
+        if linked_notes.contains(&note.path) {
+            let node_id = note.path.clone();
+            node_map.insert(node_id.clone(), note.title.clone());
+            nodes.push(GraphNode {
+                id: node_id,
+                label: note.title.clone(),
+                title: note.title,
+            });
+        }
+    }
+    
+    // Create edges
+    let mut edges = Vec::new();
+    for link in links {
+        edges.push(GraphEdge {
+            from: link.from_note,
+            to: link.to_note,
+        });
+    }
+    
+    Ok(GraphData { nodes, edges })
+}
+
+#[tauri::command]
+pub async fn get_local_graph(note_path: String, state: State<'_, AppState>) -> Result<GraphData, String> {
+    let cache_db = state.cache_db.lock()
+        .map_err(|_| "Failed to lock cache database")?;
+    
+    let links = cache_db.get_links_for_note(&note_path)?;
+    let notes = note_manager::list_notes(&state.notes_dir)?;
+    
+    // Create a map for quick lookup
+    let note_map: HashMap<String, String> = notes
+        .into_iter()
+        .map(|note| (note.path, note.title))
+        .collect();
+    
+    // Collect all connected notes
+    let mut connected_notes = HashSet::new();
+    connected_notes.insert(note_path.clone());
+    
+    for link in &links {
+        connected_notes.insert(link.from_note.clone());
+        connected_notes.insert(link.to_note.clone());
+    }
+    
+    // Create nodes
+    let mut nodes = Vec::new();
+    for path in &connected_notes {
+        if let Some(title) = note_map.get(path) {
+            nodes.push(GraphNode {
+                id: path.clone(),
+                label: title.clone(),
+                title: title.clone(),
+            });
+        }
+    }
+    
+    // Create edges
+    let mut edges = Vec::new();
+    for link in links {
+        edges.push(GraphEdge {
+            from: link.from_note,
+            to: link.to_note,
+        });
+    }
+    
+    Ok(GraphData { nodes, edges })
 }

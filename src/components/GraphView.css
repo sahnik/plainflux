@@ -1,0 +1,42 @@
+.graph-view-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background-color: #1e1e1e;
+}
+
+.graph-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px;
+  border-bottom: 1px solid #333;
+}
+
+.graph-header h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #e0e0e0;
+}
+
+.graph-stats {
+  font-size: 14px;
+  color: #999;
+}
+
+.graph-canvas {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Override vis-network styles for better appearance */
+.graph-canvas .vis-network {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.graph-canvas canvas {
+  outline: none;
+}

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { QueryClient, QueryClientProvider, useQuery, useMutation } from '@tanstack/react-query';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
-import { Eye, Edit, FileText } from 'lucide-react';
+import { Eye, Edit, FileText, Network } from 'lucide-react';
 import './App.css';
 
 import { Sidebar } from './components/Sidebar';
@@ -12,6 +12,7 @@ import { NoteEditor } from './components/NoteEditor';
 import { BacklinksPanel } from './components/BacklinksPanel';
 import { ConfirmDialog } from './components/ConfirmDialog';
 import { InputDialog } from './components/InputDialog';
+import { GraphView } from './components/GraphView';
 
 import { tauriApi } from './api/tauri';
 import { ViewType, Note, NoteMetadata } from './types';
@@ -22,6 +23,8 @@ function AppContent() {
   const [currentView, setCurrentView] = useState<ViewType>('notes');
   const [selectedNote, setSelectedNote] = useState<Note | null>(null);
   const [isPreview, setIsPreview] = useState(false);
+  const [showLocalGraph, setShowLocalGraph] = useState(false);
+  const [showGlobalGraph, setShowGlobalGraph] = useState(false);
   const [searchResults, setSearchResults] = useState<Note[]>([]);
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [tagFilteredNotes, setTagFilteredNotes] = useState<NoteMetadata[]>([]);
@@ -59,6 +62,18 @@ function AppContent() {
     queryKey: ['backlinks', selectedNote?.path],
     queryFn: () => selectedNote ? tauriApi.getBacklinks(selectedNote.path) : Promise.resolve([]),
     enabled: !!selectedNote,
+  });
+
+  const { data: globalGraphData = { nodes: [], edges: [] } } = useQuery({
+    queryKey: ['globalGraph'],
+    queryFn: tauriApi.getGlobalGraph,
+    enabled: showGlobalGraph,
+  });
+
+  const { data: localGraphData = { nodes: [], edges: [] } } = useQuery({
+    queryKey: ['localGraph', selectedNote?.path],
+    queryFn: () => selectedNote ? tauriApi.getLocalGraph(selectedNote.path) : Promise.resolve({ nodes: [], edges: [] }),
+    enabled: showLocalGraph && !!selectedNote,
   });
 
   const saveMutation = useMutation({
@@ -320,7 +335,16 @@ function AppContent() {
     <div className="app">
       <Sidebar
         currentView={currentView}
-        onViewChange={setCurrentView}
+        onViewChange={(view) => {
+          if (view === 'graph') {
+            setShowGlobalGraph(true);
+            setShowLocalGraph(false);
+          } else {
+            setCurrentView(view);
+            setShowGlobalGraph(false);
+            setShowLocalGraph(false);
+          }
+        }}
         onDailyNote={handleDailyNote}
       />
       
@@ -336,33 +360,76 @@ function AppContent() {
         <Panel defaultSize={60}>
           <div className="panel editor-panel">
             <div className="editor-toolbar">
-              <h2>{selectedNote?.title || 'No note selected'}</h2>
+              <h2>{showGlobalGraph ? 'Knowledge Graph' : (selectedNote?.title || 'No note selected')}</h2>
               <div className="toolbar-buttons">
                 <button
-                  className={`toolbar-button ${!isPreview ? 'active' : ''}`}
-                  onClick={() => setIsPreview(false)}
+                  className={`toolbar-button ${!isPreview && !showLocalGraph && !showGlobalGraph ? 'active' : ''}`}
+                  onClick={() => {
+                    setIsPreview(false);
+                    setShowLocalGraph(false);
+                    setShowGlobalGraph(false);
+                  }}
                   title="Edit"
+                  disabled={!selectedNote}
                 >
                   <Edit size={16} />
                 </button>
                 <button
-                  className={`toolbar-button ${isPreview ? 'active' : ''}`}
-                  onClick={() => setIsPreview(true)}
+                  className={`toolbar-button ${isPreview && !showLocalGraph && !showGlobalGraph ? 'active' : ''}`}
+                  onClick={() => {
+                    setIsPreview(true);
+                    setShowLocalGraph(false);
+                    setShowGlobalGraph(false);
+                  }}
                   title="Preview"
+                  disabled={!selectedNote}
                 >
                   <Eye size={16} />
                 </button>
+                <button
+                  className={`toolbar-button ${showLocalGraph ? 'active' : ''}`}
+                  onClick={() => {
+                    setShowLocalGraph(true);
+                    setShowGlobalGraph(false);
+                  }}
+                  title="Local Graph"
+                  disabled={!selectedNote}
+                >
+                  <Network size={16} />
+                </button>
               </div>
             </div>
-            <NoteEditor
-              note={selectedNote}
-              isPreview={isPreview}
-              onChange={handleNoteChange}
-              onLinkClick={handleNoteLinkClick}
-              onTagClick={handleTagSelect}
-              notes={notes}
-              tags={tags}
-            />
+            {showGlobalGraph ? (
+              <GraphView
+                data={globalGraphData}
+                onNodeClick={async (nodeId) => {
+                  const note = await tauriApi.readNote(nodeId);
+                  setSelectedNote(note);
+                  setShowGlobalGraph(false);
+                }}
+                isLocal={false}
+              />
+            ) : showLocalGraph && selectedNote ? (
+              <GraphView
+                data={localGraphData}
+                onNodeClick={async (nodeId) => {
+                  const note = await tauriApi.readNote(nodeId);
+                  setSelectedNote(note);
+                  setShowLocalGraph(false);
+                }}
+                isLocal={true}
+              />
+            ) : (
+              <NoteEditor
+                note={selectedNote}
+                isPreview={isPreview}
+                onChange={handleNoteChange}
+                onLinkClick={handleNoteLinkClick}
+                onTagClick={handleTagSelect}
+                notes={notes}
+                tags={tags}
+              />
+            )}
           </div>
         </Panel>
         

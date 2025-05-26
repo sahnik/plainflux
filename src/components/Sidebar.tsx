@@ -1,5 +1,5 @@
 import React from 'react';
-import { FileText, Hash, Search, Calendar } from 'lucide-react';
+import { FileText, Hash, Search, Calendar, Network } from 'lucide-react';
 import { ViewType } from '../types';
 
 interface SidebarProps {
@@ -35,6 +35,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, onViewChange, onD
         title="Search"
       >
         <Search size={iconSize} />
+      </button>
+      
+      <button
+        className={`sidebar-icon ${currentView === 'graph' ? 'active' : ''}`}
+        onClick={() => onViewChange('graph')}
+        title="Knowledge Graph"
+      >
+        <Network size={iconSize} />
       </button>
       
       <div className="sidebar-spacer" />
