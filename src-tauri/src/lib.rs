@@ -1,19 +1,34 @@
+#[macro_use]
+mod macros;
 mod note_manager;
 mod cache;
 mod commands;
+mod error;
+mod utils;
 
 use cache::CacheDb;
 use commands::AppState;
 use std::sync::Mutex;
+use error::Result;
 
-fn rebuild_cache(state: &AppState) -> Result<(), String> {
+fn rebuild_cache(state: &AppState) -> Result<()> {
     let notes = note_manager::list_notes(&state.notes_dir)?;
-    let cache_db = state.cache_db.lock()
-        .map_err(|_| "Failed to lock cache database")?;
+    
+    // Handle mutex with proper poisoning recovery
+    let cache_db = match state.cache_db.lock() {
+        Ok(guard) => guard,
+        Err(poisoned) => {
+            eprintln!("Warning: Cache database mutex was poisoned, recovering...");
+            poisoned.into_inner()
+        }
+    };
     
     for note in notes {
         if let Ok(content) = std::fs::read_to_string(&note.path) {
-            let _ = cache_db.update_note_cache(&note.path, &content, &state.notes_dir);
+            // Ignore individual cache update errors during rebuild
+            if let Err(e) = cache_db.update_note_cache(&note.path, &content, &state.notes_dir) {
+                eprintln!("Warning: Failed to update cache for '{}': {}", note.path, e);
+            }
         }
     }
     
@@ -42,10 +57,11 @@ pub fn run() {
         notes_dir: default_notes_dir.to_string_lossy().to_string(),
     };
     
-    // Rebuild cache on startup
-    rebuild_cache(&app_state).unwrap_or_else(|e| {
-        eprintln!("Failed to rebuild cache: {}", e);
-    });
+    // Rebuild cache on startup (non-blocking, don't fail app startup)
+    if let Err(e) = rebuild_cache(&app_state) {
+        eprintln!("Warning: Failed to rebuild cache on startup: {}", e);
+        // Continue anyway - cache will be rebuilt as notes are accessed
+    }
     
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())

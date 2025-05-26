@@ -2,6 +2,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 use walkdir::WalkDir;
+use crate::utils::safe_write_file;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Note {
@@ -48,17 +49,10 @@ pub fn read_note(path: &str) -> Result<Note, String> {
 }
 
 pub fn write_note(path: &str, content: &str) -> Result<(), String> {
-    let path_buf = Path::new(path);
-    
-    if let Some(parent) = path_buf.parent() {
-        fs::create_dir_all(parent)
-            .map_err(|e| format!("Failed to create directory: {}", e))?;
-    }
-    
-    fs::write(path, content)
-        .map_err(|e| format!("Failed to write note: {}", e))?;
-    
-    Ok(())
+    // Use the safe write utility which handles parent directory creation
+    // and atomic writes
+    safe_write_file(path, content)
+        .map_err(|e| format!("Failed to write note: {}", e))
 }
 
 pub fn list_notes(base_path: &str) -> Result<Vec<NoteMetadata>, String> {
@@ -143,9 +137,10 @@ pub fn get_all_folders(base_path: &str) -> Result<Vec<String>, String> {
 
 pub fn create_daily_note(base_path: &str, template: Option<&str>) -> Result<String, String> {
     use chrono::Local;
+    use crate::utils::ensure_dir_exists;
     
     let daily_notes_dir = Path::new(base_path).join("Daily Notes");
-    fs::create_dir_all(&daily_notes_dir)
+    ensure_dir_exists(&daily_notes_dir)
         .map_err(|e| format!("Failed to create Daily Notes directory: {}", e))?;
     
     let today = Local::now().format("%Y-%m-%d").to_string();
@@ -158,7 +153,7 @@ pub fn create_daily_note(base_path: &str, template: Option<&str>) -> Result<Stri
             format!("# {}\n\n", today)
         };
         
-        fs::write(&note_path, content)
+        safe_write_file(&note_path, &content)
             .map_err(|e| format!("Failed to create daily note: {}", e))?;
     }
     

@@ -1,9 +1,13 @@
 use crate::note_manager::{self, Note, NoteMetadata};
 use crate::cache::{CacheDb, Todo};
+use crate::error::AppError;
+use crate::utils::{ensure_dir_exists, validate_path_security, safe_write_file, safe_read_file};
+use crate::lock_mutex;
 use std::sync::Mutex;
 use tauri::State;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
+use std::path::Path;
 
 pub struct AppState {
     pub cache_db: Mutex<CacheDb>,
@@ -28,8 +32,7 @@ pub async fn save_note(
 ) -> Result<(), String> {
     note_manager::write_note(&path, &content)?;
     
-    let cache_db = state.cache_db.lock()
-        .map_err(|_| "Failed to lock cache database")?;
+    let cache_db = lock_mutex!(state.cache_db, "Cache database mutex was poisoned during save_note");
     cache_db.update_note_cache(&path, &content, &state.notes_dir)?;
     
     Ok(())
@@ -55,8 +58,7 @@ pub async fn create_note(
     note_manager::write_note(&path_str, &content)?;
     
     // Update cache for the new note
-    let cache_db = state.cache_db.lock()
-        .map_err(|_| "Failed to lock cache database")?;
+    let cache_db = lock_mutex!(state.cache_db, "Cache database mutex was poisoned during create_note");
     cache_db.update_note_cache(&path_str, &content, &state.notes_dir)?;
     
     // Also need to check if any existing notes link to this new note
@@ -72,8 +74,7 @@ pub async fn delete_note(path: String, state: State<'_, AppState>) -> Result<(),
     std::fs::remove_file(&path)
         .map_err(|e| format!("Failed to delete note: {}", e))?;
     
-    let cache_db = state.cache_db.lock()
-        .map_err(|_| "Failed to lock cache database")?;
+    let cache_db = lock_mutex!(state.cache_db, "Cache database mutex was poisoned during delete_note");
     cache_db.clear_note_cache(&path)?;
     
     Ok(())
@@ -464,29 +465,34 @@ pub async fn toggle_todo(
 
 #[tauri::command]
 pub async fn get_daily_note_template(state: State<'_, AppState>) -> Result<String, String> {
-    let settings_path = format!("{}/.plainflux", &state.notes_dir);
-    let template_path = format!("{}/daily_note_template.md", settings_path);
+    let settings_path = Path::new(&state.notes_dir).join(".plainflux");
+    let template_path = settings_path.join("daily_note_template.md");
     
-    match std::fs::read_to_string(&template_path) {
+    match safe_read_file(&template_path) {
         Ok(content) => Ok(content),
-        Err(_) => {
+        Err(AppError::NotFound(_)) => {
             // Return default template if none exists
             Ok(String::from("# {{date}}\n\n## Tasks\n- [ ] \n\n## Notes\n\n## Reflections\n\n"))
-        }
+        },
+        Err(e) => Err(format!("Failed to read template: {}", e))
     }
 }
 
 #[tauri::command]
 pub async fn save_daily_note_template(template: String, state: State<'_, AppState>) -> Result<(), String> {
-    let settings_path = format!("{}/.plainflux", &state.notes_dir);
-    let template_path = format!("{}/daily_note_template.md", settings_path);
+    let settings_path = Path::new(&state.notes_dir).join(".plainflux");
+    let template_path = settings_path.join("daily_note_template.md");
     
-    // Create settings directory if it doesn't exist
-    std::fs::create_dir_all(&settings_path)
+    // Ensure settings directory exists with proper error handling
+    ensure_dir_exists(&settings_path)
         .map_err(|e| format!("Failed to create settings directory: {}", e))?;
     
-    // Save the template
-    std::fs::write(&template_path, &template)
+    // Validate the template path is within notes directory
+    validate_path_security(&template_path, &state.notes_dir)
+        .map_err(|e| format!("Security error: {}", e))?;
+    
+    // Save the template with atomic write
+    safe_write_file(&template_path, &template)
         .map_err(|e| format!("Failed to save template: {}", e))?;
     
     Ok(())
