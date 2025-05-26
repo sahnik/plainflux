@@ -141,7 +141,7 @@ pub fn get_all_folders(base_path: &str) -> Result<Vec<String>, String> {
     Ok(folders)
 }
 
-pub fn create_daily_note(base_path: &str) -> Result<String, String> {
+pub fn create_daily_note(base_path: &str, template: Option<&str>) -> Result<String, String> {
     use chrono::Local;
     
     let daily_notes_dir = Path::new(base_path).join("Daily Notes");
@@ -152,12 +152,36 @@ pub fn create_daily_note(base_path: &str) -> Result<String, String> {
     let note_path = daily_notes_dir.join(format!("{}.md", today));
     
     if !note_path.exists() {
-        let content = format!("# {}\n\n", today);
+        let content = if let Some(template_content) = template {
+            apply_template_variables(template_content)
+        } else {
+            format!("# {}\n\n", today)
+        };
+        
         fs::write(&note_path, content)
             .map_err(|e| format!("Failed to create daily note: {}", e))?;
     }
     
     Ok(note_path.to_string_lossy().to_string())
+}
+
+fn apply_template_variables(template: &str) -> String {
+    use chrono::Local;
+    
+    let now = Local::now();
+    let mut result = template.to_string();
+    
+    // Replace template variables
+    result = result.replace("{{date}}", &now.format("%Y-%m-%d").to_string());
+    result = result.replace("{{date_long}}", &now.format("%A, %B %d, %Y").to_string());
+    result = result.replace("{{time}}", &now.format("%H:%M").to_string());
+    result = result.replace("{{datetime}}", &now.format("%Y-%m-%d %H:%M").to_string());
+    result = result.replace("{{year}}", &now.format("%Y").to_string());
+    result = result.replace("{{month}}", &now.format("%m").to_string());
+    result = result.replace("{{day}}", &now.format("%d").to_string());
+    result = result.replace("{{weekday}}", &now.format("%A").to_string());
+    
+    result
 }
 
 pub fn search_notes(base_path: &str, query: &str) -> Result<Vec<Note>, String> {

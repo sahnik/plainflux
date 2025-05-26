@@ -93,6 +93,14 @@ export const tauriApi = {
   async toggleTodo(notePath: string, lineNumber: number): Promise<string> {
     return invoke('toggle_todo', { notePath, lineNumber });
   },
+
+  async getDailyNoteTemplate(): Promise<string> {
+    return invoke('get_daily_note_template');
+  },
+
+  async saveDailyNoteTemplate(template: string): Promise<void> {
+    return invoke('save_daily_note_template', { template });
+  },
 };
 
 export interface GraphNode {

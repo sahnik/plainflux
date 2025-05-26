@@ -89,7 +89,9 @@ pub async fn search_notes(
 
 #[tauri::command]
 pub async fn get_daily_note(state: State<'_, AppState>) -> Result<String, String> {
-    note_manager::create_daily_note(&state.notes_dir)
+    // Get the template
+    let template = get_daily_note_template(state.clone()).await?;
+    note_manager::create_daily_note(&state.notes_dir, Some(&template))
 }
 
 #[tauri::command]
@@ -459,3 +461,34 @@ pub async fn toggle_todo(
     
     Ok(content)
 }
+
+#[tauri::command]
+pub async fn get_daily_note_template(state: State<'_, AppState>) -> Result<String, String> {
+    let settings_path = format!("{}/.plainflux", &state.notes_dir);
+    let template_path = format!("{}/daily_note_template.md", settings_path);
+    
+    match std::fs::read_to_string(&template_path) {
+        Ok(content) => Ok(content),
+        Err(_) => {
+            // Return default template if none exists
+            Ok(String::from("# {{date}}\n\n## Tasks\n- [ ] \n\n## Notes\n\n## Reflections\n\n"))
+        }
+    }
+}
+
+#[tauri::command]
+pub async fn save_daily_note_template(template: String, state: State<'_, AppState>) -> Result<(), String> {
+    let settings_path = format!("{}/.plainflux", &state.notes_dir);
+    let template_path = format!("{}/daily_note_template.md", settings_path);
+    
+    // Create settings directory if it doesn't exist
+    std::fs::create_dir_all(&settings_path)
+        .map_err(|e| format!("Failed to create settings directory: {}", e))?;
+    
+    // Save the template
+    std::fs::write(&template_path, &template)
+        .map_err(|e| format!("Failed to save template: {}", e))?;
+    
+    Ok(())
+}
+

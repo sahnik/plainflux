@@ -15,6 +15,7 @@ import { InputDialog } from './components/InputDialog';
 import { GraphView } from './components/GraphView';
 import { TodosList } from './components/TodosList';
 import { Help } from './components/Help';
+import { TemplateSettings } from './components/TemplateSettings';
 
 import { tauriApi, Todo } from './api/tauri';
 import { ViewType, Note, NoteMetadata } from './types';
@@ -28,6 +29,7 @@ function AppContent() {
   const [showLocalGraph, setShowLocalGraph] = useState(false);
   const [showGlobalGraph, setShowGlobalGraph] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
+  const [showTemplateSettings, setShowTemplateSettings] = useState(false);
   const [searchResults, setSearchResults] = useState<Note[]>([]);
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [tagFilteredNotes, setTagFilteredNotes] = useState<NoteMetadata[]>([]);
@@ -411,6 +413,7 @@ function AppContent() {
           setShowGlobalGraph(false);
         }}
         showHelp={showHelp}
+        onSettings={() => setShowTemplateSettings(true)}
       />
       
       <PanelGroup direction="horizontal" className="panels-container">
@@ -553,6 +556,11 @@ function AppContent() {
           cancelText="Cancel"
         />
       )}
+      
+      <TemplateSettings
+        isOpen={showTemplateSettings}
+        onClose={() => setShowTemplateSettings(false)}
+      />
     </div>
   );
 }
