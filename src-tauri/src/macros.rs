@@ -20,4 +20,3 @@ macro_rules! lock_mutex {
         }
     };
 }
-

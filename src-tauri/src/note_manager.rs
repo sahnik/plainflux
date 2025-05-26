@@ -88,7 +88,7 @@ pub fn list_notes(base_path: &str) -> Result<Vec<NoteMetadata>, String> {
                     .parent()
                     .and_then(|p| p.strip_prefix(base_path_buf).ok())
                     .map(|p| p.to_string_lossy().to_string())
-                    .unwrap_or_else(|| String::new());
+                    .unwrap_or_else(String::new);
 
                 notes.push(NoteMetadata {
                     path: path.to_string_lossy().to_string(),
@@ -362,4 +362,3 @@ fn collect_files_recursive(dir: &Path, files: &mut Vec<PathBuf>) -> Result<(), S
 
     Ok(())
 }
-

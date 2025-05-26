@@ -150,4 +150,3 @@ pub fn safe_read_file<P: AsRef<Path>>(path: P) -> Result<String> {
         ))
     })
 }
-

@@ -55,4 +55,3 @@ impl From<AppError> for String {
 }
 
 pub type Result<T> = std::result::Result<T, AppError>;
-

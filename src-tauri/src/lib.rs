@@ -18,7 +18,7 @@ fn rebuild_cache(state: &AppState) -> Result<()> {
     let cache_db = match state.cache_db.lock() {
         Ok(guard) => guard,
         Err(poisoned) => {
-            eprintln!("Warning: Cache database mutex was poisoned, recovering...");
+            eprintln!("Error: Cache database mutex was poisoned. Attempting recovery...");
             poisoned.into_inner()
         }
     };
@@ -96,4 +96,3 @@ pub fn run() {
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
-

@@ -26,8 +26,32 @@ jobs:
         with:
           node-version: 20
           
+      - name: Cache Node Modules
+        uses: actions/cache@v3
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+            
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
+        
+      - name: Debug Rust Environment
+        run: rustup show
+        
+      - name: Cache Rust dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            src-tauri/target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
         
       - name: Install dependencies (Ubuntu)
         if: matrix.platform == 'ubuntu-latest'
@@ -71,6 +95,14 @@ jobs:
         with:
           node-version: 20
           
+      - name: Cache Node Modules
+        uses: actions/cache@v3
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+            
       - name: Install dependencies
         run: npm ci
         

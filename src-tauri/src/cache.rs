@@ -388,14 +388,12 @@ fn resolve_note_link(link_name: &str, notes_dir: &str) -> Result<String, String>
 
 fn extract_todos(content: &str) -> Vec<(i32, String, bool)> {
     let mut todos = Vec::new();
+    let todo_regex = Regex::new(r"^\s*[-*]\s*\[([ xX])\]\s*(.+)$").unwrap();
 
     for (line_number, line) in content.lines().enumerate() {
         // Match markdown checkbox syntax: - [ ] or - [x]
-        if let Some(captures) = Regex::new(r"^\s*[-*]\s*\[([ xX])\]\s*(.+)$")
-            .unwrap()
-            .captures(line)
-        {
-            let is_completed = captures.get(1).map_or(false, |m| m.as_str() != " ");
+        if let Some(captures) = todo_regex.captures(line) {
+            let is_completed = captures.get(1).is_some_and(|m| m.as_str() != " ");
             let content = captures
                 .get(2)
                 .map_or("", |m| m.as_str())
@@ -430,4 +428,3 @@ mod tests {
         assert_eq!(tags[1], "tag2");
     }
 }
-
