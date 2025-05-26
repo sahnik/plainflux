@@ -77,6 +77,14 @@ export const tauriApi = {
   async getLocalGraph(notePath: string): Promise<GraphData> {
     return invoke('get_local_graph', { notePath });
   },
+
+  async saveImage(imageData: Uint8Array, filename: string, notePath: string): Promise<string> {
+    return invoke('save_image', { 
+      imageData: Array.from(imageData),
+      filename,
+      notePath 
+    });
+  },
 };
 
 export interface GraphNode {

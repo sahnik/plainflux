@@ -6,6 +6,7 @@ import { oneDark } from '@codemirror/theme-one-dark';
 import { MarkdownRenderer } from './MarkdownRenderer';
 import { Note, NoteMetadata } from '../types';
 import { createAutocompleteExtension } from '../utils/editorAutocomplete';
+import { createPasteHandler } from '../utils/imageHandler';
 
 interface NoteEditorProps {
   note: Note | null;
@@ -41,6 +42,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, isPreview, onChang
         markdown(),
         oneDark,
         createAutocompleteExtension(autocompleteDataRef),
+        createPasteHandler(note.path),
         EditorView.updateListener.of((update) => {
           if (update.docChanged) {
             onChange(update.state.doc.toString());
@@ -88,6 +90,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, isPreview, onChang
           content={note.content}
           onLinkClick={onLinkClick}
           onTagClick={onTagClick}
+          notePath={note.path}
         />
       </div>
     );

@@ -362,3 +362,43 @@ pub async fn get_local_graph(note_path: String, state: State<'_, AppState>) -> R
     
     Ok(GraphData { nodes, edges })
 }
+#[tauri::command]
+pub async fn save_image(
+    image_data: Vec<u8>,
+    filename: String,
+    note_path: String,
+    _state: State<'_, AppState>,
+) -> Result<String, String> {
+    // Get the directory of the current note
+    let note_path_buf = std::path::Path::new(&note_path);
+    let note_dir = note_path_buf.parent()
+        .ok_or("Failed to get note directory")?;
+    
+    // Create images subdirectory if it doesn't exist
+    let images_dir = note_dir.join("images");
+    if !images_dir.exists() {
+        std::fs::create_dir_all(&images_dir)
+            .map_err(|e| format!("Failed to create images directory: {}", e))?;
+    }
+    
+    // Generate unique filename if file already exists
+    let mut final_filename = filename.clone();
+    let mut counter = 1;
+    while images_dir.join(&final_filename).exists() {
+        let name_parts: Vec<&str> = filename.rsplitn(2, '.').collect();
+        if name_parts.len() == 2 {
+            final_filename = format!("{}-{}.{}", name_parts[1], counter, name_parts[0]);
+        } else {
+            final_filename = format!("{}-{}", filename, counter);
+        }
+        counter += 1;
+    }
+    
+    // Save the image
+    let image_path = images_dir.join(&final_filename);
+    std::fs::write(&image_path, image_data)
+        .map_err(|e| format!("Failed to save image: {}", e))?;
+    
+    // Return relative path from note location
+    Ok(format!("images/{}", final_filename))
+}

@@ -70,6 +70,7 @@ pub fn run() {
             commands::get_all_folders,
             commands::get_global_graph,
             commands::get_local_graph,
+            commands::save_image,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
