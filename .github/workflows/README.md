@@ -59,6 +59,14 @@ Manually triggered workflow for creating releases:
 - Builds AppImage for maximum compatibility
 - Requires additional system libraries on the build machine
 
+## Repository Settings Required
+
+**Important**: For the workflows to create releases, you must:
+1. Go to Settings → Actions → General in your repository
+2. Under "Workflow permissions", select "Read and write permissions"
+3. Check "Allow GitHub Actions to create and approve pull requests"
+4. Save changes
+
 ## Secrets Required
 
 For full functionality, add these secrets to your repository:
