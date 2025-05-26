@@ -51,6 +51,23 @@ export const Help: React.FC = () => {
       </section>
       
       <section className="help-section">
+        <h2>Daily Note Template Variables</h2>
+        
+        <div className="syntax-item">
+          <h3>Available Variables</h3>
+          <p>Use these variables in your daily note template (accessible via Settings):</p>
+          <pre>{`{{date}}       - Current date (2024-05-26)
+{{date_long}}  - Full date (Sunday, May 26, 2024)
+{{time}}       - Current time (14:30)
+{{datetime}}   - Date and time (2024-05-26 14:30)
+{{year}}       - Current year (2024)
+{{month}}      - Current month (05)
+{{day}}        - Current day (26)
+{{weekday}}    - Day of week (Sunday)`}</pre>
+        </div>
+      </section>
+      
+      <section className="help-section">
         <h2>Markdown Syntax</h2>
         
         <div className="syntax-item">

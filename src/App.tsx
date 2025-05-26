@@ -102,6 +102,22 @@ function AppContent() {
     handleDailyNote();
   }, []); // Empty dependency array means this runs once on mount
 
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Cmd/Ctrl + E: Toggle preview mode
+      if ((e.metaKey || e.ctrlKey) && e.key === 'e') {
+        e.preventDefault();
+        if (selectedNote && !showHelp && !showGlobalGraph && !showLocalGraph) {
+          setIsPreview(!isPreview);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isPreview, selectedNote, showHelp, showGlobalGraph, showLocalGraph]);
+
   const handleNoteSelect = async (noteMetadata: NoteMetadata) => {
     const note = await tauriApi.readNote(noteMetadata.path);
     setSelectedNote(note);
