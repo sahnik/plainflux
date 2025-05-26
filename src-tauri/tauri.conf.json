@@ -42,6 +42,11 @@
       "signingIdentity": null,
       "providerShortName": null,
       "entitlements": null
+    },
+    "windows": {
+      "certificateThumbprint": null,
+      "digestAlgorithm": "sha256",
+      "timestampUrl": ""
     }
   }
 }

@@ -1,0 +1,195 @@
+name: Build Portable Releases
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-portable:
+    name: Build Portable - ${{ matrix.platform }}
+    runs-on: ${{ matrix.platform }}
+    
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: 'windows-latest'
+            rust_target: 'x86_64-pc-windows-msvc'
+            ext: '.exe'
+          - platform: 'macos-latest'
+            rust_target: 'x86_64-apple-darwin'
+            ext: ''
+          - platform: 'macos-latest'
+            rust_target: 'aarch64-apple-darwin'
+            ext: ''
+          - platform: 'ubuntu-22.04'
+            rust_target: 'x86_64-unknown-linux-gnu'
+            ext: ''
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.rust_target }}
+
+      - name: Install dependencies (Ubuntu)
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Build Tauri app (without bundling)
+        run: |
+          cd src-tauri
+          cargo build --release --target ${{ matrix.rust_target }}
+
+      - name: Create portable package (Windows)
+        if: matrix.platform == 'windows-latest'
+        run: |
+          mkdir -p portable-release
+          cp "src-tauri/target/${{ matrix.rust_target }}/release/plainflux.exe" portable-release/
+          
+          # Copy WebView2 loader if needed
+          if (Test-Path "src-tauri/target/${{ matrix.rust_target }}/release/WebView2Loader.dll") {
+            cp "src-tauri/target/${{ matrix.rust_target }}/release/WebView2Loader.dll" portable-release/
+          }
+          
+          # Create a batch file to run the app
+          @"
+          @echo off
+          echo Starting Plainflux...
+          start "" "%~dp0plainflux.exe"
+          "@ | Out-File -FilePath "portable-release/Plainflux.bat" -Encoding ASCII
+          
+          # Create README for portable version
+          @"
+          Plainflux Portable Edition
+          =========================
+          
+          This is the portable version of Plainflux that doesn't require installation.
+          
+          To run:
+          - Double-click Plainflux.bat or plainflux.exe
+          
+          Notes:
+          - Your notes will be stored in your user's Notes folder
+          - The app may prompt to install WebView2 runtime on first run
+          - Settings are stored in %APPDATA%\com.plainflux.app
+          "@ | Out-File -FilePath "portable-release/README.txt" -Encoding UTF8
+          
+          # Create zip
+          Compress-Archive -Path portable-release/* -DestinationPath "Plainflux-${{ github.ref_name }}-windows-portable.zip"
+
+      - name: Create portable package (macOS)
+        if: matrix.platform == 'macos-latest'
+        run: |
+          mkdir -p portable-release
+          cp "src-tauri/target/${{ matrix.rust_target }}/release/plainflux" "portable-release/Plainflux"
+          chmod +x "portable-release/Plainflux"
+          
+          # Create run script
+          cat > "portable-release/Plainflux.command" << 'EOF'
+          #!/bin/bash
+          cd "$(dirname "$0")"
+          ./Plainflux
+          EOF
+          chmod +x "portable-release/Plainflux.command"
+          
+          # Create README
+          cat > "portable-release/README.txt" << 'EOF'
+          Plainflux Portable Edition
+          =========================
+          
+          This is the portable version of Plainflux that doesn't require installation.
+          
+          To run:
+          - Double-click Plainflux.command
+          - Or run ./Plainflux from Terminal
+          
+          Notes:
+          - Your notes will be stored in ~/Notes
+          - Settings are stored in ~/Library/Application Support/com.plainflux.app
+          EOF
+          
+          # Create tar.gz
+          tar -czf "Plainflux-${{ github.ref_name }}-${{ matrix.rust_target }}-portable.tar.gz" -C portable-release .
+
+      - name: Create portable package (Linux)
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          mkdir -p portable-release
+          cp "src-tauri/target/${{ matrix.rust_target }}/release/plainflux" "portable-release/Plainflux"
+          chmod +x "portable-release/Plainflux"
+          
+          # Create run script
+          cat > "portable-release/Plainflux.sh" << 'EOF'
+          #!/bin/bash
+          SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+          cd "$SCRIPT_DIR"
+          ./Plainflux
+          EOF
+          chmod +x "portable-release/Plainflux.sh"
+          
+          # Create desktop file
+          cat > "portable-release/Plainflux.desktop" << EOF
+          [Desktop Entry]
+          Name=Plainflux
+          Exec=/path/to/Plainflux.sh
+          Icon=/path/to/icon.png
+          Type=Application
+          Categories=Utility;TextEditor;
+          Comment=Modern note-taking app with backlinks
+          EOF
+          
+          # Create README
+          cat > "portable-release/README.txt" << 'EOF'
+          Plainflux Portable Edition
+          =========================
+          
+          This is the portable version of Plainflux that doesn't require installation.
+          
+          To run:
+          - Run ./Plainflux.sh from terminal
+          - Or double-click Plainflux (may need to allow execution in file properties)
+          
+          For desktop integration:
+          - Edit Plainflux.desktop to use absolute paths
+          - Copy to ~/.local/share/applications/
+          
+          Notes:
+          - Your notes will be stored in ~/Notes
+          - Settings are stored in ~/.config/com.plainflux.app
+          - Requires WebKitGTK to be installed on your system
+          EOF
+          
+          # Create tar.gz
+          tar -czf "Plainflux-${{ github.ref_name }}-linux-portable.tar.gz" -C portable-release .
+
+      - name: Upload Release Assets
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v1
+        with:
+          draft: true
+          files: |
+            Plainflux-*.zip
+            Plainflux-*.tar.gz
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -60,9 +60,16 @@ A modern, cross-platform note-taking application with backlinks, tags, and knowl
 
 ### Download Pre-built Binaries
 Visit the [Releases](https://github.com/sahnik/plainflux/releases) page to download the latest version for your platform:
+
+#### Installers
 - **macOS**: Plainflux.dmg
-- **Windows**: Plainflux.msi
-- **Linux**: Plainflux.AppImage
+- **Windows**: Plainflux.msi or Plainflux.exe (NSIS installer)
+- **Linux**: Plainflux.AppImage or .deb package
+
+#### Portable Versions (No Installation Required)
+- **Windows**: Plainflux-windows-portable.zip
+- **macOS**: Plainflux-macOS-portable.tar.gz
+- **Linux**: Plainflux-Linux-portable.tar.gz
 
 ### Build from Source
 
@@ -84,6 +91,12 @@ npm run tauri dev
 
 # Build for production
 npm run tauri build
+
+# Build portable version (no installer)
+# Windows:
+./scripts/build-portable.ps1
+# macOS/Linux:
+./scripts/build-portable.sh
 ```
 
 ## Usage

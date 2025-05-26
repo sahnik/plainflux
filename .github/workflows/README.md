@@ -18,6 +18,19 @@ Triggered on version tags (`v*`) or manually:
 - Creates universal binary for macOS (Intel + Apple Silicon)
 - Creates draft releases with built artifacts
 
+### Build Simple (`build-simple.yml`)
+Alternative build workflow that:
+- Builds installers for all platforms
+- Additionally creates portable Windows executable
+- Uploads all artifacts to GitHub releases
+
+### Build Portable (`build-portable.yml`)
+Dedicated workflow for portable builds:
+- Creates standalone executables without installers
+- Packages with launch scripts and documentation
+- Supports Windows (.zip), macOS (.tar.gz), and Linux (.tar.gz)
+- No installation required - just extract and run
+
 ### Manual Release (`release.yml`)
 Manually triggered workflow for creating releases:
 - Input: version number (e.g., 1.0.0)
