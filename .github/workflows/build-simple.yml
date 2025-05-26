@@ -52,8 +52,10 @@ jobs:
       - name: Build Portable Windows (Windows only)
         if: matrix.platform == 'windows-latest'
         run: |
-          # The regular build creates installer, now create portable
+          # The regular build creates installer and properly bundled exe
           mkdir -p portable
+          
+          # Copy the bundled executable (includes frontend assets)
           cp "src-tauri/target/release/plainflux.exe" portable/
           
           # Copy any required DLLs

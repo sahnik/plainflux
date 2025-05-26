@@ -32,13 +32,8 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci
 
-      - name: Build frontend
-        run: npm run build
-
-      - name: Build Rust app
-        run: |
-          cd src-tauri
-          cargo build --release
+      - name: Build Tauri app
+        run: npm run tauri build
 
       - name: Create Portable Package
         run: |
@@ -110,18 +105,11 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci
 
-      - name: Build frontend
-        run: npm run build
-
       - name: Build for Intel
-        run: |
-          cd src-tauri
-          cargo build --release --target x86_64-apple-darwin
+        run: npm run tauri build -- --target x86_64-apple-darwin
 
       - name: Build for Apple Silicon
-        run: |
-          cd src-tauri
-          cargo build --release --target aarch64-apple-darwin
+        run: npm run tauri build -- --target aarch64-apple-darwin
 
       - name: Create Universal Binary
         run: |
@@ -197,13 +185,8 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci
 
-      - name: Build frontend
-        run: npm run build
-
-      - name: Build Rust app
-        run: |
-          cd src-tauri
-          cargo build --release
+      - name: Build Tauri app
+        run: npm run tauri build
 
       - name: Create Portable Package
         run: |

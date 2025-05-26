@@ -29,21 +29,15 @@ else
     exit 1
 fi
 
-# Build frontend
-echo -e "\033[33mBuilding frontend...\033[0m"
-npm run build
-
-# Build backend
-echo -e "\033[33mBuilding backend...\033[0m"
-cd src-tauri
+# Build complete Tauri app (includes frontend bundling)
+echo -e "\033[33mBuilding Tauri app...\033[0m"
 if [[ "$OS" == "macos" ]]; then
-    cargo build --release --target $RUST_TARGET
-    BINARY_PATH="target/$RUST_TARGET/release/plainflux"
+    npm run tauri build -- --target $RUST_TARGET
+    BINARY_PATH="src-tauri/target/$RUST_TARGET/release/plainflux"
 else
-    cargo build --release
-    BINARY_PATH="target/release/plainflux"
+    npm run tauri build
+    BINARY_PATH="src-tauri/target/release/plainflux"
 fi
-cd ..
 
 # Create portable package
 echo -e "\033[33mCreating portable package...\033[0m"
@@ -51,8 +45,14 @@ PORTABLE_DIR="dist-portable"
 rm -rf $PORTABLE_DIR
 mkdir -p $PORTABLE_DIR
 
-# Copy binary
-cp "src-tauri/$BINARY_PATH" "$PORTABLE_DIR/Plainflux"
+# Check if binary exists
+if [ ! -f "$BINARY_PATH" ]; then
+    echo -e "\033[31mError: Built executable not found at $BINARY_PATH\033[0m"
+    exit 1
+fi
+
+# Copy binary (includes embedded frontend)
+cp "$BINARY_PATH" "$PORTABLE_DIR/Plainflux"
 chmod +x "$PORTABLE_DIR/Plainflux"
 
 # Create launcher script

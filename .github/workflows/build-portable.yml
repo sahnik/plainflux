@@ -53,13 +53,8 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci
 
-      - name: Build frontend
-        run: npm run build
-
-      - name: Build Tauri app (without bundling)
-        run: |
-          cd src-tauri
-          cargo build --release --target ${{ matrix.rust_target }}
+      - name: Build Tauri app
+        run: npm run tauri build -- --target ${{ matrix.rust_target }}
 
       - name: Create portable package (Windows)
         if: matrix.platform == 'windows-latest'

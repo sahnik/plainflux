@@ -108,6 +108,7 @@ New releases will automatically include portable builds if you're using the GitH
 ## Troubleshooting
 
 ### Windows Issues
+- **Localhost connection error**: This means the frontend assets aren't bundled. Ensure you use `npm run tauri build` not just `cargo build`
 - If app doesn't start, check for WebView2 Runtime
 - Run as administrator if file access issues occur
 - Check Windows Event Viewer for detailed errors

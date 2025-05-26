@@ -7,24 +7,13 @@ if (-not (Test-Path "src-tauri")) {
     exit 1
 }
 
-# Build the frontend
-Write-Host "Building frontend..." -ForegroundColor Yellow
-npm run build
+# Build the complete Tauri app (includes frontend bundling)
+Write-Host "Building Tauri app..." -ForegroundColor Yellow
+npm run tauri build
 if ($LASTEXITCODE -ne 0) {
-    Write-Host "Frontend build failed" -ForegroundColor Red
+    Write-Host "Tauri build failed" -ForegroundColor Red
     exit 1
 }
-
-# Build the Rust backend
-Write-Host "Building backend..." -ForegroundColor Yellow
-Set-Location src-tauri
-cargo build --release
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "Backend build failed" -ForegroundColor Red
-    Set-Location ..
-    exit 1
-}
-Set-Location ..
 
 # Create portable package
 Write-Host "Creating portable package..." -ForegroundColor Yellow
@@ -34,8 +23,16 @@ if (Test-Path $portableDir) {
 }
 New-Item -ItemType Directory -Force -Path $portableDir | Out-Null
 
-# Copy executable
-Copy-Item "src-tauri/target/release/plainflux.exe" "$portableDir/"
+# The Tauri build process creates the executable in the release folder
+# This exe has the frontend assets embedded
+$exePath = "src-tauri/target/release/plainflux.exe"
+if (-not (Test-Path $exePath)) {
+    Write-Host "Error: Built executable not found at $exePath" -ForegroundColor Red
+    exit 1
+}
+
+# Copy executable (this includes embedded frontend)
+Copy-Item $exePath "$portableDir/"
 
 # Copy WebView2 loader if it exists
 if (Test-Path "src-tauri/target/release/WebView2Loader.dll") {
