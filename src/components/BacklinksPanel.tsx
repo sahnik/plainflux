@@ -19,7 +19,8 @@ export const BacklinksPanel: React.FC<BacklinksPanelProps> = ({ backlinks, onBac
       ) : (
         <div className="backlinks-list">
           {backlinks.map((path) => {
-            const filename = path.split('/').pop()?.replace('.md', '') || path;
+            // Split on both forward slashes and backslashes to handle Windows paths
+            const filename = path.split(/[/\\]/).pop()?.replace('.md', '') || path;
             return (
               <div
                 key={path}

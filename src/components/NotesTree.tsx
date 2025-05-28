@@ -42,7 +42,8 @@ const buildFolderTree = (notes: NoteMetadata[], folders: string[]): FolderNode =
 
   allFolderPaths.forEach(folderPath => {
     if (folderPath && !folderMap.has(folderPath)) {
-      const parts = folderPath.split('/').filter(p => p);
+      // Split on both forward slashes and backslashes to handle Windows paths
+      const parts = folderPath.split(/[/\\]/).filter(p => p);
       let currentPath = '';
       let parent = root;
 

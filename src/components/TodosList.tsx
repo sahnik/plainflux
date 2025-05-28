@@ -20,7 +20,8 @@ export const TodosList: React.FC<TodosListProps> = ({ todos, onTodoToggle, onNot
   }, {} as Record<string, Todo[]>);
 
   const getNoteName = (path: string) => {
-    const parts = path.split('/');
+    // Split on both forward slashes and backslashes to handle Windows paths
+    const parts = path.split(/[/\\]/);
     const filename = parts[parts.length - 1];
     return filename.replace('.md', '');
   };

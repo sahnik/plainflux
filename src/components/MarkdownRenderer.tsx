@@ -125,7 +125,9 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, onL
             
             // If it's a relative path and we have the note path, convert to absolute
             if (notePath && src.startsWith('images/')) {
-              const noteDir = notePath.substring(0, notePath.lastIndexOf('/'));
+              // Handle both forward slashes and backslashes for cross-platform compatibility
+              const lastSlashIndex = Math.max(notePath.lastIndexOf('/'), notePath.lastIndexOf('\\'));
+              const noteDir = notePath.substring(0, lastSlashIndex);
               const absolutePath = `${noteDir}/${src}`;
               const tauriSrc = convertFileSrc(absolutePath);
               
