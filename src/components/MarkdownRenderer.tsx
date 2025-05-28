@@ -144,7 +144,10 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, onL
               // Handle both forward slashes and backslashes for cross-platform compatibility
               const lastSlashIndex = Math.max(notePath.lastIndexOf('/'), notePath.lastIndexOf('\\'));
               const noteDir = notePath.substring(0, lastSlashIndex);
-              const absolutePath = `${noteDir}/${src}`;
+              
+              // Use the same path separator as the original path for consistency
+              const pathSeparator = notePath.includes('\\') ? '\\' : '/';
+              const absolutePath = `${noteDir}${pathSeparator}${src}`;
               const tauriSrc = convertFileSrc(absolutePath);
               
               return (
