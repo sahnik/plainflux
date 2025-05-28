@@ -42,6 +42,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, isPreview, onChang
         basicSetup,
         markdown(),
         oneDark,
+        EditorView.lineWrapping,
         createAutocompleteExtension(autocompleteDataRef),
         createPasteHandler(note.path),
         EditorView.updateListener.of((update) => {
