@@ -94,6 +94,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, isPreview, onChang
           onTagClick={onTagClick}
           onTodoToggle={onTodoToggle}
           notePath={note.path}
+          notes={notes}
         />
       </div>
     );

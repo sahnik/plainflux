@@ -3,19 +3,23 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { convertFileSrc } from '@tauri-apps/api/core';
 
+import { NoteMetadata } from '../types';
+
 interface MarkdownRendererProps {
   content: string;
   onLinkClick: (noteName: string) => void;
   onTagClick?: (tag: string) => void;
   onTodoToggle?: (lineNumber: number) => void;
   notePath?: string;
+  notes?: NoteMetadata[];
 }
 
-export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, onLinkClick, onTagClick, onTodoToggle, notePath }) => {
+export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, onLinkClick, onTagClick, onTodoToggle, notePath, notes }) => {
   // Store link and tag handlers in a ref to avoid stale closures
   const linkHandlersRef = React.useRef<{ [key: string]: () => void }>({});
   const tagHandlersRef = React.useRef<{ [key: string]: () => void }>({});
   const todoHandlersRef = React.useRef<{ [key: string]: () => void }>({});
+  const noteExistsRef = React.useRef<{ [key: string]: boolean }>({});
   
   // Replace [[Note]] syntax with special markers
   let linkCounter = 0;
@@ -28,6 +32,14 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, onL
     line = line.replace(/\[\[([^\]]+)\]\]/g, (_match, noteName) => {
       const linkId = `note-link-${linkCounter++}`;
       linkHandlersRef.current[linkId] = () => onLinkClick(noteName);
+      
+      // Check if the note exists
+      const noteExists = notes ? notes.some(note => 
+        note.title.toLowerCase() === noteName.toLowerCase() || 
+        note.title.toLowerCase() === noteName.toLowerCase() + '.md'
+      ) : true; // Default to true if notes not provided
+      
+      noteExistsRef.current[linkId] = noteExists;
       return `[${noteName}](#${linkId})`;
     });
     
@@ -85,14 +97,18 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, onL
             
             // Style note links differently
             if (href.startsWith('#note-link-')) {
+              const linkId = href.substring(1);
+              const exists = noteExistsRef.current[linkId];
+              
               return (
                 <a
                   {...props}
                   style={{ 
-                    color: '#4ec9b0', 
+                    color: exists ? '#4ec9b0' : '#ff6b6b', 
                     cursor: 'pointer',
                     textDecoration: 'none',
-                    backgroundColor: 'rgba(78, 201, 176, 0.1)',
+                    fontStyle: exists ? 'normal' : 'italic',
+                    backgroundColor: exists ? 'rgba(78, 201, 176, 0.1)' : 'rgba(255, 107, 107, 0.1)',
                     padding: '2px 4px',
                     borderRadius: '3px'
                   }}
