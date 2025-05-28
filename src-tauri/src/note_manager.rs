@@ -90,13 +90,19 @@ pub fn list_notes(base_path: &str) -> Result<Vec<NoteMetadata>, String> {
                     .map(|p| p.to_string_lossy().to_string())
                     .unwrap_or_else(String::new);
 
-                notes.push(NoteMetadata {
-                    path: path.to_string_lossy().to_string(),
-                    title,
-                    last_modified,
-                    relative_path,
-                    folder,
-                });
+                // Skip notes in hidden internal folders (.plainflux, images)
+                let skip_note = relative_path.split(std::path::MAIN_SEPARATOR)
+                    .any(|part| part == ".plainflux" || part == "images");
+
+                if !skip_note {
+                    notes.push(NoteMetadata {
+                        path: path.to_string_lossy().to_string(),
+                        title,
+                        last_modified,
+                        relative_path,
+                        folder,
+                    });
+                }
             }
         }
     }
@@ -127,7 +133,22 @@ pub fn get_all_folders(base_path: &str) -> Result<Vec<String>, String> {
                 .unwrap_or_else(|_| path.to_string_lossy().to_string());
 
             if !relative_path.is_empty() {
-                folders.push(relative_path);
+                // Skip hidden internal folders
+                let folder_name = path.file_name()
+                    .and_then(|n| n.to_str())
+                    .unwrap_or("");
+                
+                if folder_name == ".plainflux" || folder_name == "images" || folder_name == "Daily Notes" {
+                    continue;
+                }
+                
+                // Also skip if any parent folder is .plainflux, images, or Daily Notes
+                let contains_hidden = relative_path.split(std::path::MAIN_SEPARATOR)
+                    .any(|part| part == ".plainflux" || part == "images" || part == "Daily Notes");
+                
+                if !contains_hidden {
+                    folders.push(relative_path);
+                }
             }
         }
     }
@@ -184,6 +205,8 @@ pub fn search_notes(base_path: &str, query: &str) -> Result<Vec<Note>, String> {
     let mut results = Vec::new();
     let query_lower = query.to_lowercase();
 
+    let base_path_buf = Path::new(base_path);
+    
     for entry in WalkDir::new(base_path)
         .follow_links(true)
         .into_iter()
@@ -191,6 +214,17 @@ pub fn search_notes(base_path: &str, query: &str) -> Result<Vec<Note>, String> {
     {
         let path = entry.path();
         if path.extension().and_then(|s| s.to_str()) == Some("md") {
+            // Skip notes in hidden folders
+            if let Ok(relative_path) = path.strip_prefix(base_path_buf) {
+                let skip_note = relative_path.to_string_lossy()
+                    .split(std::path::MAIN_SEPARATOR)
+                    .any(|part| part == ".plainflux" || part == "images" || part == "Daily Notes");
+                
+                if skip_note {
+                    continue;
+                }
+            }
+            
             if let Ok(content) = fs::read_to_string(path) {
                 if content.to_lowercase().contains(&query_lower) {
                     if let Ok(note) = read_note(&path.to_string_lossy()) {
