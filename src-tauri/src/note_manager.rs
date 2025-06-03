@@ -91,9 +91,15 @@ pub fn list_notes(base_path: &str) -> Result<Vec<NoteMetadata>, String> {
                     .unwrap_or_else(String::new);
 
                 // Skip notes in hidden internal folders (.plainflux, images)
-                let skip_note = relative_path
-                    .split(std::path::MAIN_SEPARATOR)
-                    .any(|part| part == ".plainflux" || part == "images");
+                let relative_path_obj = Path::new(&relative_path);
+                let skip_note = relative_path_obj.components().any(|component| {
+                    if let std::path::Component::Normal(name) = component {
+                        if let Some(name_str) = name.to_str() {
+                            return name_str == ".plainflux" || name_str == "images";
+                        }
+                    }
+                    false
+                });
 
                 if !skip_note {
                     notes.push(NoteMetadata {
@@ -145,9 +151,17 @@ pub fn get_all_folders(base_path: &str) -> Result<Vec<String>, String> {
                 }
 
                 // Also skip if any parent folder is .plainflux, images, or Daily Notes
-                let contains_hidden = relative_path
-                    .split(std::path::MAIN_SEPARATOR)
-                    .any(|part| part == ".plainflux" || part == "images" || part == "Daily Notes");
+                let relative_path_obj = Path::new(&relative_path);
+                let contains_hidden = relative_path_obj.components().any(|component| {
+                    if let std::path::Component::Normal(name) = component {
+                        if let Some(name_str) = name.to_str() {
+                            return name_str == ".plainflux"
+                                || name_str == "images"
+                                || name_str == "Daily Notes";
+                        }
+                    }
+                    false
+                });
 
                 if !contains_hidden {
                     folders.push(relative_path);
@@ -219,10 +233,16 @@ pub fn search_notes(base_path: &str, query: &str) -> Result<Vec<Note>, String> {
         if path.extension().and_then(|s| s.to_str()) == Some("md") {
             // Skip notes in hidden folders
             if let Ok(relative_path) = path.strip_prefix(base_path_buf) {
-                let skip_note = relative_path
-                    .to_string_lossy()
-                    .split(std::path::MAIN_SEPARATOR)
-                    .any(|part| part == ".plainflux" || part == "images" || part == "Daily Notes");
+                let skip_note = relative_path.components().any(|component| {
+                    if let std::path::Component::Normal(name) = component {
+                        if let Some(name_str) = name.to_str() {
+                            return name_str == ".plainflux"
+                                || name_str == "images"
+                                || name_str == "Daily Notes";
+                        }
+                    }
+                    false
+                });
 
                 if skip_note {
                     continue;
