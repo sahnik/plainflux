@@ -9,7 +9,7 @@ pub fn ensure_dir_exists<P: AsRef<Path>>(path: P) -> Result<()> {
         std::fs::create_dir_all(path).map_err(|e| {
             AppError::Io(std::io::Error::new(
                 e.kind(),
-                format!("Failed to create directory '{}': {}", path.display(), e),
+                format!("Failed to create directory '{}': {e}", path.display()),
             ))
         })?;
     } else if !path.is_dir() {
@@ -43,8 +43,8 @@ pub fn validate_path_security<P: AsRef<Path>>(path: P, base_dir: &str) -> Result
         AppError::Io(std::io::Error::new(
             e.kind(),
             format!(
-                "Failed to canonicalize base directory '{}': {}",
-                base_dir, e
+                "Failed to canonicalize base directory '{}': {e}",
+                base_dir
             ),
         ))
     })?;
@@ -54,7 +54,7 @@ pub fn validate_path_security<P: AsRef<Path>>(path: P, base_dir: &str) -> Result
         path.canonicalize().map_err(|e| {
             AppError::Io(std::io::Error::new(
                 e.kind(),
-                format!("Failed to canonicalize path '{}': {}", path.display(), e),
+                format!("Failed to canonicalize path '{}': {e}", path.display()),
             ))
         })?
     } else {
@@ -64,7 +64,7 @@ pub fn validate_path_security<P: AsRef<Path>>(path: P, base_dir: &str) -> Result
                 let canonical_parent = parent.canonicalize().map_err(|e| {
                     AppError::Io(std::io::Error::new(
                         e.kind(),
-                        format!("Failed to canonicalize parent directory: {}", e),
+                        format!("Failed to canonicalize parent directory: {e}"),
                     ))
                 })?;
 
@@ -106,9 +106,8 @@ pub fn safe_write_file<P: AsRef<Path>>(path: P, content: &str) -> Result<()> {
         AppError::Io(std::io::Error::new(
             e.kind(),
             format!(
-                "Failed to write temporary file '{}': {}",
-                temp_path.display(),
-                e
+                "Failed to write temporary file '{}': {e}",
+                temp_path.display()
             ),
         ))
     })?;
@@ -118,7 +117,7 @@ pub fn safe_write_file<P: AsRef<Path>>(path: P, content: &str) -> Result<()> {
         let _ = std::fs::remove_file(&temp_path);
         AppError::Io(std::io::Error::new(
             e.kind(),
-            format!("Failed to rename file to '{}': {}", path.display(), e),
+            format!("Failed to rename file to '{}': {e}", path.display()),
         ))
     })?;
 
@@ -146,7 +145,7 @@ pub fn safe_read_file<P: AsRef<Path>>(path: P) -> Result<String> {
     std::fs::read_to_string(path).map_err(|e| {
         AppError::Io(std::io::Error::new(
             e.kind(),
-            format!("Failed to read file '{}': {}", path.display(), e),
+            format!("Failed to read file '{}': {e}", path.display()),
         ))
     })
 }

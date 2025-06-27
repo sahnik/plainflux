@@ -23,15 +23,15 @@ pub struct NoteMetadata {
 }
 
 pub fn read_note(path: &str) -> Result<Note, String> {
-    let content = fs::read_to_string(path).map_err(|e| format!("Failed to read note: {}", e))?;
+    let content = fs::read_to_string(path).map_err(|e| format!("Failed to read note: {e}"))?;
 
-    let metadata = fs::metadata(path).map_err(|e| format!("Failed to get metadata: {}", e))?;
+    let metadata = fs::metadata(path).map_err(|e| format!("Failed to get metadata: {e}"))?;
 
     let last_modified = metadata
         .modified()
-        .map_err(|e| format!("Failed to get modified time: {}", e))?
+        .map_err(|e| format!("Failed to get modified time: {e}"))?
         .duration_since(std::time::UNIX_EPOCH)
-        .map_err(|e| format!("Failed to convert time: {}", e))?
+        .map_err(|e| format!("Failed to convert time: {e}"))?
         .as_secs() as i64;
 
     let title = Path::new(path)
@@ -51,7 +51,7 @@ pub fn read_note(path: &str) -> Result<Note, String> {
 pub fn write_note(path: &str, content: &str) -> Result<(), String> {
     // Use the safe write utility which handles parent directory creation
     // and atomic writes
-    safe_write_file(path, content).map_err(|e| format!("Failed to write note: {}", e))
+    safe_write_file(path, content).map_err(|e| format!("Failed to write note: {e}"))
 }
 
 pub fn list_notes(base_path: &str) -> Result<Vec<NoteMetadata>, String> {
@@ -181,7 +181,7 @@ pub fn create_daily_note(base_path: &str, template: Option<&str>) -> Result<Stri
 
     let daily_notes_dir = Path::new(base_path).join("Daily Notes");
     ensure_dir_exists(&daily_notes_dir)
-        .map_err(|e| format!("Failed to create Daily Notes directory: {}", e))?;
+        .map_err(|e| format!("Failed to create Daily Notes directory: {e}"))?;
 
     let today = Local::now().format("%Y-%m-%d").to_string();
     let note_path = daily_notes_dir.join(format!("{}.md", today));
@@ -194,7 +194,7 @@ pub fn create_daily_note(base_path: &str, template: Option<&str>) -> Result<Stri
         };
 
         safe_write_file(&note_path, &content)
-            .map_err(|e| format!("Failed to create daily note: {}", e))?;
+            .map_err(|e| format!("Failed to create daily note: {e}"))?;
     }
 
     Ok(note_path.to_string_lossy().to_string())
@@ -258,11 +258,9 @@ pub fn search_notes(base_path: &str, query: &str) -> Result<Vec<Note>, String> {
                     .encoding(Some(WINDOWS_1252))
                     .build(file);
                 let mut content = String::new();
-                if reader.read_to_string(&mut content).is_ok() {
-                    if content.to_lowercase().contains(&query_lower) {
-                        if let Ok(note) = read_note(&path.to_string_lossy()) {
-                            results.push(note);
-                        }
+                if reader.read_to_string(&mut content).is_ok() && content.to_lowercase().contains(&query_lower) {
+                    if let Ok(note) = read_note(&path.to_string_lossy()) {
+                        results.push(note);
                     }
                 }
             }
@@ -286,11 +284,11 @@ pub fn move_note(old_path: &str, new_folder: &str, base_path: &str) -> Result<St
 
     // Create the target directory if it doesn't exist
     if let Some(parent) = new_path.parent() {
-        fs::create_dir_all(parent).map_err(|e| format!("Failed to create directory: {}", e))?;
+        fs::create_dir_all(parent).map_err(|e| format!("Failed to create directory: {e}"))?;
     }
 
     // Move the file
-    fs::rename(old_path, &new_path).map_err(|e| format!("Failed to move note: {}", e))?;
+    fs::rename(old_path, &new_path).map_err(|e| format!("Failed to move note: {e}"))?;
 
     Ok(new_path.to_string_lossy().to_string())
 }
@@ -325,7 +323,7 @@ pub fn delete_folder_confirmed(folder_path: &str, base_path: &str) -> Result<(),
     let base = Path::new(base_path);
     let full_path = base.join(folder_path);
 
-    fs::remove_dir_all(&full_path).map_err(|e| format!("Failed to delete folder: {}", e))?;
+    fs::remove_dir_all(&full_path).map_err(|e| format!("Failed to delete folder: {e}"))?;
 
     Ok(())
 }
@@ -338,7 +336,7 @@ pub fn create_folder(folder_path: &str, base_path: &str) -> Result<(), String> {
         return Err("Folder already exists".to_string());
     }
 
-    fs::create_dir_all(&full_path).map_err(|e| format!("Failed to create folder: {}", e))?;
+    fs::create_dir_all(&full_path).map_err(|e| format!("Failed to create folder: {e}"))?;
 
     Ok(())
 }
@@ -372,7 +370,7 @@ pub fn rename_note(old_path: &str, new_name: &str) -> Result<String, String> {
     }
 
     // Rename the file
-    fs::rename(old_path, &new_path).map_err(|e| format!("Failed to rename note: {}", e))?;
+    fs::rename(old_path, &new_path).map_err(|e| format!("Failed to rename note: {e}"))?;
 
     Ok(new_path.to_string_lossy().to_string())
 }
@@ -405,7 +403,7 @@ pub fn rename_folder(old_path: &str, new_name: &str, base_path: &str) -> Result<
 
     // Rename the folder
     fs::rename(&old_full_path, &new_full_path)
-        .map_err(|e| format!("Failed to rename folder: {}", e))?;
+        .map_err(|e| format!("Failed to rename folder: {e}"))?;
 
     // Return the relative path from base_path
     new_full_path
@@ -415,10 +413,10 @@ pub fn rename_folder(old_path: &str, new_name: &str, base_path: &str) -> Result<
 }
 
 fn collect_files_recursive(dir: &Path, files: &mut Vec<PathBuf>) -> Result<(), String> {
-    let entries = fs::read_dir(dir).map_err(|e| format!("Failed to read directory: {}", e))?;
+    let entries = fs::read_dir(dir).map_err(|e| format!("Failed to read directory: {e}"))?;
 
     for entry in entries {
-        let entry = entry.map_err(|e| format!("Failed to read entry: {}", e))?;
+        let entry = entry.map_err(|e| format!("Failed to read entry: {e}"))?;
         let path = entry.path();
 
         if path.is_file() && path.extension().and_then(|s| s.to_str()) == Some("md") {

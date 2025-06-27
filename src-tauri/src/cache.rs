@@ -31,7 +31,7 @@ pub struct CacheDb {
 impl CacheDb {
     pub fn new(db_path: &str) -> Result<Self, String> {
         let conn =
-            Connection::open(db_path).map_err(|e| format!("Failed to open database: {}", e))?;
+            Connection::open(db_path).map_err(|e| format!("Failed to open database: {e}"))?;
 
         let db = CacheDb { conn };
         db.init_tables()?;
@@ -49,7 +49,7 @@ impl CacheDb {
             )",
                 [],
             )
-            .map_err(|e| format!("Failed to create links table: {}", e))?;
+            .map_err(|e| format!("Failed to create links table: {e}"))?;
 
         self.conn
             .execute(
@@ -61,25 +61,25 @@ impl CacheDb {
             )",
                 [],
             )
-            .map_err(|e| format!("Failed to create tags table: {}", e))?;
+            .map_err(|e| format!("Failed to create tags table: {e}"))?;
 
         self.conn
             .execute(
                 "CREATE INDEX IF NOT EXISTS idx_links_from ON links(from_note)",
                 [],
             )
-            .map_err(|e| format!("Failed to create index: {}", e))?;
+            .map_err(|e| format!("Failed to create index: {e}"))?;
 
         self.conn
             .execute(
                 "CREATE INDEX IF NOT EXISTS idx_links_to ON links(to_note)",
                 [],
             )
-            .map_err(|e| format!("Failed to create index: {}", e))?;
+            .map_err(|e| format!("Failed to create index: {e}"))?;
 
         self.conn
             .execute("CREATE INDEX IF NOT EXISTS idx_tags_tag ON tags(tag)", [])
-            .map_err(|e| format!("Failed to create index: {}", e))?;
+            .map_err(|e| format!("Failed to create index: {e}"))?;
 
         self.conn
             .execute(
@@ -93,21 +93,21 @@ impl CacheDb {
             )",
                 [],
             )
-            .map_err(|e| format!("Failed to create todos table: {}", e))?;
+            .map_err(|e| format!("Failed to create todos table: {e}"))?;
 
         self.conn
             .execute(
                 "CREATE INDEX IF NOT EXISTS idx_todos_note ON todos(note_path)",
                 [],
             )
-            .map_err(|e| format!("Failed to create index: {}", e))?;
+            .map_err(|e| format!("Failed to create index: {e}"))?;
 
         self.conn
             .execute(
                 "CREATE INDEX IF NOT EXISTS idx_todos_completed ON todos(is_completed)",
                 [],
             )
-            .map_err(|e| format!("Failed to create index: {}", e))?;
+            .map_err(|e| format!("Failed to create index: {e}"))?;
 
         Ok(())
     }
@@ -144,15 +144,15 @@ impl CacheDb {
     pub fn clear_note_cache(&self, note_path: &str) -> Result<(), String> {
         self.conn
             .execute("DELETE FROM links WHERE from_note = ?1", params![note_path])
-            .map_err(|e| format!("Failed to clear links: {}", e))?;
+            .map_err(|e| format!("Failed to clear links: {e}"))?;
 
         self.conn
             .execute("DELETE FROM tags WHERE note_path = ?1", params![note_path])
-            .map_err(|e| format!("Failed to clear tags: {}", e))?;
+            .map_err(|e| format!("Failed to clear tags: {e}"))?;
 
         self.conn
             .execute("DELETE FROM todos WHERE note_path = ?1", params![note_path])
-            .map_err(|e| format!("Failed to clear todos: {}", e))?;
+            .map_err(|e| format!("Failed to clear todos: {e}"))?;
 
         Ok(())
     }
@@ -163,7 +163,7 @@ impl CacheDb {
                 "INSERT OR IGNORE INTO links (from_note, to_note) VALUES (?1, ?2)",
                 params![from_note, to_note],
             )
-            .map_err(|e| format!("Failed to add link: {}", e))?;
+            .map_err(|e| format!("Failed to add link: {e}"))?;
         Ok(())
     }
 
@@ -173,7 +173,7 @@ impl CacheDb {
                 "INSERT OR IGNORE INTO tags (tag, note_path) VALUES (?1, ?2)",
                 params![tag, note_path],
             )
-            .map_err(|e| format!("Failed to add tag: {}", e))?;
+            .map_err(|e| format!("Failed to add tag: {e}"))?;
         Ok(())
     }
 
@@ -181,15 +181,15 @@ impl CacheDb {
         let mut stmt = self
             .conn
             .prepare("SELECT from_note FROM links WHERE to_note = ?1")
-            .map_err(|e| format!("Failed to prepare statement: {}", e))?;
+            .map_err(|e| format!("Failed to prepare statement: {e}"))?;
 
         let links = stmt
             .query_map(params![note_path], |row| row.get(0))
-            .map_err(|e| format!("Failed to query backlinks: {}", e))?;
+            .map_err(|e| format!("Failed to query backlinks: {e}"))?;
 
         let mut result = Vec::new();
         for link in links {
-            result.push(link.map_err(|e| format!("Failed to get link: {}", e))?);
+            result.push(link.map_err(|e| format!("Failed to get link: {e}"))?);
         }
 
         Ok(result)
@@ -199,15 +199,15 @@ impl CacheDb {
         let mut stmt = self
             .conn
             .prepare("SELECT DISTINCT tag FROM tags ORDER BY tag")
-            .map_err(|e| format!("Failed to prepare statement: {}", e))?;
+            .map_err(|e| format!("Failed to prepare statement: {e}"))?;
 
         let tags = stmt
             .query_map([], |row| row.get(0))
-            .map_err(|e| format!("Failed to query tags: {}", e))?;
+            .map_err(|e| format!("Failed to query tags: {e}"))?;
 
         let mut result = Vec::new();
         for tag in tags {
-            result.push(tag.map_err(|e| format!("Failed to get tag: {}", e))?);
+            result.push(tag.map_err(|e| format!("Failed to get tag: {e}"))?);
         }
 
         Ok(result)
@@ -217,15 +217,15 @@ impl CacheDb {
         let mut stmt = self
             .conn
             .prepare("SELECT note_path FROM tags WHERE tag = ?1")
-            .map_err(|e| format!("Failed to prepare statement: {}", e))?;
+            .map_err(|e| format!("Failed to prepare statement: {e}"))?;
 
         let notes = stmt
             .query_map(params![tag], |row| row.get(0))
-            .map_err(|e| format!("Failed to query notes: {}", e))?;
+            .map_err(|e| format!("Failed to query notes: {e}"))?;
 
         let mut result = Vec::new();
         for note in notes {
-            result.push(note.map_err(|e| format!("Failed to get note: {}", e))?);
+            result.push(note.map_err(|e| format!("Failed to get note: {e}"))?);
         }
 
         Ok(result)
@@ -235,7 +235,7 @@ impl CacheDb {
         let mut stmt = self
             .conn
             .prepare("SELECT from_note, to_note FROM links")
-            .map_err(|e| format!("Failed to prepare statement: {}", e))?;
+            .map_err(|e| format!("Failed to prepare statement: {e}"))?;
 
         let links = stmt
             .query_map([], |row| {
@@ -244,11 +244,11 @@ impl CacheDb {
                     to_note: row.get(1)?,
                 })
             })
-            .map_err(|e| format!("Failed to query links: {}", e))?;
+            .map_err(|e| format!("Failed to query links: {e}"))?;
 
         let mut result = Vec::new();
         for link in links {
-            result.push(link.map_err(|e| format!("Failed to get link: {}", e))?);
+            result.push(link.map_err(|e| format!("Failed to get link: {e}"))?);
         }
 
         Ok(result)
@@ -261,7 +261,7 @@ impl CacheDb {
                 "SELECT from_note, to_note FROM links 
              WHERE from_note = ?1 OR to_note = ?1",
             )
-            .map_err(|e| format!("Failed to prepare statement: {}", e))?;
+            .map_err(|e| format!("Failed to prepare statement: {e}"))?;
 
         let links = stmt
             .query_map(params![note_path], |row| {
@@ -270,11 +270,11 @@ impl CacheDb {
                     to_note: row.get(1)?,
                 })
             })
-            .map_err(|e| format!("Failed to query links: {}", e))?;
+            .map_err(|e| format!("Failed to query links: {e}"))?;
 
         let mut result = Vec::new();
         for link in links {
-            result.push(link.map_err(|e| format!("Failed to get link: {}", e))?);
+            result.push(link.map_err(|e| format!("Failed to get link: {e}"))?);
         }
 
         Ok(result)
@@ -290,7 +290,7 @@ impl CacheDb {
         self.conn.execute(
             "INSERT OR REPLACE INTO todos (note_path, line_number, content, is_completed) VALUES (?1, ?2, ?3, ?4)",
             params![note_path, line_number, content, is_completed],
-        ).map_err(|e| format!("Failed to add todo: {}", e))?;
+        ).map_err(|e| format!("Failed to add todo: {e}"))?;
 
         Ok(())
     }
@@ -298,7 +298,7 @@ impl CacheDb {
     pub fn get_incomplete_todos(&self) -> Result<Vec<Todo>, String> {
         let mut stmt = self.conn.prepare(
             "SELECT id, note_path, line_number, content, is_completed FROM todos WHERE is_completed = 0 ORDER BY note_path, line_number"
-        ).map_err(|e| format!("Failed to prepare statement: {}", e))?;
+        ).map_err(|e| format!("Failed to prepare statement: {e}"))?;
 
         let todos = stmt
             .query_map([], |row| {
@@ -310,11 +310,11 @@ impl CacheDb {
                     is_completed: row.get(4)?,
                 })
             })
-            .map_err(|e| format!("Failed to query todos: {}", e))?;
+            .map_err(|e| format!("Failed to query todos: {e}"))?;
 
         let mut result = Vec::new();
         for todo in todos {
-            result.push(todo.map_err(|e| format!("Failed to get todo: {}", e))?);
+            result.push(todo.map_err(|e| format!("Failed to get todo: {e}"))?);
         }
 
         Ok(result)
@@ -325,11 +325,11 @@ impl CacheDb {
         let mut stmt = self
             .conn
             .prepare("SELECT is_completed FROM todos WHERE note_path = ?1 AND line_number = ?2")
-            .map_err(|e| format!("Failed to prepare statement: {}", e))?;
+            .map_err(|e| format!("Failed to prepare statement: {e}"))?;
 
         let current_state: bool = stmt
             .query_row(params![note_path, line_number], |row| row.get(0))
-            .map_err(|e| format!("Failed to get todo state: {}", e))?;
+            .map_err(|e| format!("Failed to get todo state: {e}"))?;
 
         let new_state = !current_state;
 
@@ -339,7 +339,7 @@ impl CacheDb {
                 "UPDATE todos SET is_completed = ?1 WHERE note_path = ?2 AND line_number = ?3",
                 params![new_state, note_path, line_number],
             )
-            .map_err(|e| format!("Failed to update todo: {}", e))?;
+            .map_err(|e| format!("Failed to update todo: {e}"))?;
 
         Ok(new_state)
     }

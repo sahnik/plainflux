@@ -74,7 +74,7 @@ pub async fn create_note(filename: String, state: State<'_, AppState>) -> Result
 
 #[tauri::command]
 pub async fn delete_note(path: String, state: State<'_, AppState>) -> Result<(), String> {
-    std::fs::remove_file(&path).map_err(|e| format!("Failed to delete note: {}", e))?;
+    std::fs::remove_file(&path).map_err(|e| format!("Failed to delete note: {e}"))?;
 
     let cache_db = lock_mutex!(
         state.cache_db,
@@ -174,7 +174,7 @@ pub async fn move_note(
 ) -> Result<String, String> {
     // First, get the note content to preserve cache
     let content =
-        std::fs::read_to_string(&old_path).map_err(|e| format!("Failed to read note: {}", e))?;
+        std::fs::read_to_string(&old_path).map_err(|e| format!("Failed to read note: {e}"))?;
 
     // Move the note
     let new_path = note_manager::move_note(&old_path, &new_folder, &state.notes_dir)?;
@@ -400,7 +400,7 @@ pub async fn save_image(
     let images_dir = note_dir.join("images");
     if !images_dir.exists() {
         std::fs::create_dir_all(&images_dir)
-            .map_err(|e| format!("Failed to create images directory: {}", e))?;
+            .map_err(|e| format!("Failed to create images directory: {e}"))?;
     }
 
     // Generate unique filename if file already exists
@@ -418,7 +418,7 @@ pub async fn save_image(
 
     // Save the image
     let image_path = images_dir.join(&final_filename);
-    std::fs::write(&image_path, image_data).map_err(|e| format!("Failed to save image: {}", e))?;
+    std::fs::write(&image_path, image_data).map_err(|e| format!("Failed to save image: {e}"))?;
 
     // Return relative path from note location
     Ok(format!("images/{}", final_filename))
@@ -450,7 +450,7 @@ pub async fn toggle_todo(
 
     // Read the note content
     let mut content =
-        std::fs::read_to_string(&note_path).map_err(|e| format!("Failed to read note: {}", e))?;
+        std::fs::read_to_string(&note_path).map_err(|e| format!("Failed to read note: {e}"))?;
 
     // Update the content
     let lines: Vec<&str> = content.lines().collect();
@@ -474,14 +474,14 @@ pub async fn toggle_todo(
 
         // If original content ended with newline, preserve it
         if std::fs::read_to_string(&note_path)
-            .map_err(|e| format!("Failed to read note: {}", e))?
+            .map_err(|e| format!("Failed to read note: {e}"))?
             .ends_with('\n')
         {
             content.push('\n');
         }
 
         // Save the updated content
-        std::fs::write(&note_path, &content).map_err(|e| format!("Failed to write note: {}", e))?;
+        std::fs::write(&note_path, &content).map_err(|e| format!("Failed to write note: {e}"))?;
     }
 
     Ok(content)
@@ -500,7 +500,7 @@ pub async fn get_daily_note_template(state: State<'_, AppState>) -> Result<Strin
                 "# {{date}}\n\n## Tasks\n- [ ] \n\n## Notes\n\n## Reflections\n\n",
             ))
         }
-        Err(e) => Err(format!("Failed to read template: {}", e)),
+        Err(e) => Err(format!("Failed to read template: {e}")),
     }
 }
 
@@ -514,15 +514,15 @@ pub async fn save_daily_note_template(
 
     // Ensure settings directory exists with proper error handling
     ensure_dir_exists(&settings_path)
-        .map_err(|e| format!("Failed to create settings directory: {}", e))?;
+        .map_err(|e| format!("Failed to create settings directory: {e}"))?;
 
     // Validate the template path is within notes directory
     validate_path_security(&template_path, &state.notes_dir)
-        .map_err(|e| format!("Security error: {}", e))?;
+        .map_err(|e| format!("Security error: {e}"))?;
 
     // Save the template with atomic write
     safe_write_file(&template_path, &template)
-        .map_err(|e| format!("Failed to save template: {}", e))?;
+        .map_err(|e| format!("Failed to save template: {e}"))?;
 
     Ok(())
 }
