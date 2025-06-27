@@ -5,7 +5,7 @@ export const Help: React.FC = () => {
   return (
     <div className="help-container">
       <h1>Help</h1>
-      
+      <p>Version 0.9.3</p>
       <section className="help-section">
         <h2>Features</h2>
         
