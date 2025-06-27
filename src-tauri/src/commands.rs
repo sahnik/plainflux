@@ -54,7 +54,7 @@ pub async fn create_note(filename: String, state: State<'_, AppState>) -> Result
         return Ok(path_str);
     }
 
-    let content = format!("# {}\n\n", filename);
+    let content = format!("# {filename}\n\n");
     note_manager::write_note(&path_str, &content)?;
 
     // Update cache for the new note
@@ -256,8 +256,8 @@ fn rebuild_cache_for_new_note(note_name: &str, state: &AppState) -> Result<(), S
         if let Ok(content) = std::fs::read_to_string(&note.path) {
             // Check if this note contains a link to the new note
             let note_name_without_ext = note_name.trim_end_matches(".md");
-            if content.contains(&format!("[[{}]]", note_name_without_ext))
-                || content.contains(&format!("[[{}.md]]", note_name_without_ext))
+            if content.contains(&format!("[[{note_name_without_ext}]]"))
+                || content.contains(&format!("[[{note_name_without_ext}.md]]"))
             {
                 // Re-update the cache for this note to include the new link
                 let _ = cache_db.update_note_cache(&note.path, &content, &state.notes_dir);
@@ -411,7 +411,7 @@ pub async fn save_image(
         if name_parts.len() == 2 {
             final_filename = format!("{}-{}.{}", name_parts[1], counter, name_parts[0]);
         } else {
-            final_filename = format!("{}-{}", filename, counter);
+            final_filename = format!("{filename}-{counter}");
         }
         counter += 1;
     }
@@ -421,7 +421,7 @@ pub async fn save_image(
     std::fs::write(&image_path, image_data).map_err(|e| format!("Failed to save image: {e}"))?;
 
     // Return relative path from note location
-    Ok(format!("images/{}", final_filename))
+    Ok(format!("images/{final_filename}"))
 }
 
 #[tauri::command]

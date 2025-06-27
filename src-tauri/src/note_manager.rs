@@ -184,13 +184,13 @@ pub fn create_daily_note(base_path: &str, template: Option<&str>) -> Result<Stri
         .map_err(|e| format!("Failed to create Daily Notes directory: {e}"))?;
 
     let today = Local::now().format("%Y-%m-%d").to_string();
-    let note_path = daily_notes_dir.join(format!("{}.md", today));
+    let note_path = daily_notes_dir.join(format!("{today}.md"));
 
     if !note_path.exists() {
         let content = if let Some(template_content) = template {
             apply_template_variables(template_content)
         } else {
-            format!("# {}\n\n", today)
+            format!("# {today}\n\n")
         };
 
         safe_write_file(&note_path, &content)
@@ -360,7 +360,7 @@ pub fn rename_note(old_path: &str, new_name: &str) -> Result<String, String> {
     let new_filename = if new_name.ends_with(".md") {
         new_name.to_string()
     } else {
-        format!("{}.md", new_name)
+        format!("{new_name}.md")
     };
 
     // Create the new path

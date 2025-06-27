@@ -58,7 +58,7 @@ pub fn run() {
 
     // Rebuild cache on startup (non-blocking, don't fail app startup)
     if let Err(e) = rebuild_cache(&app_state) {
-        eprintln!("Warning: Failed to rebuild cache on startup: {}", e);
+        eprintln!("Warning: Failed to rebuild cache on startup: {e}");
         // Continue anyway - cache will be rebuilt as notes are accessed
     }
 

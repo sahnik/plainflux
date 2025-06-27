@@ -12,11 +12,11 @@ pub enum AppError {
 impl fmt::Display for AppError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            AppError::Io(e) => write!(f, "IO error: {}", e),
-            AppError::Database(e) => write!(f, "Database error: {}", e),
-            AppError::NotFound(e) => write!(f, "Not found: {}", e),
-            AppError::InvalidInput(e) => write!(f, "Invalid input: {}", e),
-            AppError::LockPoisoned(e) => write!(f, "Lock poisoned: {}", e),
+            AppError::Io(e) => write!(f, "IO error: {e}"),
+            AppError::Database(e) => write!(f, "Database error: {e}"),
+            AppError::NotFound(e) => write!(f, "Not found: {e}"),
+            AppError::InvalidInput(e) => write!(f, "Invalid input: {e}"),
+            AppError::LockPoisoned(e) => write!(f, "Lock poisoned: {e}"),
         }
     }
 }

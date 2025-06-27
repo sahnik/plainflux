@@ -383,7 +383,7 @@ fn resolve_note_link(link_name: &str, notes_dir: &str) -> Result<String, String>
         }
     }
 
-    Err(format!("Note not found: {}", link_name))
+    Err(format!("Note not found: {link_name}"))
 }
 
 fn extract_todos(content: &str) -> Vec<(i32, String, bool)> {
