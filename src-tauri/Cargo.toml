@@ -1,6 +1,6 @@
 [package]
 name = "plainflux"
-version = "0.9.2"
+version = "0.9.3"
 description = "A modern note-taking app with backlinks and tags"
 authors = ["you"]
 license = "MIT"
@@ -25,9 +25,11 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 rusqlite = { version = "0.31", features = ["bundled"] }
 tokio = { version = "1", features = ["full"] }
-walkdir = "2"
-notify = "6"
-chrono = "0.4"
+chrono = { version = "0.4", features = ["serde"] }
+walkdir = "2.3"
+image = "0.24.6"
+encoding_rs = "0.8.33"
+encoding_rs_io = "0.1.7"
 regex = "1"
 dirs = "5"
 

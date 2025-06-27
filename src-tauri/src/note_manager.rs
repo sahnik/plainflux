@@ -1,6 +1,7 @@
 use crate::utils::safe_write_file;
 use serde::{Deserialize, Serialize};
 use std::fs;
+use std::io::Read;
 use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
 
@@ -218,6 +219,9 @@ fn apply_template_variables(template: &str) -> String {
     result
 }
 
+use encoding_rs::WINDOWS_1252;
+use encoding_rs_io::DecodeReaderBytesBuilder;
+
 pub fn search_notes(base_path: &str, query: &str) -> Result<Vec<Note>, String> {
     let mut results = Vec::new();
     let query_lower = query.to_lowercase();
@@ -236,9 +240,9 @@ pub fn search_notes(base_path: &str, query: &str) -> Result<Vec<Note>, String> {
                 let skip_note = relative_path.components().any(|component| {
                     if let std::path::Component::Normal(name) = component {
                         if let Some(name_str) = name.to_str() {
-                            return name_str == ".plainflux"
-                                || name_str == "images"
-                                || name_str == "Daily Notes";
+                            return name_str.eq_ignore_ascii_case(".plainflux")
+                                || name_str.eq_ignore_ascii_case("images")
+                                || name_str.eq_ignore_ascii_case("Daily Notes");
                         }
                     }
                     false
@@ -249,10 +253,16 @@ pub fn search_notes(base_path: &str, query: &str) -> Result<Vec<Note>, String> {
                 }
             }
 
-            if let Ok(content) = fs::read_to_string(path) {
-                if content.to_lowercase().contains(&query_lower) {
-                    if let Ok(note) = read_note(&path.to_string_lossy()) {
-                        results.push(note);
+            if let Ok(file) = fs::File::open(path) {
+                let mut reader = DecodeReaderBytesBuilder::new()
+                    .encoding(Some(WINDOWS_1252))
+                    .build(file);
+                let mut content = String::new();
+                if reader.read_to_string(&mut content).is_ok() {
+                    if content.to_lowercase().contains(&query_lower) {
+                        if let Ok(note) = read_note(&path.to_string_lossy()) {
+                            results.push(note);
+                        }
                     }
                 }
             }
