@@ -258,7 +258,9 @@ pub fn search_notes(base_path: &str, query: &str) -> Result<Vec<Note>, String> {
                     .encoding(Some(WINDOWS_1252))
                     .build(file);
                 let mut content = String::new();
-                if reader.read_to_string(&mut content).is_ok() && content.to_lowercase().contains(&query_lower) {
+                if reader.read_to_string(&mut content).is_ok()
+                    && content.to_lowercase().contains(&query_lower)
+                {
                     if let Ok(note) = read_note(&path.to_string_lossy()) {
                         results.push(note);
                     }

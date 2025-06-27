@@ -42,10 +42,7 @@ pub fn validate_path_security<P: AsRef<Path>>(path: P, base_dir: &str) -> Result
     let canonical_base = base.canonicalize().map_err(|e| {
         AppError::Io(std::io::Error::new(
             e.kind(),
-            format!(
-                "Failed to canonicalize base directory '{}': {e}",
-                base_dir
-            ),
+            format!("Failed to canonicalize base directory '{}': {e}", base_dir),
         ))
     })?;
 
