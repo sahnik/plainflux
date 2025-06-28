@@ -9,6 +9,7 @@ mod utils;
 use cache::CacheDb;
 use commands::AppState;
 use error::Result;
+use note_manager::read_file_with_encoding;
 use std::sync::Mutex;
 
 fn rebuild_cache(state: &AppState) -> Result<()> {
@@ -24,7 +25,7 @@ fn rebuild_cache(state: &AppState) -> Result<()> {
     };
 
     for note in notes {
-        if let Ok(content) = std::fs::read_to_string(&note.path) {
+        if let Ok(content) = read_file_with_encoding(&note.path) {
             // Ignore individual cache update errors during rebuild
             if let Err(e) = cache_db.update_note_cache(&note.path, &content, &state.notes_dir) {
                 eprintln!("Warning: Failed to update cache for '{}': {}", note.path, e);

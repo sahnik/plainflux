@@ -1,7 +1,7 @@
 use crate::cache::{CacheDb, Todo};
 use crate::error::AppError;
 use crate::lock_mutex;
-use crate::note_manager::{self, Note, NoteMetadata};
+use crate::note_manager::{self, read_file_with_encoding, Note, NoteMetadata};
 use crate::utils::{ensure_dir_exists, safe_read_file, safe_write_file, validate_path_security};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
@@ -174,7 +174,7 @@ pub async fn move_note(
 ) -> Result<String, String> {
     // First, get the note content to preserve cache
     let content =
-        std::fs::read_to_string(&old_path).map_err(|e| format!("Failed to read note: {e}"))?;
+        read_file_with_encoding(&old_path).map_err(|e| format!("Failed to read note: {e}"))?;
 
     // Move the note
     let new_path = note_manager::move_note(&old_path, &new_folder, &state.notes_dir)?;
@@ -225,7 +225,7 @@ pub async fn delete_folder(folder_path: String, state: State<'_, AppState>) -> R
         .map_err(|_| "Failed to lock cache database")?;
 
     for note in notes {
-        if let Ok(content) = std::fs::read_to_string(&note.path) {
+        if let Ok(content) = read_file_with_encoding(&note.path) {
             let _ = cache_db.update_note_cache(&note.path, &content, &state.notes_dir);
         }
     }
@@ -253,7 +253,7 @@ fn rebuild_cache_for_new_note(note_name: &str, state: &AppState) -> Result<(), S
 
     // Check each note to see if it contains a link to the new note
     for note in notes {
-        if let Ok(content) = std::fs::read_to_string(&note.path) {
+        if let Ok(content) = read_file_with_encoding(&note.path) {
             // Check if this note contains a link to the new note
             let note_name_without_ext = note_name.trim_end_matches(".md");
             if content.contains(&format!("[[{note_name_without_ext}]]"))
@@ -450,7 +450,7 @@ pub async fn toggle_todo(
 
     // Read the note content
     let mut content =
-        std::fs::read_to_string(&note_path).map_err(|e| format!("Failed to read note: {e}"))?;
+        read_file_with_encoding(&note_path).map_err(|e| format!("Failed to read note: {e}"))?;
 
     // Update the content
     let lines: Vec<&str> = content.lines().collect();
@@ -473,7 +473,7 @@ pub async fn toggle_todo(
         content = new_lines.join("\n");
 
         // If original content ended with newline, preserve it
-        if std::fs::read_to_string(&note_path)
+        if read_file_with_encoding(&note_path)
             .map_err(|e| format!("Failed to read note: {e}"))?
             .ends_with('\n')
         {
@@ -546,7 +546,7 @@ pub async fn rename_note(
     cache_db.clear_note_cache(&old_path)?;
 
     // Read content and update cache with new path
-    if let Ok(content) = std::fs::read_to_string(&new_path) {
+    if let Ok(content) = read_file_with_encoding(&new_path) {
         cache_db.update_note_cache(&new_path, &content, &state.notes_dir)?;
     }
 
@@ -582,7 +582,7 @@ pub async fn rename_folder(
         let new_note_path = old_note.path.replace(&old_path, &new_path);
 
         // Update cache with new path
-        if let Ok(content) = std::fs::read_to_string(&new_note_path) {
+        if let Ok(content) = read_file_with_encoding(&new_note_path) {
             cache_db.update_note_cache(&new_note_path, &content, &state.notes_dir)?;
         }
     }

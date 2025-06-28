@@ -23,7 +23,7 @@ pub struct NoteMetadata {
 }
 
 pub fn read_note(path: &str) -> Result<Note, String> {
-    let content = fs::read_to_string(path).map_err(|e| format!("Failed to read note: {e}"))?;
+    let content = read_file_with_encoding(path)?;
 
     let metadata = fs::metadata(path).map_err(|e| format!("Failed to get metadata: {e}"))?;
 
@@ -222,6 +222,19 @@ fn apply_template_variables(template: &str) -> String {
 use encoding_rs::WINDOWS_1252;
 use encoding_rs_io::DecodeReaderBytesBuilder;
 
+/// Helper function to read file contents with WINDOWS_1252 encoding
+pub fn read_file_with_encoding(path: &str) -> Result<String, String> {
+    let file = fs::File::open(path).map_err(|e| format!("Failed to open file: {e}"))?;
+    let mut reader = DecodeReaderBytesBuilder::new()
+        .encoding(Some(WINDOWS_1252))
+        .build(file);
+    let mut content = String::new();
+    reader
+        .read_to_string(&mut content)
+        .map_err(|e| format!("Failed to read file: {e}"))?;
+    Ok(content)
+}
+
 pub fn search_notes(base_path: &str, query: &str) -> Result<Vec<Note>, String> {
     let mut results = Vec::new();
     let query_lower = query.to_lowercase();
@@ -253,14 +266,8 @@ pub fn search_notes(base_path: &str, query: &str) -> Result<Vec<Note>, String> {
                 }
             }
 
-            if let Ok(file) = fs::File::open(path) {
-                let mut reader = DecodeReaderBytesBuilder::new()
-                    .encoding(Some(WINDOWS_1252))
-                    .build(file);
-                let mut content = String::new();
-                if reader.read_to_string(&mut content).is_ok()
-                    && content.to_lowercase().contains(&query_lower)
-                {
+            if let Ok(content) = read_file_with_encoding(&path.to_string_lossy()) {
+                if content.to_lowercase().contains(&query_lower) {
                     if let Ok(note) = read_note(&path.to_string_lossy()) {
                         results.push(note);
                     }
