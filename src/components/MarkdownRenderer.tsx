@@ -12,14 +12,29 @@ interface MarkdownRendererProps {
   onTodoToggle?: (lineNumber: number) => void;
   notePath?: string;
   notes?: NoteMetadata[];
+  searchTerm?: string;
 }
 
-export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, onLinkClick, onTagClick, onTodoToggle, notePath, notes }) => {
+export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, onLinkClick, onTagClick, onTodoToggle, notePath, notes, searchTerm }) => {
   // Store link and tag handlers in a ref to avoid stale closures
   const linkHandlersRef = React.useRef<{ [key: string]: () => void }>({});
   const tagHandlersRef = React.useRef<{ [key: string]: () => void }>({});
   const todoHandlersRef = React.useRef<{ [key: string]: () => void }>({});
   const noteExistsRef = React.useRef<{ [key: string]: boolean }>({});
+  const containerRef = React.useRef<HTMLDivElement>(null);
+  
+  // Scroll to first search match when search term changes
+  React.useEffect(() => {
+    if (searchTerm && containerRef.current) {
+      // Small delay to ensure DOM is updated
+      setTimeout(() => {
+        const firstHighlight = containerRef.current?.querySelector('.search-highlight');
+        if (firstHighlight) {
+          firstHighlight.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 100);
+    }
+  }, [searchTerm]);
   
   // Replace [[Note]] syntax with special markers
   let linkCounter = 0;
@@ -64,9 +79,98 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, onL
       return `${prefix}[#${tagName}](#${tagId})`;
     });
   }
+  
+  // Store search highlighting info for later use in components
+  const searchHighlightRef = React.useRef<{
+    searchTerm?: string;
+    regex?: RegExp;
+  }>({});
+  
+  if (searchTerm) {
+    // Create a regex for case-insensitive search, escaping special regex characters
+    const escapedSearchTerm = searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const searchRegex = new RegExp(`(${escapedSearchTerm})`, 'gi');
+    searchHighlightRef.current = { searchTerm, regex: searchRegex };
+  } else {
+    searchHighlightRef.current = {};
+  }
+  
+  // Helper function to highlight search terms in text
+  const highlightText = (text: string): React.ReactNode => {
+    if (!searchHighlightRef.current.regex || !searchHighlightRef.current.searchTerm) {
+      return text;
+    }
+    
+    const searchTerm = searchHighlightRef.current.searchTerm;
+    
+    // Create a new regex for each call to avoid state issues
+    const escapedSearchTerm = searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`(${escapedSearchTerm})`, 'gi');
+    
+    const parts = text.split(regex);
+    
+    // If no matches found, return original text
+    if (parts.length === 1) {
+      return text;
+    }
+    
+    const result: React.ReactNode[] = [];
+    
+    for (let i = 0; i < parts.length; i++) {
+      const part = parts[i];
+      
+      // Check if this part matches our search term (case-insensitive)
+      if (part && part.toLowerCase() === searchTerm.toLowerCase()) {
+        result.push(
+          <mark
+            key={`highlight-${i}`}
+            className="search-highlight"
+            style={{
+              backgroundColor: '#ffeb3b',
+              color: '#000',
+              padding: '2px',
+              borderRadius: '2px'
+            }}
+          >
+            {part}
+          </mark>
+        );
+      } else {
+        // Only add non-empty parts
+        if (part) {
+          result.push(part);
+        }
+      }
+    }
+    
+    return result;
+  };
+  
+  // Helper function to process children and highlight text nodes
+  const processChildren = (children: React.ReactNode): React.ReactNode => {
+    if (!searchHighlightRef.current.regex || !searchHighlightRef.current.searchTerm) {
+      return children;
+    }
+    
+    if (typeof children === 'string') {
+      return highlightText(children);
+    }
+    
+    if (Array.isArray(children)) {
+      return children.map((child, index) => {
+        if (typeof child === 'string') {
+          return <React.Fragment key={index}>{highlightText(child)}</React.Fragment>;
+        }
+        return child;
+      });
+    }
+    
+    return children;
+  };
 
   return (
     <div 
+      ref={containerRef}
       onClick={(e) => {
         // Handle clicks on links using event delegation
         const target = e.target as HTMLElement;
@@ -92,6 +196,29 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, onL
       <ReactMarkdown 
         remarkPlugins={[remarkGfm]}
         components={{
+          // Highlight text in paragraphs
+          p: ({ node, children, ...props }) => {
+            return <p {...props}>{processChildren(children)}</p>;
+          },
+          // Highlight text in headings  
+          h1: ({ node, children, ...props }) => {
+            return <h1 {...props}>{processChildren(children)}</h1>;
+          },
+          h2: ({ node, children, ...props }) => {
+            return <h2 {...props}>{processChildren(children)}</h2>;
+          },
+          h3: ({ node, children, ...props }) => {
+            return <h3 {...props}>{processChildren(children)}</h3>;
+          },
+          h4: ({ node, children, ...props }) => {
+            return <h4 {...props}>{processChildren(children)}</h4>;
+          },
+          h5: ({ node, children, ...props }) => {
+            return <h5 {...props}>{processChildren(children)}</h5>;
+          },
+          h6: ({ node, children, ...props }) => {
+            return <h6 {...props}>{processChildren(children)}</h6>;
+          },
           a: ({ node, ...props }) => {
             const href = props.href || '';
             

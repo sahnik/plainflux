@@ -7,6 +7,7 @@ import { MarkdownRenderer } from './MarkdownRenderer';
 import { Note, NoteMetadata } from '../types';
 import { createAutocompleteExtension } from '../utils/editorAutocomplete';
 import { createPasteHandler } from '../utils/imageHandler';
+import { createSearchHighlightExtension, setSearchTerm, scrollToFirstMatch } from '../utils/searchHighlight';
 
 interface NoteEditorProps {
   note: Note | null;
@@ -17,9 +18,10 @@ interface NoteEditorProps {
   onTodoToggle?: (lineNumber: number) => void;
   notes: NoteMetadata[];
   tags: string[];
+  searchTerm?: string;
 }
 
-export const NoteEditor: React.FC<NoteEditorProps> = ({ note, isPreview, onChange, onLinkClick, onTagClick, onTodoToggle, notes, tags }) => {
+export const NoteEditor: React.FC<NoteEditorProps> = ({ note, isPreview, onChange, onLinkClick, onTagClick, onTodoToggle, notes, tags, searchTerm }) => {
   const editorRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   const autocompleteDataRef = useRef({ notes, tags });
@@ -45,6 +47,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, isPreview, onChang
         EditorView.lineWrapping,
         createAutocompleteExtension(autocompleteDataRef),
         createPasteHandler(note.path),
+        createSearchHighlightExtension(),
         EditorView.updateListener.of((update) => {
           if (update.docChanged) {
             onChange(update.state.doc.toString());
@@ -58,12 +61,18 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, isPreview, onChang
       parent: editorRef.current,
     });
 
+    // Apply search highlighting immediately if there's a search term
+    if (searchTerm) {
+      setSearchTerm(viewRef.current, searchTerm);
+      scrollToFirstMatch(viewRef.current, searchTerm);
+    }
+
     return () => {
       if (viewRef.current) {
         viewRef.current.destroy();
       }
     };
-  }, [note?.path, isPreview]);
+  }, [note?.path, isPreview, searchTerm]);
 
   // Update editor content when note changes
   useEffect(() => {
@@ -81,6 +90,16 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, isPreview, onChang
     }
   }, [note?.content, isPreview]);
 
+  // Update search highlighting when search term changes
+  useEffect(() => {
+    if (!viewRef.current || isPreview) return;
+    
+    setSearchTerm(viewRef.current, searchTerm || '');
+    if (searchTerm) {
+      scrollToFirstMatch(viewRef.current, searchTerm);
+    }
+  }, [searchTerm, isPreview]);
+
   if (!note) {
     return <div className="editor-empty">Select a note to start editing</div>;
   }
@@ -95,6 +114,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, isPreview, onChang
           onTodoToggle={onTodoToggle}
           notePath={note.path}
           notes={notes}
+          searchTerm={searchTerm}
         />
       </div>
     );

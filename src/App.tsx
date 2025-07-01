@@ -33,6 +33,7 @@ function AppContent() {
   const [searchResults, setSearchResults] = useState<Note[]>([]);
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [tagFilteredNotes, setTagFilteredNotes] = useState<NoteMetadata[]>([]);
+  const [searchTerm, setSearchTerm] = useState<string>('');
   const [deleteDialog, setDeleteDialog] = useState<{
     isOpen: boolean;
     type: 'note' | 'folder';
@@ -127,6 +128,10 @@ function AppContent() {
   const handleNoteSelect = async (noteMetadata: NoteMetadata) => {
     const note = await tauriApi.readNote(noteMetadata.path);
     setSelectedNote(note);
+    // Clear search term when selecting from non-search views
+    if (currentView !== 'search') {
+      setSearchTerm('');
+    }
   };
 
   const handleNoteChange = (content: string) => {
@@ -141,10 +146,12 @@ function AppContent() {
   const handleSearch = useCallback(async (query: string) => {
     if (query.trim() === '') {
       setSearchResults([]);
+      setSearchTerm('');
       return;
     }
     const results = await tauriApi.searchNotes(query);
     setSearchResults(results);
+    setSearchTerm(query);
   }, []);
 
   const handleDailyNote = async () => {
@@ -152,6 +159,7 @@ function AppContent() {
     const note = await tauriApi.readNote(path);
     setSelectedNote(note);
     setCurrentView('notes');
+    setSearchTerm('');
   };
 
   const handleTagSelect = async (tag: string) => {
@@ -170,6 +178,7 @@ function AppContent() {
   const handleBacklinkClick = async (path: string) => {
     const note = await tauriApi.readNote(path);
     setSelectedNote(note);
+    setSearchTerm('');
   };
 
   const handleNoteMove = async (note: NoteMetadata, targetFolder: string) => {
@@ -205,6 +214,7 @@ function AppContent() {
         // Refresh the notes list
         queryClient.invalidateQueries({ queryKey: ['notes'] });
       }
+      setSearchTerm('');
     } catch (error) {
       console.error('Failed to handle note link:', error);
     }
@@ -398,6 +408,7 @@ function AppContent() {
       const note = await tauriApi.readNote(notePath);
       setSelectedNote(note);
       setCurrentView('notes');
+      setSearchTerm('');
     } catch (error) {
       console.error('Failed to open note:', error);
     }
@@ -574,6 +585,7 @@ function AppContent() {
                 onTodoToggle={handleTodoToggle}
                 notes={notes}
                 tags={tags}
+                searchTerm={searchTerm}
               />
             )}
           </div>
