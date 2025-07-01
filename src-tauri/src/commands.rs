@@ -87,12 +87,16 @@ pub async fn delete_note(path: String, state: State<'_, AppState>) -> Result<(),
 
 #[tauri::command]
 pub async fn search_notes(query: String, state: State<'_, AppState>) -> Result<Vec<Note>, String> {
-    println!("[COMMAND] search_notes called with query: '{}'", query);
-    println!("[COMMAND] Notes directory: {}", state.notes_dir);
+    println!("[COMMAND] search_notes called with query: '{query}'");
+    let notes_dir = &state.notes_dir;
+    println!("[COMMAND] Notes directory: {notes_dir}");
     let result = note_manager::search_notes(&state.notes_dir, &query);
     match &result {
-        Ok(notes) => println!("[COMMAND] Search returned {} results", notes.len()),
-        Err(e) => println!("[COMMAND] Search error: {}", e),
+        Ok(notes) => {
+            let count = notes.len();
+            println!("[COMMAND] Search returned {count} results");
+        }
+        Err(e) => println!("[COMMAND] Search error: {e}"),
     }
     result
 }

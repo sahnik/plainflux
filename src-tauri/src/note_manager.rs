@@ -232,7 +232,7 @@ pub fn read_file_with_encoding(path: &str) -> Result<String, String> {
 
     let file = fs::File::open(&path).map_err(|e| {
         let err_msg = format!("Failed to open file: {e}");
-        println!("[READ] ERROR: {}", err_msg);
+        println!("[READ] ERROR: {err_msg}");
         err_msg
     })?;
 
@@ -249,7 +249,7 @@ pub fn read_file_with_encoding(path: &str) -> Result<String, String> {
         }
         Err(e) => {
             let err_msg = format!("Failed to read file: {e}");
-            println!("[READ] ERROR reading {}: {}", path, err_msg);
+            println!("[READ] ERROR reading {path}: {err_msg}");
             return Err(err_msg);
         }
     }
@@ -258,8 +258,8 @@ pub fn read_file_with_encoding(path: &str) -> Result<String, String> {
 }
 
 pub fn search_notes(base_path: &str, query: &str) -> Result<Vec<Note>, String> {
-    println!("[SEARCH] Starting search for query: '{}'", query);
-    println!("[SEARCH] Base path: {}", base_path);
+    println!("[SEARCH] Starting search for query: '{query}'");
+    println!("[SEARCH] Base path: {base_path}");
 
     let mut results = Vec::new();
     let query_lower = query.to_lowercase();
@@ -277,7 +277,7 @@ pub fn search_notes(base_path: &str, query: &str) -> Result<Vec<Note>, String> {
         .into_iter()
         .filter_map(|e| {
             if let Err(ref err) = e {
-                println!("[SEARCH] WalkDir error: {}", err);
+                println!("[SEARCH] WalkDir error: {err}");
             }
             e.ok()
         })
@@ -312,17 +312,19 @@ pub fn search_notes(base_path: &str, query: &str) -> Result<Vec<Note>, String> {
 
             // Check for potential path encoding issues
             if path_str.contains('�') {
-                println!("[SEARCH] WARNING: Path contains replacement character, may have encoding issues: {}", path_str);
+                println!("[SEARCH] WARNING: Path contains replacement character, may have encoding issues: {path_str}");
             }
 
             match read_file_with_encoding(&path_str) {
                 Ok(content) => {
                     if content.to_lowercase().contains(&query_lower) {
                         matched_files += 1;
-                        println!("[SEARCH] Match found in: {}", path.display());
+                        let path_display = path.display();
+                        println!("[SEARCH] Match found in: {path_display}");
                         match read_note(&path.to_string_lossy()) {
                             Ok(note) => {
-                                println!("[SEARCH] Successfully read note: {}", note.title);
+                                let title = &note.title;
+                                println!("[SEARCH] Successfully read note: {title}");
                                 results.push(note);
                             }
                             Err(e) => {
@@ -347,8 +349,8 @@ pub fn search_notes(base_path: &str, query: &str) -> Result<Vec<Note>, String> {
         }
     }
 
-    println!("[SEARCH] Search complete. Total files: {}, MD files: {}, Skipped: {}, Read errors: {}, Matches: {}, Results: {}",
-        total_files, md_files, skipped_files, read_errors, matched_files, results.len());
+    let results_len = results.len();
+    println!("[SEARCH] Search complete. Total files: {total_files}, MD files: {md_files}, Skipped: {skipped_files}, Read errors: {read_errors}, Matches: {matched_files}, Results: {results_len}");
 
     Ok(results)
 }

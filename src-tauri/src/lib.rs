@@ -28,7 +28,8 @@ fn rebuild_cache(state: &AppState) -> Result<()> {
         if let Ok(content) = read_file_with_encoding(&note.path) {
             // Ignore individual cache update errors during rebuild
             if let Err(e) = cache_db.update_note_cache(&note.path, &content, &state.notes_dir) {
-                eprintln!("Warning: Failed to update cache for '{}': {}", note.path, e);
+                let path = &note.path;
+                eprintln!("Warning: Failed to update cache for '{path}': {e}");
             }
         }
     }

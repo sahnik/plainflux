@@ -14,7 +14,7 @@ macro_rules! lock_mutex {
         match $mutex.lock() {
             Ok(guard) => guard,
             Err(poisoned) => {
-                eprintln!("Warning: {}", $error_msg);
+                eprintln!("Warning: {error_msg}", error_msg = $error_msg);
                 poisoned.into_inner()
             }
         }
