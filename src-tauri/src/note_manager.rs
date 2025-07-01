@@ -229,20 +229,20 @@ pub fn read_file_with_encoding(path: &str) -> Result<String, String> {
     let path = path.replace('/', "\\");
     #[cfg(not(target_os = "windows"))]
     let path = path.to_string();
-    
+
     let file = fs::File::open(&path).map_err(|e| {
         let err_msg = format!("Failed to open file: {e}");
         println!("[READ] ERROR: {}", err_msg);
         err_msg
     })?;
-    
+
     let _file_size = file.metadata().map(|m| m.len()).unwrap_or(0);
-    
+
     let mut reader = DecodeReaderBytesBuilder::new()
         .encoding(Some(WINDOWS_1252))
         .build(file);
     let mut content = String::new();
-    
+
     match reader.read_to_string(&mut content) {
         Ok(_) => {
             // Successfully read file
@@ -253,14 +253,14 @@ pub fn read_file_with_encoding(path: &str) -> Result<String, String> {
             return Err(err_msg);
         }
     }
-    
+
     Ok(content)
 }
 
 pub fn search_notes(base_path: &str, query: &str) -> Result<Vec<Note>, String> {
     println!("[SEARCH] Starting search for query: '{}'", query);
     println!("[SEARCH] Base path: {}", base_path);
-    
+
     let mut results = Vec::new();
     let query_lower = query.to_lowercase();
 
@@ -300,18 +300,21 @@ pub fn search_notes(base_path: &str, query: &str) -> Result<Vec<Note>, String> {
 
                 if skip_note {
                     skipped_files += 1;
-                    println!("[SEARCH] Skipping file in excluded folder: {}", path.display());
+                    println!(
+                        "[SEARCH] Skipping file in excluded folder: {}",
+                        path.display()
+                    );
                     continue;
                 }
             }
 
             let path_str = path.to_string_lossy();
-            
+
             // Check for potential path encoding issues
             if path_str.contains('�') {
                 println!("[SEARCH] WARNING: Path contains replacement character, may have encoding issues: {}", path_str);
             }
-            
+
             match read_file_with_encoding(&path_str) {
                 Ok(content) => {
                     if content.to_lowercase().contains(&query_lower) {
@@ -323,14 +326,22 @@ pub fn search_notes(base_path: &str, query: &str) -> Result<Vec<Note>, String> {
                                 results.push(note);
                             }
                             Err(e) => {
-                                println!("[SEARCH] ERROR reading matched note {}: {}", path.display(), e);
+                                println!(
+                                    "[SEARCH] ERROR reading matched note {}: {}",
+                                    path.display(),
+                                    e
+                                );
                             }
                         }
                     }
                 }
                 Err(e) => {
                     read_errors += 1;
-                    println!("[SEARCH] ERROR reading file content {}: {}", path.display(), e);
+                    println!(
+                        "[SEARCH] ERROR reading file content {}: {}",
+                        path.display(),
+                        e
+                    );
                 }
             }
         }
@@ -338,7 +349,7 @@ pub fn search_notes(base_path: &str, query: &str) -> Result<Vec<Note>, String> {
 
     println!("[SEARCH] Search complete. Total files: {}, MD files: {}, Skipped: {}, Read errors: {}, Matches: {}, Results: {}",
         total_files, md_files, skipped_files, read_errors, matched_files, results.len());
-    
+
     Ok(results)
 }
 
