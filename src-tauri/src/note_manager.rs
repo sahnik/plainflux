@@ -224,58 +224,121 @@ use encoding_rs_io::DecodeReaderBytesBuilder;
 
 /// Helper function to read file contents with WINDOWS_1252 encoding
 pub fn read_file_with_encoding(path: &str) -> Result<String, String> {
-    let file = fs::File::open(path).map_err(|e| format!("Failed to open file: {e}"))?;
+    // On Windows, ensure path uses proper separators
+    #[cfg(target_os = "windows")]
+    let path = path.replace('/', "\\");
+    #[cfg(not(target_os = "windows"))]
+    let path = path.to_string();
+    
+    let file = fs::File::open(&path).map_err(|e| {
+        let err_msg = format!("Failed to open file: {e}");
+        println!("[READ] ERROR: {}", err_msg);
+        err_msg
+    })?;
+    
+    let _file_size = file.metadata().map(|m| m.len()).unwrap_or(0);
+    
     let mut reader = DecodeReaderBytesBuilder::new()
         .encoding(Some(WINDOWS_1252))
         .build(file);
     let mut content = String::new();
-    reader
-        .read_to_string(&mut content)
-        .map_err(|e| format!("Failed to read file: {e}"))?;
+    
+    match reader.read_to_string(&mut content) {
+        Ok(_) => {
+            // Successfully read file
+        }
+        Err(e) => {
+            let err_msg = format!("Failed to read file: {e}");
+            println!("[READ] ERROR reading {}: {}", path, err_msg);
+            return Err(err_msg);
+        }
+    }
+    
     Ok(content)
 }
 
 pub fn search_notes(base_path: &str, query: &str) -> Result<Vec<Note>, String> {
+    println!("[SEARCH] Starting search for query: '{}'", query);
+    println!("[SEARCH] Base path: {}", base_path);
+    
     let mut results = Vec::new();
     let query_lower = query.to_lowercase();
 
     let base_path_buf = Path::new(base_path);
 
+    let mut total_files = 0;
+    let mut md_files = 0;
+    let mut skipped_files = 0;
+    let mut read_errors = 0;
+    let mut matched_files = 0;
+
     for entry in WalkDir::new(base_path)
         .follow_links(true)
         .into_iter()
-        .filter_map(|e| e.ok())
+        .filter_map(|e| {
+            if let Err(ref err) = e {
+                println!("[SEARCH] WalkDir error: {}", err);
+            }
+            e.ok()
+        })
     {
+        total_files += 1;
         let path = entry.path();
         if path.extension().and_then(|s| s.to_str()) == Some("md") {
-            // Skip notes in hidden folders
+            md_files += 1;
+            // Skip notes in .plainflux and images folders
             if let Ok(relative_path) = path.strip_prefix(base_path_buf) {
                 let skip_note = relative_path.components().any(|component| {
                     if let std::path::Component::Normal(name) = component {
                         if let Some(name_str) = name.to_str() {
                             return name_str.eq_ignore_ascii_case(".plainflux")
-                                || name_str.eq_ignore_ascii_case("images")
-                                || name_str.eq_ignore_ascii_case("Daily Notes");
+                                || name_str.eq_ignore_ascii_case("images");
                         }
                     }
                     false
                 });
 
                 if skip_note {
+                    skipped_files += 1;
+                    println!("[SEARCH] Skipping file in excluded folder: {}", path.display());
                     continue;
                 }
             }
 
-            if let Ok(content) = read_file_with_encoding(&path.to_string_lossy()) {
-                if content.to_lowercase().contains(&query_lower) {
-                    if let Ok(note) = read_note(&path.to_string_lossy()) {
-                        results.push(note);
+            let path_str = path.to_string_lossy();
+            
+            // Check for potential path encoding issues
+            if path_str.contains('�') {
+                println!("[SEARCH] WARNING: Path contains replacement character, may have encoding issues: {}", path_str);
+            }
+            
+            match read_file_with_encoding(&path_str) {
+                Ok(content) => {
+                    if content.to_lowercase().contains(&query_lower) {
+                        matched_files += 1;
+                        println!("[SEARCH] Match found in: {}", path.display());
+                        match read_note(&path.to_string_lossy()) {
+                            Ok(note) => {
+                                println!("[SEARCH] Successfully read note: {}", note.title);
+                                results.push(note);
+                            }
+                            Err(e) => {
+                                println!("[SEARCH] ERROR reading matched note {}: {}", path.display(), e);
+                            }
+                        }
                     }
+                }
+                Err(e) => {
+                    read_errors += 1;
+                    println!("[SEARCH] ERROR reading file content {}: {}", path.display(), e);
                 }
             }
         }
     }
 
+    println!("[SEARCH] Search complete. Total files: {}, MD files: {}, Skipped: {}, Read errors: {}, Matches: {}, Results: {}",
+        total_files, md_files, skipped_files, read_errors, matched_files, results.len());
+    
     Ok(results)
 }
 

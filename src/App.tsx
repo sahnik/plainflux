@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { QueryClient, QueryClientProvider, useQuery, useMutation } from '@tanstack/react-query';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 import { Eye, Edit, FileText, Network } from 'lucide-react';
@@ -138,14 +138,14 @@ function AppContent() {
     saveMutation.mutate({ path: selectedNote.path, content });
   };
 
-  const handleSearch = async (query: string) => {
+  const handleSearch = useCallback(async (query: string) => {
     if (query.trim() === '') {
       setSearchResults([]);
       return;
     }
     const results = await tauriApi.searchNotes(query);
     setSearchResults(results);
-  };
+  }, []);
 
   const handleDailyNote = async () => {
     const path = await tauriApi.getDailyNote();

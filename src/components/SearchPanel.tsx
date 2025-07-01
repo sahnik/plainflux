@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Search } from 'lucide-react';
 import { Note } from '../types';
 
@@ -11,6 +11,7 @@ interface SearchPanelProps {
 export const SearchPanel: React.FC<SearchPanelProps> = ({ onSearch, results, onResultSelect }) => {
   const [query, setQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
+  const lastSearchedQuery = useRef<string>('');
 
   // Debounce the search query
   useEffect(() => {
@@ -23,11 +24,15 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({ onSearch, results, onR
 
   // Trigger search when debounced query changes
   useEffect(() => {
-    if (debouncedQuery) {
-      onSearch(debouncedQuery);
-    } else if (debouncedQuery === '') {
-      // Clear results when query is empty
-      onSearch('');
+    // Only search if the query is different from the last searched query
+    if (debouncedQuery !== lastSearchedQuery.current) {
+      lastSearchedQuery.current = debouncedQuery;
+      if (debouncedQuery) {
+        onSearch(debouncedQuery);
+      } else if (debouncedQuery === '') {
+        // Clear results when query is empty
+        onSearch('');
+      }
     }
   }, [debouncedQuery, onSearch]);
 

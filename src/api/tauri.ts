@@ -23,7 +23,15 @@ export const tauriApi = {
   },
 
   async searchNotes(query: string): Promise<Note[]> {
-    return invoke('search_notes', { query });
+    console.log('[FRONTEND] Searching for:', query);
+    try {
+      const results = await invoke('search_notes', { query });
+      console.log('[FRONTEND] Search returned', results);
+      return results as Note[];
+    } catch (error) {
+      console.error('[FRONTEND] Search error:', error);
+      throw error;
+    }
   },
 
   async getDailyNote(): Promise<string> {
