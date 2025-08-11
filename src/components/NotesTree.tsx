@@ -7,6 +7,7 @@ interface NotesTreeProps {
   folders: string[];
   selectedPath?: string;
   onNoteSelect: (note: NoteMetadata) => void;
+  onNoteDoubleClick?: (note: NoteMetadata) => void;
   onNoteMove: (note: NoteMetadata, targetFolder: string) => void;
   onNoteDelete: (note: NoteMetadata) => void;
   onFolderDelete: (folderPath: string) => void;
@@ -86,7 +87,8 @@ export const NotesTree: React.FC<NotesTreeProps> = ({
   notes, 
   folders,
   selectedPath, 
-  onNoteSelect, 
+  onNoteSelect,
+  onNoteDoubleClick,
   onNoteMove,
   onNoteDelete,
   onFolderDelete,
@@ -146,6 +148,7 @@ export const NotesTree: React.FC<NotesTreeProps> = ({
         onToggle={handleToggle}
         selectedPath={selectedPath}
         onNoteSelect={onNoteSelect}
+        onNoteDoubleClick={onNoteDoubleClick}
         onNoteDelete={onNoteDelete}
         onFolderDelete={onFolderDelete}
         onFolderCreate={onFolderCreate}
@@ -234,6 +237,7 @@ const FolderItem: React.FC<{
   onToggle: (path: string) => void;
   selectedPath?: string;
   onNoteSelect: (note: NoteMetadata) => void;
+  onNoteDoubleClick?: (note: NoteMetadata) => void;
   onNoteDelete: (note: NoteMetadata) => void;
   onFolderDelete: (folderPath: string) => void;
   onFolderCreate: (parentPath: string) => void;
@@ -250,6 +254,7 @@ const FolderItem: React.FC<{
   onToggle, 
   selectedPath, 
   onNoteSelect,
+  onNoteDoubleClick,
   onNoteDelete,
   onFolderDelete,
   onFolderCreate,
@@ -328,6 +333,7 @@ const FolderItem: React.FC<{
             level={0}
             selected={selectedPath === note.path}
             onSelect={onNoteSelect}
+            onDoubleClick={onNoteDoubleClick}
             onDelete={onNoteDelete}
             setDraggedNote={setDraggedNote}
             isDragging={draggedNote?.path === note.path}
@@ -343,6 +349,7 @@ const FolderItem: React.FC<{
             onToggle={onToggle}
             selectedPath={selectedPath}
             onNoteSelect={onNoteSelect}
+            onNoteDoubleClick={onNoteDoubleClick}
             onNoteDelete={onNoteDelete}
             onFolderDelete={onFolderDelete}
             onFolderCreate={onFolderCreate}
@@ -384,6 +391,7 @@ const FolderItem: React.FC<{
               level={level}
               selected={selectedPath === note.path}
               onSelect={onNoteSelect}
+              onDoubleClick={onNoteDoubleClick}
               onDelete={onNoteDelete}
               setDraggedNote={setDraggedNote}
               isDragging={draggedNote?.path === note.path}
@@ -399,6 +407,7 @@ const FolderItem: React.FC<{
               onToggle={onToggle}
               selectedPath={selectedPath}
               onNoteSelect={onNoteSelect}
+              onNoteDoubleClick={onNoteDoubleClick}
               onNoteDelete={onNoteDelete}
               onFolderDelete={onFolderDelete}
               onFolderCreate={onFolderCreate}
@@ -421,44 +430,77 @@ const NoteItem: React.FC<{
   level: number;
   selected: boolean;
   onSelect: (note: NoteMetadata) => void;
+  onDoubleClick?: (note: NoteMetadata) => void;
   onDelete: (note: NoteMetadata) => void;
   setDraggedNote: (note: NoteMetadata | null) => void;
   isDragging: boolean;
   setContextMenu: (menu: { x: number; y: number; type: 'note' | 'folder'; item: any } | null) => void;
-}> = ({ note, level, selected, onSelect, setDraggedNote, isDragging, setContextMenu }) => {
-  const [mouseDownPos, setMouseDownPos] = useState<{ x: number; y: number } | null>(null);
+}> = ({ note, level, selected, onSelect, onDoubleClick, setDraggedNote, isDragging, setContextMenu }) => {
+  const [clickTimer, setClickTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
+  const [dragStart, setDragStart] = useState<{ x: number; y: number } | null>(null);
+
+  const handleClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (clickTimer) {
+      // This is a double click - clear the single click timer
+      clearTimeout(clickTimer);
+      setClickTimer(null);
+      if (onDoubleClick) {
+        onDoubleClick(note);
+      }
+    } else {
+      // Set a timer for single click
+      const timer = setTimeout(() => {
+        onSelect(note);
+        setClickTimer(null);
+      }, 175); // 175 delay to wait for potential double-click
+      setClickTimer(timer);
+    }
+  };
 
   const handleMouseDown = (e: React.MouseEvent) => {
-    e.preventDefault();
-    setMouseDownPos({ x: e.clientX, y: e.clientY });
+    // Record position for drag detection
+    setDragStart({ x: e.clientX, y: e.clientY });
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
-    if (!mouseDownPos) return;
+    if (!dragStart) return;
 
     // Check if mouse has moved enough to start drag (5px threshold)
     const distance = Math.sqrt(
-      Math.pow(e.clientX - mouseDownPos.x, 2) + 
-      Math.pow(e.clientY - mouseDownPos.y, 2)
+      Math.pow(e.clientX - dragStart.x, 2) + 
+      Math.pow(e.clientY - dragStart.y, 2)
     );
 
     if (distance > 5) {
+      // Cancel any pending click
+      if (clickTimer) {
+        clearTimeout(clickTimer);
+        setClickTimer(null);
+      }
       setDraggedNote(note);
-      setMouseDownPos(null);
+      setDragStart(null);
     }
   };
 
   const handleMouseUp = () => {
-    if (mouseDownPos && !isDragging) {
-      // This was a click, not a drag
-      onSelect(note);
-    }
-    setMouseDownPos(null);
+    setDragStart(null);
+  };
+
+  const handleMouseLeave = () => {
+    setDragStart(null);
   };
 
   const handleContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    // Cancel any pending click
+    if (clickTimer) {
+      clearTimeout(clickTimer);
+      setClickTimer(null);
+    }
     setContextMenu({
       x: e.clientX,
       y: e.clientY,
@@ -466,6 +508,15 @@ const NoteItem: React.FC<{
       item: note
     });
   };
+
+  // Clean up timer on unmount
+  useEffect(() => {
+    return () => {
+      if (clickTimer) {
+        clearTimeout(clickTimer);
+      }
+    };
+  }, [clickTimer]);
 
   return (
     <div
@@ -476,10 +527,11 @@ const NoteItem: React.FC<{
         cursor: isDragging ? 'grabbing' : 'grab',
         userSelect: 'none'
       }}
+      onClick={handleClick}
       onMouseDown={handleMouseDown}
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
-      onMouseLeave={() => setMouseDownPos(null)}
+      onMouseLeave={handleMouseLeave}
       onContextMenu={handleContextMenu}
     >
       <FileText size={14} />

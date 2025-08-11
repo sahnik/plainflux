@@ -16,15 +16,18 @@ import { GraphView } from './components/GraphView';
 import { TodosList } from './components/TodosList';
 import { Help } from './components/Help';
 import { TemplateSettings } from './components/TemplateSettings';
+import { TabBar } from './components/TabBar';
 
 import { tauriApi, Todo } from './api/tauri';
-import { ViewType, Note, NoteMetadata } from './types';
+import { ViewType, Note, NoteMetadata, Tab } from './types';
 
 const queryClient = new QueryClient();
 
 function AppContent() {
   const [currentView, setCurrentView] = useState<ViewType>('notes');
   const [selectedNote, setSelectedNote] = useState<Note | null>(null);
+  const [tabs, setTabs] = useState<Tab[]>([]);
+  const [activeTabIndex, setActiveTabIndex] = useState(0);
   const [isPreview, setIsPreview] = useState(false);
   const [showLocalGraph, setShowLocalGraph] = useState(false);
   const [showGlobalGraph, setShowGlobalGraph] = useState(false);
@@ -97,12 +100,91 @@ function AppContent() {
   const saveMutation = useMutation({
     mutationFn: ({ path, content }: { path: string; content: string }) =>
       tauriApi.saveNote(path, content),
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['notes'] });
       queryClient.invalidateQueries({ queryKey: ['tags'] });
       queryClient.invalidateQueries({ queryKey: ['incompleteTodos'] });
+      
+      // Mark the tab as clean after successful save
+      setTabs(currentTabs => {
+        const tabIndex = currentTabs.findIndex(tab => tab.note.path === variables.path);
+        if (tabIndex !== -1) {
+          const updatedTabs = [...currentTabs];
+          updatedTabs[tabIndex].isDirty = false;
+          return updatedTabs;
+        }
+        return currentTabs;
+      });
     },
   });
+
+  // Tab management functions
+  const openInNewTab = useCallback((note: Note) => {
+    // Check if the note is already open in a tab
+    const existingTabIndex = tabs.findIndex(tab => tab.note.path === note.path);
+    
+    if (existingTabIndex !== -1) {
+      // Note is already open, switch to that tab
+      setActiveTabIndex(existingTabIndex);
+    } else {
+      // Open in new tab
+      const newTab: Tab = { note, isDirty: false };
+      setTabs([...tabs, newTab]);
+      setActiveTabIndex(tabs.length);
+    }
+    
+    setSelectedNote(note);
+  }, [tabs]);
+
+  const closeTab = useCallback((index: number) => {
+    const tabToClose = tabs[index];
+    
+    // Check if tab has unsaved changes
+    if (tabToClose.isDirty) {
+      // For now, just show a confirm dialog using browser's confirm
+      // In production, you'd use a proper dialog component
+      if (!window.confirm(`"${tabToClose.note.title}" has unsaved changes. Close anyway?`)) {
+        return;
+      }
+    }
+    
+    const newTabs = tabs.filter((_, i) => i !== index);
+    setTabs(newTabs);
+    
+    // Adjust active tab index
+    if (newTabs.length === 0) {
+      setSelectedNote(null);
+      setActiveTabIndex(0);
+    } else if (index === activeTabIndex) {
+      // Closing the active tab
+      const newActiveIndex = index >= newTabs.length ? newTabs.length - 1 : index;
+      setActiveTabIndex(newActiveIndex);
+      setSelectedNote(newTabs[newActiveIndex].note);
+    } else if (index < activeTabIndex) {
+      // Closing a tab before the active one
+      setActiveTabIndex(activeTabIndex - 1);
+    }
+  }, [tabs, activeTabIndex]);
+
+  const switchTab = useCallback((index: number) => {
+    if (index >= 0 && index < tabs.length) {
+      setActiveTabIndex(index);
+      setSelectedNote(tabs[index].note);
+    }
+  }, [tabs]);
+
+  const updateTabContent = useCallback((content: string) => {
+    if (!selectedNote || tabs.length === 0) return;
+    
+    const updatedTabs = [...tabs];
+    updatedTabs[activeTabIndex] = {
+      ...updatedTabs[activeTabIndex],
+      note: { ...updatedTabs[activeTabIndex].note, content },
+      isDirty: true
+    };
+    setTabs(updatedTabs);
+    setSelectedNote({ ...selectedNote, content });
+  }, [selectedNote, tabs, activeTabIndex]);
 
   // Open daily note on startup
   useEffect(() => {
@@ -119,15 +201,71 @@ function AppContent() {
           setIsPreview(!isPreview);
         }
       }
+      
+      // Cmd/Ctrl + W: Close current tab
+      if ((e.metaKey || e.ctrlKey) && e.key === 'w') {
+        e.preventDefault();
+        if (tabs.length > 0) {
+          closeTab(activeTabIndex);
+        }
+      }
+      
+      // Cmd/Ctrl + Tab: Cycle through tabs
+      if ((e.metaKey || e.ctrlKey) && e.key === 'Tab') {
+        e.preventDefault();
+        if (tabs.length > 1) {
+          if (e.shiftKey) {
+            // Cycle backward
+            const newIndex = activeTabIndex === 0 ? tabs.length - 1 : activeTabIndex - 1;
+            switchTab(newIndex);
+          } else {
+            // Cycle forward
+            const newIndex = (activeTabIndex + 1) % tabs.length;
+            switchTab(newIndex);
+          }
+        }
+      }
+      
+      // Cmd/Ctrl + 1-9: Jump to specific tab
+      if ((e.metaKey || e.ctrlKey) && e.key >= '1' && e.key <= '9') {
+        e.preventDefault();
+        const tabIndex = parseInt(e.key) - 1;
+        if (tabIndex < tabs.length) {
+          switchTab(tabIndex);
+        }
+      }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isPreview, selectedNote, showHelp, showGlobalGraph, showLocalGraph]);
+  }, [isPreview, selectedNote, showHelp, showGlobalGraph, showLocalGraph, tabs, activeTabIndex, closeTab, switchTab]);
 
   const handleNoteSelect = async (noteMetadata: NoteMetadata) => {
     const note = await tauriApi.readNote(noteMetadata.path);
-    setSelectedNote(note);
+    
+    // Single click: replace current tab or open first tab
+    if (tabs.length === 0) {
+      openInNewTab(note);
+    } else {
+      // Replace current tab's content
+      const updatedTabs = [...tabs];
+      updatedTabs[activeTabIndex] = {
+        note,
+        isDirty: false
+      };
+      setTabs(updatedTabs);
+      setSelectedNote(note);
+    }
+    
+    // Clear search term when selecting from non-search views
+    if (currentView !== 'search') {
+      setSearchTerm('');
+    }
+  };
+
+  const handleNoteDoubleClick = async (noteMetadata: NoteMetadata) => {
+    const note = await tauriApi.readNote(noteMetadata.path);
+    openInNewTab(note);
     // Clear search term when selecting from non-search views
     if (currentView !== 'search') {
       setSearchTerm('');
@@ -137,9 +275,9 @@ function AppContent() {
   const handleNoteChange = (content: string) => {
     if (!selectedNote) return;
     
-    const updatedNote = { ...selectedNote, content };
-    setSelectedNote(updatedNote);
+    updateTabContent(content);
     
+    // Save and mark tab as clean after success
     saveMutation.mutate({ path: selectedNote.path, content });
   };
 
@@ -157,7 +295,7 @@ function AppContent() {
   const handleDailyNote = async () => {
     const path = await tauriApi.getDailyNote();
     const note = await tauriApi.readNote(path);
-    setSelectedNote(note);
+    openInNewTab(note);
     setCurrentView('notes');
     setSearchTerm('');
   };
@@ -177,7 +315,20 @@ function AppContent() {
 
   const handleBacklinkClick = async (path: string) => {
     const note = await tauriApi.readNote(path);
-    setSelectedNote(note);
+    
+    // Backlinks: single click replaces current tab
+    if (tabs.length === 0) {
+      openInNewTab(note);
+    } else {
+      const updatedTabs = [...tabs];
+      updatedTabs[activeTabIndex] = {
+        note,
+        isDirty: false
+      };
+      setTabs(updatedTabs);
+      setSelectedNote(note);
+    }
+    
     setSearchTerm('');
   };
 
@@ -203,14 +354,24 @@ function AppContent() {
       const existingNotePath = await tauriApi.findNoteByName(noteName);
       
       if (existingNotePath) {
-        // Note exists, open it
+        // Note exists, replace current tab
         const note = await tauriApi.readNote(existingNotePath);
-        setSelectedNote(note);
+        if (tabs.length === 0) {
+          openInNewTab(note);
+        } else {
+          const updatedTabs = [...tabs];
+          updatedTabs[activeTabIndex] = {
+            note,
+            isDirty: false
+          };
+          setTabs(updatedTabs);
+          setSelectedNote(note);
+        }
       } else {
-        // Note doesn't exist, create it
+        // Note doesn't exist, create it and open in new tab
         const newNotePath = await tauriApi.createNote(noteName);
         const note = await tauriApi.readNote(newNotePath);
-        setSelectedNote(note);
+        openInNewTab(note);
         // Refresh the notes list
         queryClient.invalidateQueries({ queryKey: ['notes'] });
       }
@@ -406,7 +567,20 @@ function AppContent() {
   const handleTodoNoteClick = async (notePath: string) => {
     try {
       const note = await tauriApi.readNote(notePath);
-      setSelectedNote(note);
+      
+      // Todo notes: replace current tab
+      if (tabs.length === 0) {
+        openInNewTab(note);
+      } else {
+        const updatedTabs = [...tabs];
+        updatedTabs[activeTabIndex] = {
+          note,
+          isDirty: false
+        };
+        setTabs(updatedTabs);
+        setSelectedNote(note);
+      }
+      
       setCurrentView('notes');
       setSearchTerm('');
     } catch (error) {
@@ -423,6 +597,7 @@ function AppContent() {
             folders={folders}
             selectedPath={selectedNote?.path}
             onNoteSelect={handleNoteSelect}
+            onNoteDoubleClick={handleNoteDoubleClick}
             onNoteMove={handleNoteMove}
             onNoteDelete={handleNoteDelete}
             onFolderDelete={handleFolderDelete}
@@ -439,7 +614,20 @@ function AppContent() {
           <SearchPanel
             onSearch={handleSearch}
             results={searchResults}
-            onResultSelect={setSelectedNote}
+            onResultSelect={async (note) => {
+              // Search results: single click replaces current tab
+              if (tabs.length === 0) {
+                openInNewTab(note);
+              } else {
+                const updatedTabs = [...tabs];
+                updatedTabs[activeTabIndex] = {
+                  note,
+                  isDirty: false
+                };
+                setTabs(updatedTabs);
+                setSelectedNote(note);
+              }
+            }}
           />
         );
       case 'tag-filter':
@@ -510,6 +698,12 @@ function AppContent() {
         
         <Panel defaultSize={60}>
           <div className="panel editor-panel">
+            <TabBar
+              tabs={tabs}
+              activeTabIndex={activeTabIndex}
+              onTabClick={switchTab}
+              onTabClose={closeTab}
+            />
             <div className="editor-toolbar">
               <h2>{showHelp ? 'Help' : showGlobalGraph ? 'Knowledge Graph' : (selectedNote?.title || 'No note selected')}</h2>
               <div className="toolbar-buttons">
@@ -560,7 +754,18 @@ function AppContent() {
                 data={globalGraphData}
                 onNodeClick={async (nodeId) => {
                   const note = await tauriApi.readNote(nodeId);
-                  setSelectedNote(note);
+                  // Graph nodes: replace current tab
+                  if (tabs.length === 0) {
+                    openInNewTab(note);
+                  } else {
+                    const updatedTabs = [...tabs];
+                    updatedTabs[activeTabIndex] = {
+                      note,
+                      isDirty: false
+                    };
+                    setTabs(updatedTabs);
+                    setSelectedNote(note);
+                  }
                   setShowGlobalGraph(false);
                 }}
                 isLocal={false}
@@ -570,7 +775,18 @@ function AppContent() {
                 data={localGraphData}
                 onNodeClick={async (nodeId) => {
                   const note = await tauriApi.readNote(nodeId);
-                  setSelectedNote(note);
+                  // Graph nodes: replace current tab
+                  if (tabs.length === 0) {
+                    openInNewTab(note);
+                  } else {
+                    const updatedTabs = [...tabs];
+                    updatedTabs[activeTabIndex] = {
+                      note,
+                      isDirty: false
+                    };
+                    setTabs(updatedTabs);
+                    setSelectedNote(note);
+                  }
                   setShowLocalGraph(false);
                 }}
                 isLocal={true}

@@ -15,6 +15,12 @@ export interface NoteMetadata {
 
 export type ViewType = 'notes' | 'tags' | 'search' | 'tag-filter' | 'graph' | 'todos';
 
+export interface Tab {
+  note: Note;
+  isDirty: boolean;
+  scrollPosition?: number;
+}
+
 export interface AppState {
   currentView: ViewType;
   selectedNote: Note | null;
