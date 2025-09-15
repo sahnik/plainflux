@@ -1,8 +1,8 @@
-use git2::{Repository, Signature, IndexAddOption};
+use chrono::Local;
+use git2::{IndexAddOption, Repository, Signature};
 use std::path::Path;
 use std::sync::{Arc, Mutex as StdMutex};
 use std::time::{Duration, Instant};
-use chrono::Local;
 use tokio::time::sleep;
 
 pub struct GitManager {
@@ -57,31 +57,45 @@ impl GitManager {
         };
 
         // Add all markdown files to the index
-        let mut index = repo.index().map_err(|e| format!("Failed to get index: {}", e))?;
-        
+        let mut index = repo
+            .index()
+            .map_err(|e| format!("Failed to get index: {}", e))?;
+
         // Add all .md files
-        index.add_all(["*.md"].iter(), IndexAddOption::DEFAULT, None)
+        index
+            .add_all(["*.md"].iter(), IndexAddOption::DEFAULT, None)
             .map_err(|e| format!("Failed to add files: {}", e))?;
-        
+
         // Write the index
-        index.write().map_err(|e| format!("Failed to write index: {}", e))?;
+        index
+            .write()
+            .map_err(|e| format!("Failed to write index: {}", e))?;
 
         // Check if there are any changes to commit
-        let tree_id = index.write_tree().map_err(|e| format!("Failed to write tree: {}", e))?;
-        let tree = repo.find_tree(tree_id).map_err(|e| format!("Failed to find tree: {}", e))?;
+        let tree_id = index
+            .write_tree()
+            .map_err(|e| format!("Failed to write tree: {}", e))?;
+        let tree = repo
+            .find_tree(tree_id)
+            .map_err(|e| format!("Failed to find tree: {}", e))?;
 
         // Get the HEAD commit
         let parent_commit = match repo.head() {
             Ok(head) => {
                 let oid = head.target().ok_or("Failed to get HEAD target")?;
-                Some(repo.find_commit(oid).map_err(|e| format!("Failed to find HEAD commit: {}", e))?)
+                Some(
+                    repo.find_commit(oid)
+                        .map_err(|e| format!("Failed to find HEAD commit: {}", e))?,
+                )
             }
             Err(_) => None, // First commit
         };
 
         // Check if tree is different from HEAD
         if let Some(ref parent) = parent_commit {
-            let parent_tree = parent.tree().map_err(|e| format!("Failed to get parent tree: {}", e))?;
+            let parent_tree = parent
+                .tree()
+                .map_err(|e| format!("Failed to get parent tree: {}", e))?;
             if parent_tree.id() == tree.id() {
                 // No changes to commit
                 return Ok(());
@@ -98,7 +112,7 @@ impl GitManager {
 
         // Create the commit
         let parents: Vec<&git2::Commit> = parent_commit.as_ref().map_or(vec![], |c| vec![c]);
-        
+
         repo.commit(
             Some("HEAD"),
             &signature,
@@ -106,7 +120,8 @@ impl GitManager {
             commit_message,
             &tree,
             &parents,
-        ).map_err(|e| format!("Failed to create commit: {}", e))?;
+        )
+        .map_err(|e| format!("Failed to create commit: {}", e))?;
 
         Ok(())
     }
@@ -118,13 +133,17 @@ impl GitManager {
         };
 
         // Convert absolute path to relative path from repo root
-        let repo_path = repo.workdir().ok_or("Repository has no working directory")?;
+        let repo_path = repo
+            .workdir()
+            .ok_or("Repository has no working directory")?;
         let file_path_buf = Path::new(file_path);
-        let relative_path = file_path_buf.strip_prefix(repo_path)
+        let relative_path = file_path_buf
+            .strip_prefix(repo_path)
             .map_err(|_| "File is not in repository")?;
 
         // Get the blame for the file
-        let blame = repo.blame_file(relative_path, None)
+        let blame = repo
+            .blame_file(relative_path, None)
             .map_err(|e| format!("Failed to get blame info: {}", e))?;
 
         let mut blame_info = Vec::new();
@@ -132,7 +151,8 @@ impl GitManager {
         for line_num in 0..blame.len() {
             if let Some(hunk) = blame.get_line(line_num + 1) {
                 let commit_oid = hunk.final_commit_id();
-                let commit = repo.find_commit(commit_oid)
+                let commit = repo
+                    .find_commit(commit_oid)
                     .map_err(|e| format!("Failed to find commit: {}", e))?;
 
                 let author = commit.author();
@@ -162,7 +182,7 @@ impl GitManager {
         let task_running = self.commit_task_running.clone();
         let last_change = self.last_change.clone();
         let notes_dir = self.notes_dir.clone();
-        
+
         let should_start_task = {
             if let Ok(mut running) = task_running.lock() {
                 if !*running {
@@ -175,7 +195,7 @@ impl GitManager {
                 false
             }
         };
-        
+
         if should_start_task {
             // Spawn the debounced commit task
             tokio::spawn(async move {
@@ -190,10 +210,10 @@ impl GitManager {
         task_running: Arc<StdMutex<bool>>,
     ) {
         const COMMIT_DELAY: Duration = Duration::from_secs(5 * 60); // 5 minutes
-        
+
         loop {
             sleep(Duration::from_secs(30)).await; // Check every 30 seconds
-            
+
             let should_commit = {
                 if let Ok(last_change_guard) = last_change.lock() {
                     if let Some(last_time) = *last_change_guard {
@@ -205,23 +225,26 @@ impl GitManager {
                     false
                 }
             };
-            
+
             if should_commit {
                 // Clear the last change timestamp
                 if let Ok(mut last_change_guard) = last_change.lock() {
                     *last_change_guard = None;
                 }
-                
+
                 // Perform the commit
                 let temp_manager = GitManager::new(&notes_dir);
                 if temp_manager.is_git_repo() {
                     if let Err(e) = temp_manager.commit_changes(None) {
                         eprintln!("Auto-commit failed: {}", e);
                     } else {
-                        println!("Auto-commit completed at {}", Local::now().format("%Y-%m-%d %H:%M:%S"));
+                        println!(
+                            "Auto-commit completed at {}",
+                            Local::now().format("%Y-%m-%d %H:%M:%S")
+                        );
                     }
                 }
-                
+
                 // Mark task as not running and exit
                 if let Ok(mut running) = task_running.lock() {
                     *running = false;

@@ -1,6 +1,6 @@
 use crate::cache::{CacheDb, Todo};
 use crate::error::AppError;
-use crate::git_manager::{GitManager, GitBlameInfo};
+use crate::git_manager::{GitBlameInfo, GitManager};
 use crate::lock_mutex;
 use crate::note_manager::{self, read_file_with_encoding, Note, NoteMetadata};
 use crate::utils::{ensure_dir_exists, safe_read_file, safe_write_file, validate_path_security};
@@ -9,6 +9,35 @@ use std::collections::{HashMap, HashSet};
 use std::path::Path;
 use std::sync::Mutex;
 use tauri::State;
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct CustomTheme {
+    pub bg_primary: String,
+    pub bg_secondary: String,
+    pub text_primary: String,
+    pub text_secondary: String,
+    pub border_color: String,
+    pub accent_color: String,
+    pub hover_color: String,
+    pub active_color: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct AppSettings {
+    pub theme: String, // "dark", "light", "custom"
+    pub font_size: u8, // 12-24
+    pub custom_theme: Option<CustomTheme>,
+}
+
+impl Default for AppSettings {
+    fn default() -> Self {
+        Self {
+            theme: "dark".to_string(),
+            font_size: 14,
+            custom_theme: None,
+        }
+    }
+}
 
 pub struct AppState {
     pub cache_db: Mutex<CacheDb>,
@@ -643,13 +672,49 @@ pub async fn get_git_blame(
 }
 
 #[tauri::command]
-pub async fn git_commit(
-    message: Option<String>,
-    state: State<'_, AppState>,
-) -> Result<(), String> {
+pub async fn git_commit(message: Option<String>, state: State<'_, AppState>) -> Result<(), String> {
     let git_manager = lock_mutex!(
         state.git_manager,
         "Git manager mutex was poisoned during git_commit"
     );
     git_manager.commit_changes(message.as_deref())
+}
+
+#[tauri::command]
+pub async fn get_app_settings(state: State<'_, AppState>) -> Result<AppSettings, String> {
+    let settings_path = Path::new(&state.notes_dir).join(".plainflux");
+    let settings_file = settings_path.join("settings.json");
+
+    match safe_read_file(&settings_file) {
+        Ok(content) => {
+            serde_json::from_str(&content)
+                .map_err(|e| format!("Failed to parse settings: {e}"))
+        }
+        Err(AppError::NotFound(_)) => {
+            // Return default settings if none exist
+            Ok(AppSettings::default())
+        }
+        Err(e) => Err(format!("Failed to read settings: {e}")),
+    }
+}
+
+#[tauri::command]
+pub async fn save_app_settings(
+    settings: AppSettings,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    let settings_path = Path::new(&state.notes_dir).join(".plainflux");
+    let settings_file = settings_path.join("settings.json");
+
+    // Ensure settings directory exists
+    ensure_dir_exists(&settings_path)
+        .map_err(|e| format!("Failed to create settings directory: {e}"))?;
+
+    // Serialize settings to JSON
+    let settings_json = serde_json::to_string_pretty(&settings)
+        .map_err(|e| format!("Failed to serialize settings: {e}"))?;
+
+    // Save settings to file
+    safe_write_file(&settings_file, &settings_json)
+        .map_err(|e| format!("Failed to save settings: {e}"))
 }

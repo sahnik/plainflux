@@ -103,6 +103,8 @@ pub fn run() {
             commands::is_git_repo,
             commands::get_git_blame,
             commands::git_commit,
+            commands::get_app_settings,
+            commands::save_app_settings,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

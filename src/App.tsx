@@ -16,7 +16,10 @@ import { GraphView } from './components/GraphView';
 import { TodosList } from './components/TodosList';
 import { Help } from './components/Help';
 import { TemplateSettings } from './components/TemplateSettings';
+import { Settings } from './components/Settings';
 import { TabBar } from './components/TabBar';
+import { ThemeProvider } from './contexts/ThemeContext';
+import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 
 import { tauriApi, Todo } from './api/tauri';
 import { ViewType, Note, NoteMetadata, Tab } from './types';
@@ -24,6 +27,7 @@ import { ViewType, Note, NoteMetadata, Tab } from './types';
 const queryClient = new QueryClient();
 
 function AppContent() {
+  useKeyboardShortcuts(); // Add keyboard shortcuts for font size
   const [currentView, setCurrentView] = useState<ViewType>('notes');
   const [selectedNote, setSelectedNote] = useState<Note | null>(null);
   const [tabs, setTabs] = useState<Tab[]>([]);
@@ -33,6 +37,7 @@ function AppContent() {
   const [showGlobalGraph, setShowGlobalGraph] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   const [showTemplateSettings, setShowTemplateSettings] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const [searchResults, setSearchResults] = useState<Note[]>([]);
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [tagFilteredNotes, setTagFilteredNotes] = useState<NoteMetadata[]>([]);
@@ -684,7 +689,7 @@ function AppContent() {
           setShowGlobalGraph(false);
         }}
         showHelp={showHelp}
-        onSettings={() => setShowTemplateSettings(true)}
+        onSettings={() => setShowSettings(true)}
       />
       
       <PanelGroup direction="horizontal" className="panels-container">
@@ -875,6 +880,11 @@ function AppContent() {
         isOpen={showTemplateSettings}
         onClose={() => setShowTemplateSettings(false)}
       />
+
+      <Settings
+        isOpen={showSettings}
+        onClose={() => setShowSettings(false)}
+      />
     </div>
   );
 }
@@ -882,7 +892,9 @@ function AppContent() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <AppContent />
+      <ThemeProvider>
+        <AppContent />
+      </ThemeProvider>
     </QueryClientProvider>
   );
 }

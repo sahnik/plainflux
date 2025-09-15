@@ -133,6 +133,14 @@ export const tauriApi = {
   async gitCommit(message?: string): Promise<void> {
     return invoke('git_commit', { message });
   },
+
+  async getAppSettings(): Promise<AppSettings> {
+    return invoke('get_app_settings');
+  },
+
+  async saveAppSettings(settings: AppSettings): Promise<void> {
+    return invoke('save_app_settings', { settings });
+  },
 };
 
 export interface GraphNode {
@@ -157,4 +165,21 @@ export interface Todo {
   line_number: number;
   content: string;
   is_completed: boolean;
+}
+
+export interface CustomTheme {
+  bg_primary: string;
+  bg_secondary: string;
+  text_primary: string;
+  text_secondary: string;
+  border_color: string;
+  accent_color: string;
+  hover_color: string;
+  active_color: string;
+}
+
+export interface AppSettings {
+  theme: string;
+  font_size: number;
+  custom_theme?: CustomTheme;
 }

@@ -96,7 +96,9 @@ pub fn list_notes(base_path: &str) -> Result<Vec<NoteMetadata>, String> {
                 let skip_note = relative_path_obj.components().any(|component| {
                     if let std::path::Component::Normal(name) = component {
                         if let Some(name_str) = name.to_str() {
-                            return name_str == ".plainflux" || name_str == "images";
+                            return name_str == ".plainflux"
+                                || name_str == "images"
+                                || name_str == ".git";
                         }
                     }
                     false
@@ -147,6 +149,7 @@ pub fn get_all_folders(base_path: &str) -> Result<Vec<String>, String> {
                 if folder_name == ".plainflux"
                     || folder_name == "images"
                     || folder_name == "Daily Notes"
+                    || folder_name == ".git"
                 {
                     continue;
                 }
@@ -158,7 +161,8 @@ pub fn get_all_folders(base_path: &str) -> Result<Vec<String>, String> {
                         if let Some(name_str) = name.to_str() {
                             return name_str == ".plainflux"
                                 || name_str == "images"
-                                || name_str == "Daily Notes";
+                                || name_str == "Daily Notes"
+                                || name_str == ".git";
                         }
                     }
                     false
@@ -292,7 +296,8 @@ pub fn search_notes(base_path: &str, query: &str) -> Result<Vec<Note>, String> {
                     if let std::path::Component::Normal(name) = component {
                         if let Some(name_str) = name.to_str() {
                             return name_str.eq_ignore_ascii_case(".plainflux")
-                                || name_str.eq_ignore_ascii_case("images");
+                                || name_str.eq_ignore_ascii_case("images")
+                                || name_str.eq_ignore_ascii_case(".git");
                         }
                     }
                     false

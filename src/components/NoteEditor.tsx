@@ -2,13 +2,14 @@ import React, { useEffect, useRef } from 'react';
 import { EditorView, basicSetup } from 'codemirror';
 import { EditorState } from '@codemirror/state';
 import { markdown } from '@codemirror/lang-markdown';
-import { oneDark } from '@codemirror/theme-one-dark';
 import { MarkdownRenderer } from './MarkdownRenderer';
 import { Note, NoteMetadata } from '../types';
 import { createAutocompleteExtension } from '../utils/editorAutocomplete';
 import { createPasteHandler } from '../utils/imageHandler';
 import { createSearchHighlightExtension, setSearchTerm, scrollToFirstMatch } from '../utils/searchHighlight';
 import { createGitBlameExtension, updateBlameInfo } from '../utils/gitBlame';
+import { createDynamicTheme, createSyntaxHighlighting } from '../utils/editorThemes';
+import { useTheme } from '../contexts/ThemeContext';
 
 interface NoteEditorProps {
   note: Note | null;
@@ -26,6 +27,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, isPreview, onChang
   const editorRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   const autocompleteDataRef = useRef({ notes, tags });
+  const { settings } = useTheme();
   
   // Update autocomplete data when notes or tags change
   useEffect(() => {
@@ -44,7 +46,8 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, isPreview, onChang
       extensions: [
         basicSetup,
         markdown(),
-        oneDark,
+        createDynamicTheme(settings.theme),
+        createSyntaxHighlighting(settings.theme),
         EditorView.lineWrapping,
         createAutocompleteExtension(autocompleteDataRef),
         createPasteHandler(note.path),
@@ -77,7 +80,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, isPreview, onChang
         viewRef.current.destroy();
       }
     };
-  }, [note?.path, isPreview, searchTerm]);
+  }, [note?.path, isPreview, searchTerm, settings.theme, settings.fontSize]);
 
   // Update editor content when note changes
   useEffect(() => {
