@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { ChevronRight, ChevronDown, Folder, FileText, Trash2, FolderPlus, FilePlus, Edit } from 'lucide-react';
+import { ChevronRight, ChevronDown, Folder, FileText, Trash2, FolderPlus, FilePlus, Edit, ExternalLink } from 'lucide-react';
 import { NoteMetadata } from '../types';
 
 interface NotesTreeProps {
@@ -189,6 +189,22 @@ export const NotesTree: React.FC<NotesTreeProps> = ({
                 <FolderPlus size={14} />
                 <span>New folder</span>
               </button>
+            </>
+          )}
+          {contextMenu.type === 'note' && (
+            <>
+              <button
+                className="context-menu-item"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onNoteDoubleClick?.(contextMenu.item);
+                  setContextMenu(null);
+                }}
+              >
+                <ExternalLink size={14} />
+                <span>Open in New Tab</span>
+              </button>
+              <div className="context-menu-separator" />
             </>
           )}
           {contextMenu.type === 'folder' && <div className="context-menu-separator" />}
@@ -436,33 +452,41 @@ const NoteItem: React.FC<{
   isDragging: boolean;
   setContextMenu: (menu: { x: number; y: number; type: 'note' | 'folder'; item: any } | null) => void;
 }> = ({ note, level, selected, onSelect, onDoubleClick, setDraggedNote, isDragging, setContextMenu }) => {
-  const [clickTimer, setClickTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
   const [dragStart, setDragStart] = useState<{ x: number; y: number } | null>(null);
 
   const handleClick = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    
-    if (clickTimer) {
-      // This is a double click - clear the single click timer
-      clearTimeout(clickTimer);
-      setClickTimer(null);
-      if (onDoubleClick) {
-        onDoubleClick(note);
-      }
-    } else {
-      // Set a timer for single click
-      const timer = setTimeout(() => {
-        onSelect(note);
-        setClickTimer(null);
-      }, 175); // 175 delay to wait for potential double-click
-      setClickTimer(timer);
+
+    // Single click immediately selects the note (no delay)
+    onSelect(note);
+  };
+
+  const handleDoubleClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    // Double click opens in new tab
+    if (onDoubleClick) {
+      onDoubleClick(note);
     }
   };
 
   const handleMouseDown = (e: React.MouseEvent) => {
-    // Record position for drag detection
-    setDragStart({ x: e.clientX, y: e.clientY });
+    // Middle mouse button - open in new tab
+    if (e.button === 1) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (onDoubleClick) {
+        onDoubleClick(note);
+      }
+      return;
+    }
+
+    // Left mouse button - record position for drag detection
+    if (e.button === 0) {
+      setDragStart({ x: e.clientX, y: e.clientY });
+    }
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
@@ -475,11 +499,6 @@ const NoteItem: React.FC<{
     );
 
     if (distance > 5) {
-      // Cancel any pending click
-      if (clickTimer) {
-        clearTimeout(clickTimer);
-        setClickTimer(null);
-      }
       setDraggedNote(note);
       setDragStart(null);
     }
@@ -496,11 +515,6 @@ const NoteItem: React.FC<{
   const handleContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    // Cancel any pending click
-    if (clickTimer) {
-      clearTimeout(clickTimer);
-      setClickTimer(null);
-    }
     setContextMenu({
       x: e.clientX,
       y: e.clientY,
@@ -509,14 +523,6 @@ const NoteItem: React.FC<{
     });
   };
 
-  // Clean up timer on unmount
-  useEffect(() => {
-    return () => {
-      if (clickTimer) {
-        clearTimeout(clickTimer);
-      }
-    };
-  }, [clickTimer]);
 
   return (
     <div
@@ -528,6 +534,7 @@ const NoteItem: React.FC<{
         userSelect: 'none'
       }}
       onClick={handleClick}
+      onDoubleClick={handleDoubleClick}
       onMouseDown={handleMouseDown}
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
