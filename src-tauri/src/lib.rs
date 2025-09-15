@@ -3,12 +3,14 @@ mod macros;
 mod cache;
 mod commands;
 mod error;
+mod git_manager;
 mod note_manager;
 mod utils;
 
 use cache::CacheDb;
 use commands::AppState;
 use error::Result;
+use git_manager::GitManager;
 use note_manager::read_file_with_encoding;
 use std::sync::Mutex;
 
@@ -53,8 +55,11 @@ pub fn run() {
             .expect("Failed to create default notes directory");
     }
 
+    let git_manager = GitManager::new(&default_notes_dir.to_string_lossy());
+
     let app_state = AppState {
         cache_db: Mutex::new(cache_db),
+        git_manager: Mutex::new(git_manager),
         notes_dir: default_notes_dir.to_string_lossy().to_string(),
     };
 
@@ -94,6 +99,10 @@ pub fn run() {
             commands::save_daily_note_template,
             commands::rename_note,
             commands::rename_folder,
+            commands::init_git_repo,
+            commands::is_git_repo,
+            commands::get_git_blame,
+            commands::git_commit,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

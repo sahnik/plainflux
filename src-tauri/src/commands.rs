@@ -1,5 +1,6 @@
 use crate::cache::{CacheDb, Todo};
 use crate::error::AppError;
+use crate::git_manager::{GitManager, GitBlameInfo};
 use crate::lock_mutex;
 use crate::note_manager::{self, read_file_with_encoding, Note, NoteMetadata};
 use crate::utils::{ensure_dir_exists, safe_read_file, safe_write_file, validate_path_security};
@@ -11,6 +12,7 @@ use tauri::State;
 
 pub struct AppState {
     pub cache_db: Mutex<CacheDb>,
+    pub git_manager: Mutex<GitManager>,
     pub notes_dir: String,
 }
 
@@ -37,6 +39,15 @@ pub async fn save_note(
         "Cache database mutex was poisoned during save_note"
     );
     cache_db.update_note_cache(&path, &content, &state.notes_dir)?;
+
+    // Trigger auto-commit if git repo exists
+    let git_manager = lock_mutex!(
+        state.git_manager,
+        "Git manager mutex was poisoned during save_note"
+    );
+    if git_manager.is_git_repo() {
+        git_manager.schedule_auto_commit();
+    }
 
     Ok(())
 }
@@ -599,4 +610,46 @@ pub async fn rename_folder(
     }
 
     Ok(new_path)
+}
+
+#[tauri::command]
+pub async fn init_git_repo(state: State<'_, AppState>) -> Result<(), String> {
+    let mut git_manager = lock_mutex!(
+        state.git_manager,
+        "Git manager mutex was poisoned during init_git_repo"
+    );
+    git_manager.init_repo()
+}
+
+#[tauri::command]
+pub async fn is_git_repo(state: State<'_, AppState>) -> Result<bool, String> {
+    let git_manager = lock_mutex!(
+        state.git_manager,
+        "Git manager mutex was poisoned during is_git_repo"
+    );
+    Ok(git_manager.is_git_repo())
+}
+
+#[tauri::command]
+pub async fn get_git_blame(
+    file_path: String,
+    state: State<'_, AppState>,
+) -> Result<Vec<GitBlameInfo>, String> {
+    let git_manager = lock_mutex!(
+        state.git_manager,
+        "Git manager mutex was poisoned during get_git_blame"
+    );
+    git_manager.get_blame_info(&file_path)
+}
+
+#[tauri::command]
+pub async fn git_commit(
+    message: Option<String>,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    let git_manager = lock_mutex!(
+        state.git_manager,
+        "Git manager mutex was poisoned during git_commit"
+    );
+    git_manager.commit_changes(message.as_deref())
 }
