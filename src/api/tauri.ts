@@ -1,5 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
-import { Note, NoteMetadata } from '../types';
+import { Note, NoteMetadata, GitBlameInfo } from '../types';
 
 export const tauriApi = {
   async getNotesList(): Promise<NoteMetadata[]> {
@@ -116,6 +116,22 @@ export const tauriApi = {
 
   async renameFolder(oldPath: string, newName: string): Promise<string> {
     return invoke('rename_folder', { oldPath, newName });
+  },
+
+  async initGitRepo(): Promise<void> {
+    return invoke('init_git_repo');
+  },
+
+  async isGitRepo(): Promise<boolean> {
+    return invoke('is_git_repo');
+  },
+
+  async getGitBlame(filePath: string): Promise<GitBlameInfo[]> {
+    return invoke('get_git_blame', { filePath });
+  },
+
+  async gitCommit(message?: string): Promise<void> {
+    return invoke('git_commit', { message });
   },
 };
 

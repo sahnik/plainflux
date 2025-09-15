@@ -27,3 +27,11 @@ export interface AppState {
   openTabs: Note[];
   activeTabIndex: number;
 }
+
+export interface GitBlameInfo {
+  line_number: number;
+  commit_hash: string;
+  author: string;
+  timestamp: number;
+  summary: string;
+}

@@ -1,11 +1,75 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { tauriApi } from '../api/tauri';
 import './Help.css';
 
 export const Help: React.FC = () => {
+  const [isGitRepo, setIsGitRepo] = useState(false);
+  const [gitLoading, setGitLoading] = useState(false);
+
+  useEffect(() => {
+    checkGitStatus();
+  }, []);
+
+  const checkGitStatus = async () => {
+    try {
+      const status = await tauriApi.isGitRepo();
+      setIsGitRepo(status);
+    } catch (error) {
+      console.error('Failed to check git status:', error);
+    }
+  };
+
+  const initializeGit = async () => {
+    setGitLoading(true);
+    try {
+      await tauriApi.initGitRepo();
+      setIsGitRepo(true);
+      alert('Git repository initialized successfully! Your notes will now be automatically versioned.');
+    } catch (error) {
+      console.error('Failed to initialize git:', error);
+      alert('Failed to initialize git repository: ' + error);
+    } finally {
+      setGitLoading(false);
+    }
+  };
+
   return (
     <div className="help-container">
       <h1>Help</h1>
-      <p>Version 0.9.6</p>
+      <p>Version 0.9.7</p>
+      
+      <section className="help-section">
+        <h2>Git Version Control</h2>
+        <div className="feature">
+          <h3>📜 Automatic Versioning</h3>
+          <p>
+            PlainFlux can automatically track changes to your notes using Git. 
+            When enabled, changes are automatically committed 5 minutes after the last edit, 
+            and you'll see git blame information showing when each line was last modified.
+          </p>
+          {!isGitRepo ? (
+            <button 
+              onClick={initializeGit} 
+              disabled={gitLoading}
+              style={{
+                padding: '8px 16px',
+                backgroundColor: '#007acc',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: gitLoading ? 'not-allowed' : 'pointer',
+                marginTop: '10px'
+              }}
+            >
+              {gitLoading ? 'Initializing...' : 'Initialize Git Repository'}
+            </button>
+          ) : (
+            <p style={{ color: 'green', marginTop: '10px' }}>
+              ✅ Git repository is active - your notes are being automatically versioned!
+            </p>
+          )}
+        </div>
+      </section>
       <section className="help-section">
         <h2>Features</h2>
         

@@ -8,6 +8,7 @@ import { Note, NoteMetadata } from '../types';
 import { createAutocompleteExtension } from '../utils/editorAutocomplete';
 import { createPasteHandler } from '../utils/imageHandler';
 import { createSearchHighlightExtension, setSearchTerm, scrollToFirstMatch } from '../utils/searchHighlight';
+import { createGitBlameExtension, updateBlameInfo } from '../utils/gitBlame';
 
 interface NoteEditorProps {
   note: Note | null;
@@ -48,6 +49,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, isPreview, onChang
         createAutocompleteExtension(autocompleteDataRef),
         createPasteHandler(note.path),
         createSearchHighlightExtension(),
+        createGitBlameExtension(),
         EditorView.updateListener.of((update) => {
           if (update.docChanged) {
             onChange(update.state.doc.toString());
@@ -66,6 +68,9 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, isPreview, onChang
       setSearchTerm(viewRef.current, searchTerm);
       scrollToFirstMatch(viewRef.current, searchTerm);
     }
+
+    // Load git blame info for the current note
+    updateBlameInfo(viewRef.current, note.path);
 
     return () => {
       if (viewRef.current) {
