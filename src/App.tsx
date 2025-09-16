@@ -210,7 +210,7 @@ function AppContent() {
       // Cmd/Ctrl + E: Toggle preview mode
       if ((e.metaKey || e.ctrlKey) && e.key === 'e') {
         e.preventDefault();
-        if (selectedNote && !showHelp && !showGlobalGraph && !showLocalGraph) {
+        if (selectedNote && !showGlobalGraph && !showLocalGraph) {
           setIsPreview(!isPreview);
         }
       }
@@ -251,7 +251,7 @@ function AppContent() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isPreview, selectedNote, showHelp, showGlobalGraph, showLocalGraph, tabs, activeTabIndex, closeTab, switchTab]);
+  }, [isPreview, selectedNote, showGlobalGraph, showLocalGraph, tabs, activeTabIndex, closeTab, switchTab]);
 
   const handleNoteSelect = async (noteMetadata: NoteMetadata) => {
     const note = await tauriApi.readNote(noteMetadata.path);
@@ -726,12 +726,7 @@ function AppContent() {
           setShowHelp(false);
         }}
         onDailyNote={handleDailyNote}
-        onHelp={() => {
-          setShowHelp(!showHelp);
-          setShowLocalGraph(false);
-          setShowGlobalGraph(false);
-        }}
-        showHelp={showHelp}
+        onHelp={() => setShowHelp(true)}
         onSettings={() => setShowSettings(true)}
       />
       
@@ -753,31 +748,29 @@ function AppContent() {
               onTabClose={closeTab}
             />
             <div className="editor-toolbar">
-              <h2>{showHelp ? 'Help' : showGlobalGraph ? 'Knowledge Graph' : (selectedNote?.title || 'No note selected')}</h2>
+              <h2>{showGlobalGraph ? 'Knowledge Graph' : (selectedNote?.title || 'No note selected')}</h2>
               <div className="toolbar-buttons">
                 <button
-                  className={`toolbar-button ${!isPreview && !showLocalGraph && !showGlobalGraph && !showHelp ? 'active' : ''}`}
+                  className={`toolbar-button ${!isPreview && !showLocalGraph && !showGlobalGraph ? 'active' : ''}`}
                   onClick={() => {
                     setIsPreview(false);
                     setShowLocalGraph(false);
                     setShowGlobalGraph(false);
-                    setShowHelp(false);
                   }}
                   title="Edit"
-                  disabled={!selectedNote || showHelp}
+                  disabled={!selectedNote}
                 >
                   <Edit size={16} />
                 </button>
                 <button
-                  className={`toolbar-button ${isPreview && !showLocalGraph && !showGlobalGraph && !showHelp ? 'active' : ''}`}
+                  className={`toolbar-button ${isPreview && !showLocalGraph && !showGlobalGraph ? 'active' : ''}`}
                   onClick={() => {
                     setIsPreview(true);
                     setShowLocalGraph(false);
                     setShowGlobalGraph(false);
-                    setShowHelp(false);
                   }}
                   title="Preview"
-                  disabled={!selectedNote || showHelp}
+                  disabled={!selectedNote}
                 >
                   <Eye size={16} />
                 </button>
@@ -786,18 +779,15 @@ function AppContent() {
                   onClick={() => {
                     setShowLocalGraph(true);
                     setShowGlobalGraph(false);
-                    setShowHelp(false);
                   }}
                   title="Local Graph"
-                  disabled={!selectedNote || showHelp}
+                  disabled={!selectedNote}
                 >
                   <Network size={16} />
                 </button>
               </div>
             </div>
-            {showHelp ? (
-              <Help />
-            ) : showGlobalGraph ? (
+            {showGlobalGraph ? (
               <GraphView
                 data={globalGraphData}
                 onNodeClick={async (nodeId) => {
@@ -927,6 +917,11 @@ function AppContent() {
       <Settings
         isOpen={showSettings}
         onClose={() => setShowSettings(false)}
+      />
+
+      <Help
+        isOpen={showHelp}
+        onClose={() => setShowHelp(false)}
       />
     </div>
   );

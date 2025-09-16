@@ -7,11 +7,10 @@ interface SidebarProps {
   onViewChange: (view: ViewType) => void;
   onDailyNote: () => void;
   onHelp: () => void;
-  showHelp: boolean;
   onSettings: () => void;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ currentView, onViewChange, onDailyNote, onHelp, showHelp, onSettings }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ currentView, onViewChange, onDailyNote, onHelp, onSettings }) => {
   const iconSize = 20;
   
   return (
@@ -83,7 +82,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, onViewChange, onD
       </button>
       
       <button
-        className={`sidebar-icon ${showHelp ? 'active' : ''}`}
+        className="sidebar-icon"
         onClick={onHelp}
         title="Help"
       >

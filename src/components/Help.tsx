@@ -1,8 +1,14 @@
 import React, { useState, useEffect } from 'react';
+import { X } from 'lucide-react';
 import { tauriApi } from '../api/tauri';
 import './Help.css';
 
-export const Help: React.FC = () => {
+interface HelpProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+export const Help: React.FC<HelpProps> = ({ isOpen, onClose }) => {
   const [isGitRepo, setIsGitRepo] = useState(false);
   const [gitLoading, setGitLoading] = useState(false);
 
@@ -33,10 +39,24 @@ export const Help: React.FC = () => {
     }
   };
 
+  if (!isOpen) return null;
+
   return (
-    <div className="help-container">
-      <h1>Help</h1>
-      <p>Version 0.9.7</p>
+    <div className="help-overlay">
+      <div className="help-dialog">
+        <div className="help-header">
+          <h3>Help</h3>
+          <button
+            className="help-close-button"
+            onClick={onClose}
+            title="Close"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="help-content">
+          <p style={{ margin: '0 0 16px 0', color: 'var(--text-secondary)' }}>Version 0.9.7</p>
       
       <section className="help-section">
         <h2>Git Version Control</h2>
@@ -247,6 +267,8 @@ Underscores`}</pre>
           <kbd>Cmd/Ctrl</kbd> + <kbd>Click</kbd> - Open link in note
         </div>
       </section>
+        </div>
+      </div>
     </div>
   );
 };
