@@ -188,18 +188,6 @@ function AppContent() {
     }
   }, [tabs]);
 
-  const updateTabContent = useCallback((content: string) => {
-    if (!selectedNote || tabs.length === 0) return;
-    
-    const updatedTabs = [...tabs];
-    updatedTabs[activeTabIndex] = {
-      ...updatedTabs[activeTabIndex],
-      note: { ...updatedTabs[activeTabIndex].note, content },
-      isDirty: true
-    };
-    setTabs(updatedTabs);
-    setSelectedNote({ ...selectedNote, content });
-  }, [selectedNote, tabs, activeTabIndex]);
 
   // Open daily note on startup
   useEffect(() => {
@@ -313,14 +301,43 @@ function AppContent() {
     setSearchTerm('');
   };
 
-  const handleNoteChange = (content: string) => {
-    if (!selectedNote) return;
-    
-    updateTabContent(content);
-    
-    // Save and mark tab as clean after success
-    saveMutation.mutate({ path: selectedNote.path, content });
-  };
+  const handleNoteChange = useCallback((notePath: string, content: string) => {
+    // Capture current activeTabIndex to avoid stale closures
+    const currentActiveTabIndex = activeTabIndex;
+
+    // Use functional update to avoid stale closures and ensure we're updating the correct tab
+    setTabs(currentTabs => {
+      const tabIndex = currentTabs.findIndex(tab => tab.note.path === notePath);
+      if (tabIndex === -1) {
+        console.warn(`Tab not found for path: ${notePath}`);
+        return currentTabs;
+      }
+
+      // Verify this is actually the active tab to prevent race conditions
+      if (tabIndex !== currentActiveTabIndex) {
+        console.warn(`Attempted to edit non-active tab. Active: ${currentActiveTabIndex}, Edit attempted: ${tabIndex}`);
+        return currentTabs;
+      }
+
+      const updatedTabs = [...currentTabs];
+      updatedTabs[tabIndex] = {
+        ...updatedTabs[tabIndex],
+        note: { ...updatedTabs[tabIndex].note, content },
+        isDirty: true
+      };
+      return updatedTabs;
+    });
+
+    // Update selectedNote with the new content
+    setSelectedNote(current =>
+      current && current.path === notePath
+        ? { ...current, content }
+        : current
+    );
+
+    // Save with explicit path to avoid closure issues
+    saveMutation.mutate({ path: notePath, content });
+  }, [activeTabIndex, saveMutation]);
 
   const handleSearch = useCallback(async (query: string) => {
     if (query.trim() === '') {
@@ -835,7 +852,7 @@ function AppContent() {
               <NoteEditor
                 note={selectedNote}
                 isPreview={isPreview}
-                onChange={handleNoteChange}
+                onChange={(content) => selectedNote && handleNoteChange(selectedNote.path, content)}
                 onLinkClick={handleNoteLinkClick}
                 onTagClick={handleTagSelect}
                 onTodoToggle={handleTodoToggle}
