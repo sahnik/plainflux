@@ -18,11 +18,12 @@ import { Help } from './components/Help';
 import { TemplateSettings } from './components/TemplateSettings';
 import { Settings } from './components/Settings';
 import { TabBar } from './components/TabBar';
+import { RecentNotes } from './components/RecentNotes';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 
 import { tauriApi, Todo } from './api/tauri';
-import { ViewType, Note, NoteMetadata, Tab } from './types';
+import { ViewType, Note, NoteMetadata, Tab, RecentNote } from './types';
 
 const queryClient = new QueryClient();
 
@@ -102,6 +103,12 @@ function AppContent() {
     enabled: currentView === 'todos',
   });
 
+  const { data: recentNotes = [] } = useQuery({
+    queryKey: ['recentNotes'],
+    queryFn: tauriApi.getRecentNotes,
+    enabled: currentView === 'recent',
+  });
+
   const saveMutation = useMutation({
     mutationFn: ({ path, content }: { path: string; content: string }) =>
       tauriApi.saveNote(path, content),
@@ -109,6 +116,7 @@ function AppContent() {
       queryClient.invalidateQueries({ queryKey: ['notes'] });
       queryClient.invalidateQueries({ queryKey: ['tags'] });
       queryClient.invalidateQueries({ queryKey: ['incompleteTodos'] });
+      queryClient.invalidateQueries({ queryKey: ['recentNotes'] });
       
       // Mark the tab as clean after successful save
       setTabs(currentTabs => {
@@ -275,6 +283,32 @@ function AppContent() {
     if (currentView !== 'search') {
       setSearchTerm('');
     }
+  };
+
+  const handleRecentNoteSelect = async (recentNote: RecentNote) => {
+    const note = await tauriApi.readNote(recentNote.path);
+
+    // Single click: replace current tab or open first tab
+    if (tabs.length === 0) {
+      openInNewTab(note);
+    } else {
+      // Replace current tab's content
+      const updatedTabs = [...tabs];
+      updatedTabs[activeTabIndex] = {
+        note,
+        isDirty: false
+      };
+      setTabs(updatedTabs);
+      setSelectedNote(note);
+    }
+
+    setSearchTerm('');
+  };
+
+  const handleRecentNoteDoubleClick = async (recentNote: RecentNote) => {
+    const note = await tauriApi.readNote(recentNote.path);
+    openInNewTab(note);
+    setSearchTerm('');
   };
 
   const handleNoteChange = (content: string) => {
@@ -662,6 +696,15 @@ function AppContent() {
             todos={incompleteTodos}
             onTodoToggle={handleTodoToggleFromList}
             onNoteClick={handleTodoNoteClick}
+          />
+        );
+      case 'recent':
+        return (
+          <RecentNotes
+            recentNotes={recentNotes}
+            selectedPath={selectedNote?.path}
+            onNoteSelect={handleRecentNoteSelect}
+            onNoteDoubleClick={handleRecentNoteDoubleClick}
           />
         );
     }

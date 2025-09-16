@@ -12,6 +12,7 @@ use commands::AppState;
 use error::Result;
 use git_manager::GitManager;
 use note_manager::read_file_with_encoding;
+use std::collections::VecDeque;
 use std::sync::Mutex;
 
 fn rebuild_cache(state: &AppState) -> Result<()> {
@@ -61,6 +62,7 @@ pub fn run() {
         cache_db: Mutex::new(cache_db),
         git_manager: Mutex::new(git_manager),
         notes_dir: default_notes_dir.to_string_lossy().to_string(),
+        recent_notes: Mutex::new(VecDeque::new()),
     };
 
     // Rebuild cache on startup (non-blocking, don't fail app startup)
@@ -105,6 +107,7 @@ pub fn run() {
             commands::git_commit,
             commands::get_app_settings,
             commands::save_app_settings,
+            commands::get_recent_notes,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

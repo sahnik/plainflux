@@ -845,3 +845,98 @@ body, html {
   color: #e5c07b;
   font-weight: bold;
 }
+
+/* Recent Notes Panel */
+.recent-notes {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.recent-notes-header {
+  padding: 16px;
+  border-bottom: 1px solid var(--border-color);
+  background-color: var(--bg-secondary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-primary);
+  font-weight: 500;
+  font-size: var(--font-size-base);
+}
+
+.recent-notes-empty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  font-size: var(--font-size-base);
+  font-style: italic;
+}
+
+.recent-notes-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+}
+
+.recent-note-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px;
+  margin-bottom: 2px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.recent-note-item:hover {
+  background-color: var(--hover-color);
+}
+
+.recent-note-item.selected {
+  background-color: var(--active-color);
+}
+
+.recent-note-icon {
+  color: var(--text-secondary);
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.recent-note-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.recent-note-title {
+  color: var(--text-primary);
+  font-size: var(--font-size-base);
+  font-weight: 500;
+  margin-bottom: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.recent-note-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: calc(var(--font-size-base) - 2px);
+  color: var(--text-secondary);
+}
+
+.recent-note-folder {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.recent-note-time {
+  flex-shrink: 0;
+  color: var(--text-secondary);
+  opacity: 0.8;
+}

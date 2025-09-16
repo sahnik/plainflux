@@ -1,5 +1,5 @@
 import React from 'react';
-import { FileText, Hash, Search, Calendar, Network, CheckSquare, HelpCircle, Settings } from 'lucide-react';
+import { FileText, Hash, Search, Calendar, Network, CheckSquare, HelpCircle, Settings, Clock } from 'lucide-react';
 import { ViewType } from '../types';
 
 interface SidebarProps {
@@ -31,7 +31,15 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, onViewChange, onD
       >
         <Hash size={iconSize} />
       </button>
-      
+
+      <button
+        className={`sidebar-icon ${currentView === 'recent' ? 'active' : ''}`}
+        onClick={() => onViewChange('recent')}
+        title="Recent Notes"
+      >
+        <Clock size={iconSize} />
+      </button>
+
       <button
         className={`sidebar-icon ${currentView === 'search' ? 'active' : ''}`}
         onClick={() => onViewChange('search')}

@@ -1,5 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
-import { Note, NoteMetadata, GitBlameInfo } from '../types';
+import { Note, NoteMetadata, GitBlameInfo, RecentNote } from '../types';
 
 export const tauriApi = {
   async getNotesList(): Promise<NoteMetadata[]> {
@@ -140,6 +140,10 @@ export const tauriApi = {
 
   async saveAppSettings(settings: AppSettings): Promise<void> {
     return invoke('save_app_settings', { settings });
+  },
+
+  async getRecentNotes(): Promise<RecentNote[]> {
+    return invoke('get_recent_notes');
   },
 };
 

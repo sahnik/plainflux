@@ -5,9 +5,10 @@ use crate::lock_mutex;
 use crate::note_manager::{self, read_file_with_encoding, Note, NoteMetadata};
 use crate::utils::{ensure_dir_exists, safe_read_file, safe_write_file, validate_path_security};
 use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::path::Path;
 use std::sync::Mutex;
+use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::State;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -29,6 +30,14 @@ pub struct AppSettings {
     pub custom_theme: Option<CustomTheme>,
 }
 
+#[derive(Debug, Serialize, Clone)]
+pub struct RecentNote {
+    pub path: String,
+    pub title: String,
+    pub last_modified: u64,
+    pub folder: String,
+}
+
 impl Default for AppSettings {
     fn default() -> Self {
         Self {
@@ -43,6 +52,7 @@ pub struct AppState {
     pub cache_db: Mutex<CacheDb>,
     pub git_manager: Mutex<GitManager>,
     pub notes_dir: String,
+    pub recent_notes: Mutex<VecDeque<RecentNote>>,
 }
 
 #[tauri::command]
@@ -68,6 +78,17 @@ pub async fn save_note(
         "Cache database mutex was poisoned during save_note"
     );
     cache_db.update_note_cache(&path, &content, &state.notes_dir)?;
+
+    // Add to recent notes
+    let note = note_manager::read_note(&path)?;
+    let folder = std::path::Path::new(&path)
+        .parent()
+        .and_then(|p| p.file_name())
+        .and_then(|n| n.to_str())
+        .unwrap_or("")
+        .to_string();
+
+    add_recent_note(&state, &path, &note.title, &folder)?;
 
     // Trigger auto-commit if git repo exists
     let git_manager = lock_mutex!(
@@ -717,4 +738,53 @@ pub async fn save_app_settings(
     // Save settings to file
     safe_write_file(&settings_file, &settings_json)
         .map_err(|e| format!("Failed to save settings: {e}"))
+}
+
+#[tauri::command]
+pub async fn get_recent_notes(state: State<'_, AppState>) -> Result<Vec<RecentNote>, String> {
+    let recent_notes = lock_mutex!(
+        state.recent_notes,
+        "Recent notes mutex was poisoned during get_recent_notes"
+    );
+
+    // Return the notes in reverse order (most recent first)
+    Ok(recent_notes.iter().rev().cloned().collect())
+}
+
+fn add_recent_note(
+    state: &State<'_, AppState>,
+    path: &str,
+    title: &str,
+    folder: &str,
+) -> Result<(), String> {
+    let timestamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_err(|e| format!("Failed to get timestamp: {e}"))?
+        .as_secs();
+
+    let recent_note = RecentNote {
+        path: path.to_string(),
+        title: title.to_string(),
+        last_modified: timestamp,
+        folder: folder.to_string(),
+    };
+
+    let mut recent_notes = lock_mutex!(
+        state.recent_notes,
+        "Recent notes mutex was poisoned during add_recent_note"
+    );
+
+    // Remove any existing entry for this path
+    recent_notes.retain(|note| note.path != path);
+
+    // Add the new entry at the end (most recent)
+    recent_notes.push_back(recent_note);
+
+    // Keep only the last 20 notes
+    const MAX_RECENT_NOTES: usize = 20;
+    while recent_notes.len() > MAX_RECENT_NOTES {
+        recent_notes.pop_front();
+    }
+
+    Ok(())
 }

@@ -13,7 +13,7 @@ export interface NoteMetadata {
   folder: string;
 }
 
-export type ViewType = 'notes' | 'tags' | 'search' | 'tag-filter' | 'graph' | 'todos';
+export type ViewType = 'notes' | 'tags' | 'search' | 'tag-filter' | 'graph' | 'todos' | 'recent';
 
 export interface Tab {
   note: Note;
@@ -34,4 +34,11 @@ export interface GitBlameInfo {
   author: string;
   timestamp: number;
   summary: string;
+}
+
+export interface RecentNote {
+  path: string;
+  title: string;
+  last_modified: number;
+  folder: string;
 }
