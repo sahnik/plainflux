@@ -43,7 +43,7 @@ export const RecentNotes: React.FC<RecentNotesProps> = ({
     }
   };
 
-  const handleContextMenu = (e: React.MouseEvent, note: RecentNote) => {
+  const handleContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
     // For now, just show the default context menu
     // Could add "Open in New Tab" option in the future
@@ -69,7 +69,7 @@ export const RecentNotes: React.FC<RecentNotesProps> = ({
               onClick={() => onNoteSelect(note)}
               onDoubleClick={() => onNoteDoubleClick(note)}
               onMouseDown={(e) => handleMouseDown(e, note)}
-              onContextMenu={(e) => handleContextMenu(e, note)}
+              onContextMenu={handleContextMenu}
               title={note.path}
             >
               <div className="recent-note-icon">

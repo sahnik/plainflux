@@ -3,7 +3,7 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
 import { tauriApi } from '../api/tauri';
 
 export function useWindowState() {
-  const timeoutRef = useRef<NodeJS.Timeout>();
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const saveWindowState = useCallback(async () => {
     try {
@@ -14,8 +14,9 @@ export function useWindowState() {
   }, []);
 
   const debouncedSaveWindowState = useCallback(() => {
-    if (timeoutRef.current) {
+    if (timeoutRef.current !== null) {
       clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
     }
 
     timeoutRef.current = setTimeout(() => {
@@ -47,8 +48,9 @@ export function useWindowState() {
         resizeUnlisten();
         moveUnlisten();
         focusUnlisten();
-        if (timeoutRef.current) {
+        if (timeoutRef.current !== null) {
           clearTimeout(timeoutRef.current);
+          timeoutRef.current = null;
         }
       };
     };
@@ -78,8 +80,9 @@ export function useWindowState() {
 
     // Cleanup on unmount
     return () => {
-      if (timeoutRef.current) {
+      if (timeoutRef.current !== null) {
         clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
       }
     };
   }, [debouncedSaveWindowState]);
