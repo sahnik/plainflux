@@ -28,6 +28,7 @@ pub struct AppSettings {
     pub theme: String, // "dark", "light", "custom"
     pub font_size: u8, // 12-24
     pub custom_theme: Option<CustomTheme>,
+    pub show_git_blame: bool, // whether to show git blame info in editor
 }
 
 #[derive(Debug, Serialize, Clone)]
@@ -44,6 +45,7 @@ impl Default for AppSettings {
             theme: "dark".to_string(),
             font_size: 14,
             custom_theme: None,
+            show_git_blame: true,
         }
     }
 }

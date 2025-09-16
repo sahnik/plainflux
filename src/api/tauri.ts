@@ -186,4 +186,5 @@ export interface AppSettings {
   theme: string;
   font_size: number;
   custom_theme?: CustomTheme;
+  show_git_blame: boolean;
 }

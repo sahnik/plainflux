@@ -102,11 +102,20 @@ export async function loadBlameInfo(filePath: string): Promise<void> {
   }
 }
 
-export function createGitBlameExtension(): Extension {
+export function createGitBlameExtension(enabled: boolean = true): Extension {
+  if (!enabled) {
+    return [];
+  }
   return [blamePlugin];
 }
 
-export function updateBlameInfo(view: EditorView, filePath: string): void {
+export function updateBlameInfo(view: EditorView, filePath: string, enabled: boolean = true): void {
+  if (!enabled) {
+    currentBlameInfo = [];
+    view.dispatch({});
+    return;
+  }
+
   loadBlameInfo(filePath).then(() => {
     // Force update of decorations
     view.dispatch({});

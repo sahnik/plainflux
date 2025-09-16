@@ -52,7 +52,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, isPreview, onChang
         createAutocompleteExtension(autocompleteDataRef),
         createPasteHandler(note.path),
         createSearchHighlightExtension(),
-        createGitBlameExtension(),
+        createGitBlameExtension(settings.showGitBlame),
         EditorView.updateListener.of((update) => {
           if (update.docChanged) {
             onChange(update.state.doc.toString());
@@ -73,14 +73,14 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, isPreview, onChang
     }
 
     // Load git blame info for the current note
-    updateBlameInfo(viewRef.current, note.path);
+    updateBlameInfo(viewRef.current, note.path, settings.showGitBlame);
 
     return () => {
       if (viewRef.current) {
         viewRef.current.destroy();
       }
     };
-  }, [note?.path, isPreview, searchTerm, settings.theme, settings.fontSize]);
+  }, [note?.path, isPreview, searchTerm, settings.theme, settings.fontSize, settings.showGitBlame]);
 
   // Update editor content when note changes
   useEffect(() => {

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Save, RotateCcw, Palette, Type } from 'lucide-react';
+import { X, Save, RotateCcw, Palette, Type, Code } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { ThemeColors, darkTheme, validateFontSize } from '../utils/themes';
 import './Settings.css';
@@ -38,7 +38,7 @@ const ColorPicker: React.FC<ColorPickerProps> = ({ label, value, onChange }) => 
 
 export const Settings: React.FC<SettingsProps> = ({ isOpen, onClose }) => {
   const { settings, updateSettings, isLoading } = useTheme();
-  const [activeTab, setActiveTab] = useState<'appearance' | 'font'>('appearance');
+  const [activeTab, setActiveTab] = useState<'appearance' | 'font' | 'editor'>('appearance');
   const [localSettings, setLocalSettings] = useState(settings);
   const [customTheme, setCustomTheme] = useState<ThemeColors>(
     settings.customTheme || darkTheme
@@ -59,6 +59,10 @@ export const Settings: React.FC<SettingsProps> = ({ isOpen, onClose }) => {
   const handleFontSizeChange = (fontSize: number) => {
     const validSize = validateFontSize(fontSize);
     setLocalSettings({ ...localSettings, fontSize: validSize });
+  };
+
+  const handleGitBlameToggle = (enabled: boolean) => {
+    setLocalSettings({ ...localSettings, showGitBlame: enabled });
   };
 
   const handleCustomThemeChange = (updates: Partial<ThemeColors>) => {
@@ -83,6 +87,7 @@ export const Settings: React.FC<SettingsProps> = ({ isOpen, onClose }) => {
     setLocalSettings({
       theme: 'dark',
       fontSize: 14,
+      showGitBlame: true,
     });
     setCustomTheme(darkTheme);
   };
@@ -129,6 +134,13 @@ export const Settings: React.FC<SettingsProps> = ({ isOpen, onClose }) => {
           >
             <Type size={16} />
             Font
+          </button>
+          <button
+            className={`settings-tab ${activeTab === 'editor' ? 'active' : ''}`}
+            onClick={() => setActiveTab('editor')}
+          >
+            <Code size={16} />
+            Editor
           </button>
         </div>
 
@@ -303,6 +315,27 @@ export const Settings: React.FC<SettingsProps> = ({ isOpen, onClose }) => {
                     <span>Reset to default size</span>
                   </div>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'editor' && (
+            <div className="settings-section">
+              <h4>Git Integration</h4>
+              <div className="setting-item">
+                <label className="setting-label">
+                  <input
+                    type="checkbox"
+                    checked={localSettings.showGitBlame}
+                    onChange={(e) => handleGitBlameToggle(e.target.checked)}
+                    className="setting-checkbox"
+                  />
+                  <span className="setting-text">Show Git Blame Information</span>
+                </label>
+                <p className="setting-description">
+                  Display author and commit information inline in the editor.
+                  Requires a Git repository to be initialized.
+                </p>
               </div>
             </div>
           )}

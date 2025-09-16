@@ -44,6 +44,7 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
     return {
       theme: tauriSettings.theme as 'dark' | 'light' | 'custom',
       fontSize: tauriSettings.font_size,
+      showGitBlame: tauriSettings.show_git_blame,
       customTheme: tauriSettings.custom_theme ? {
         bgPrimary: tauriSettings.custom_theme.bg_primary,
         bgSecondary: tauriSettings.custom_theme.bg_secondary,
@@ -61,6 +62,7 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
     return {
       theme: settings.theme,
       font_size: settings.fontSize,
+      show_git_blame: settings.showGitBlame,
       custom_theme: settings.customTheme ? {
         bg_primary: settings.customTheme.bgPrimary,
         bg_secondary: settings.customTheme.bgSecondary,

@@ -13,6 +13,7 @@ export interface AppSettings {
   theme: 'dark' | 'light' | 'custom';
   fontSize: number;
   customTheme?: ThemeColors;
+  showGitBlame: boolean;
 }
 
 export const darkTheme: ThemeColors = {
@@ -40,6 +41,7 @@ export const lightTheme: ThemeColors = {
 export const defaultSettings: AppSettings = {
   theme: 'dark',
   fontSize: 14,
+  showGitBlame: true,
 };
 
 export function applyCSSVariables(theme: ThemeColors, fontSize: number) {
