@@ -14,7 +14,6 @@ use git_manager::GitManager;
 use note_manager::read_file_with_encoding;
 use std::collections::VecDeque;
 use std::sync::Mutex;
-use tauri::Manager;
 
 fn rebuild_cache(state: &AppState) -> Result<()> {
     let notes = note_manager::list_notes(&state.notes_dir)?;

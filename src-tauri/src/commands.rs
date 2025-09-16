@@ -9,7 +9,7 @@ use std::collections::{HashMap, HashSet, VecDeque};
 use std::path::Path;
 use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
-use tauri::{State, Window, WebviewWindow};
+use tauri::{State, WebviewWindow};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct CustomTheme {
@@ -720,8 +720,7 @@ pub async fn get_app_settings(state: State<'_, AppState>) -> Result<AppSettings,
 
     match safe_read_file(&settings_file) {
         Ok(content) => {
-            serde_json::from_str(&content)
-                .map_err(|e| format!("Failed to parse settings: {e}"))
+            serde_json::from_str(&content).map_err(|e| format!("Failed to parse settings: {e}"))
         }
         Err(AppError::NotFound(_)) => {
             // Return default settings if none exist
@@ -807,9 +806,15 @@ pub async fn save_window_state(
     state: State<'_, AppState>,
 ) -> Result<(), String> {
     // Get current window state
-    let size = window.inner_size().map_err(|e| format!("Failed to get window size: {e}"))?;
-    let position = window.outer_position().map_err(|e| format!("Failed to get window position: {e}"))?;
-    let is_maximized = window.is_maximized().map_err(|e| format!("Failed to get maximized state: {e}"))?;
+    let size = window
+        .inner_size()
+        .map_err(|e| format!("Failed to get window size: {e}"))?;
+    let position = window
+        .outer_position()
+        .map_err(|e| format!("Failed to get window position: {e}"))?;
+    let is_maximized = window
+        .is_maximized()
+        .map_err(|e| format!("Failed to get maximized state: {e}"))?;
 
     // Get current settings
     let mut settings = get_app_settings(state.clone()).await?;
@@ -835,8 +840,8 @@ pub async fn apply_window_state(
     // Apply window size if available
     if let (Some(width), Some(height)) = (settings.window_width, settings.window_height) {
         // Validate dimensions are reasonable
-        let width = width.max(400.0).min(2560.0) as u32;
-        let height = height.max(300.0).min(1440.0) as u32;
+        let width = width.clamp(400.0, 2560.0) as u32;
+        let height = height.clamp(300.0, 1440.0) as u32;
 
         window
             .set_size(tauri::Size::Physical(tauri::PhysicalSize { width, height }))
