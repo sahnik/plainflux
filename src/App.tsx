@@ -21,6 +21,7 @@ import { TabBar } from './components/TabBar';
 import { RecentNotes } from './components/RecentNotes';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
+import { useWindowState } from './hooks/useWindowState';
 
 import { tauriApi, Todo } from './api/tauri';
 import { ViewType, Note, NoteMetadata, Tab, RecentNote } from './types';
@@ -29,6 +30,7 @@ const queryClient = new QueryClient();
 
 function AppContent() {
   useKeyboardShortcuts(); // Add keyboard shortcuts for font size
+  useWindowState(); // Handle window state persistence
   const [currentView, setCurrentView] = useState<ViewType>('notes');
   const [selectedNote, setSelectedNote] = useState<Note | null>(null);
   const [tabs, setTabs] = useState<Tab[]>([]);

@@ -55,6 +55,11 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
         hoverColor: tauriSettings.custom_theme.hover_color,
         activeColor: tauriSettings.custom_theme.active_color,
       } : undefined,
+      windowWidth: tauriSettings.window_width,
+      windowHeight: tauriSettings.window_height,
+      windowX: tauriSettings.window_x,
+      windowY: tauriSettings.window_y,
+      windowMaximized: tauriSettings.window_maximized,
     };
   };
 
@@ -73,6 +78,11 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
         hover_color: settings.customTheme.hoverColor,
         active_color: settings.customTheme.activeColor,
       } : undefined,
+      window_width: settings.windowWidth,
+      window_height: settings.windowHeight,
+      window_x: settings.windowX,
+      window_y: settings.windowY,
+      window_maximized: settings.windowMaximized,
     };
   };
 

@@ -145,6 +145,14 @@ export const tauriApi = {
   async getRecentNotes(): Promise<RecentNote[]> {
     return invoke('get_recent_notes');
   },
+
+  async saveWindowState(): Promise<void> {
+    return invoke('save_window_state');
+  },
+
+  async applyWindowState(): Promise<void> {
+    return invoke('apply_window_state');
+  },
 };
 
 export interface GraphNode {
@@ -187,4 +195,9 @@ export interface AppSettings {
   font_size: number;
   custom_theme?: CustomTheme;
   show_git_blame: boolean;
+  window_width?: number;
+  window_height?: number;
+  window_x?: number;
+  window_y?: number;
+  window_maximized?: boolean;
 }

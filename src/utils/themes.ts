@@ -14,6 +14,11 @@ export interface AppSettings {
   fontSize: number;
   customTheme?: ThemeColors;
   showGitBlame: boolean;
+  windowWidth?: number;
+  windowHeight?: number;
+  windowX?: number;
+  windowY?: number;
+  windowMaximized?: boolean;
 }
 
 export const darkTheme: ThemeColors = {

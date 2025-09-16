@@ -9,7 +9,7 @@ use std::collections::{HashMap, HashSet, VecDeque};
 use std::path::Path;
 use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
-use tauri::State;
+use tauri::{State, Window, WebviewWindow};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct CustomTheme {
@@ -29,6 +29,11 @@ pub struct AppSettings {
     pub font_size: u8, // 12-24
     pub custom_theme: Option<CustomTheme>,
     pub show_git_blame: bool, // whether to show git blame info in editor
+    pub window_width: Option<f64>,
+    pub window_height: Option<f64>,
+    pub window_x: Option<f64>,
+    pub window_y: Option<f64>,
+    pub window_maximized: Option<bool>,
 }
 
 #[derive(Debug, Serialize, Clone)]
@@ -46,6 +51,11 @@ impl Default for AppSettings {
             font_size: 14,
             custom_theme: None,
             show_git_blame: true,
+            window_width: None,
+            window_height: None,
+            window_x: None,
+            window_y: None,
+            window_maximized: None,
         }
     }
 }
@@ -786,6 +796,70 @@ fn add_recent_note(
     const MAX_RECENT_NOTES: usize = 20;
     while recent_notes.len() > MAX_RECENT_NOTES {
         recent_notes.pop_front();
+    }
+
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn save_window_state(
+    window: WebviewWindow,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    // Get current window state
+    let size = window.inner_size().map_err(|e| format!("Failed to get window size: {e}"))?;
+    let position = window.outer_position().map_err(|e| format!("Failed to get window position: {e}"))?;
+    let is_maximized = window.is_maximized().map_err(|e| format!("Failed to get maximized state: {e}"))?;
+
+    // Get current settings
+    let mut settings = get_app_settings(state.clone()).await?;
+
+    // Update window state
+    settings.window_width = Some(size.width as f64);
+    settings.window_height = Some(size.height as f64);
+    settings.window_x = Some(position.x as f64);
+    settings.window_y = Some(position.y as f64);
+    settings.window_maximized = Some(is_maximized);
+
+    // Save settings
+    save_app_settings(settings, state).await
+}
+
+#[tauri::command]
+pub async fn apply_window_state(
+    window: WebviewWindow,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    let settings = get_app_settings(state).await?;
+
+    // Apply window size if available
+    if let (Some(width), Some(height)) = (settings.window_width, settings.window_height) {
+        // Validate dimensions are reasonable
+        let width = width.max(400.0).min(2560.0) as u32;
+        let height = height.max(300.0).min(1440.0) as u32;
+
+        window
+            .set_size(tauri::Size::Physical(tauri::PhysicalSize { width, height }))
+            .map_err(|e| format!("Failed to set window size: {e}"))?;
+    }
+
+    // Apply window position if available
+    if let (Some(x), Some(y)) = (settings.window_x, settings.window_y) {
+        window
+            .set_position(tauri::Position::Physical(tauri::PhysicalPosition {
+                x: x as i32,
+                y: y as i32,
+            }))
+            .map_err(|e| format!("Failed to set window position: {e}"))?;
+    }
+
+    // Apply maximized state if specified
+    if let Some(is_maximized) = settings.window_maximized {
+        if is_maximized {
+            window
+                .maximize()
+                .map_err(|e| format!("Failed to maximize window: {e}"))?;
+        }
     }
 
     Ok(())
