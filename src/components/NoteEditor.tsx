@@ -5,7 +5,7 @@ import { markdown } from '@codemirror/lang-markdown';
 import { MarkdownRenderer } from './MarkdownRenderer';
 import { Note, NoteMetadata } from '../types';
 import { createAutocompleteExtension } from '../utils/editorAutocomplete';
-import { createPasteHandler } from '../utils/imageHandler';
+import { createPasteHandler } from '../utils/fileHandler';
 import { createSearchHighlightExtension, setSearchTerm, scrollToFirstMatch } from '../utils/searchHighlight';
 import { createGitBlameExtension, updateBlameInfo } from '../utils/gitBlame';
 import { createDynamicTheme, createSyntaxHighlighting } from '../utils/editorThemes';

@@ -4,6 +4,7 @@ import remarkGfm from 'remark-gfm';
 import { convertFileSrc } from '@tauri-apps/api/core';
 
 import { NoteMetadata } from '../types';
+import { tauriApi } from '../api/tauri';
 
 interface MarkdownRendererProps {
   content: string;
@@ -260,6 +261,35 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, onL
               );
             }
             
+            // Handle attachment links
+            if (href && href.startsWith('attachments/') && notePath) {
+              return (
+                <a
+                  {...props}
+                  style={{
+                    color: '#9cdcfe',
+                    cursor: 'pointer',
+                    textDecoration: 'none',
+                    backgroundColor: 'rgba(156, 220, 254, 0.1)',
+                    padding: '2px 6px',
+                    borderRadius: '4px',
+                    border: '1px solid rgba(156, 220, 254, 0.3)',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px'
+                  }}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    if (notePath) {
+                      tauriApi.openFileExternal(href, notePath).catch((error) => {
+                        console.error('Failed to open file:', error);
+                      });
+                    }
+                  }}
+                />
+              );
+            }
+
             // Regular external links
             return <a {...props} target="_blank" rel="noopener noreferrer" />;
           },

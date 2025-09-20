@@ -523,6 +523,95 @@ pub async fn save_image(
 }
 
 #[tauri::command]
+pub async fn save_attachment(
+    file_data: Vec<u8>,
+    filename: String,
+    note_path: String,
+    _state: State<'_, AppState>,
+) -> Result<String, String> {
+    // Get the directory of the current note
+    let note_path_buf = std::path::Path::new(&note_path);
+    let note_dir = note_path_buf
+        .parent()
+        .ok_or("Failed to get note directory")?;
+
+    // Create attachments subdirectory if it doesn't exist
+    let attachments_dir = note_dir.join("attachments");
+    if !attachments_dir.exists() {
+        std::fs::create_dir_all(&attachments_dir)
+            .map_err(|e| format!("Failed to create attachments directory: {e}"))?;
+    }
+
+    // Generate unique filename if file already exists
+    let mut final_filename = filename.clone();
+    let mut counter = 1;
+    while attachments_dir.join(&final_filename).exists() {
+        let name_parts: Vec<&str> = filename.rsplitn(2, '.').collect();
+        if name_parts.len() == 2 {
+            final_filename = format!("{}-{}.{}", name_parts[1], counter, name_parts[0]);
+        } else {
+            final_filename = format!("{filename}-{counter}");
+        }
+        counter += 1;
+    }
+
+    // Save the attachment
+    let attachment_path = attachments_dir.join(&final_filename);
+    std::fs::write(&attachment_path, file_data)
+        .map_err(|e| format!("Failed to save attachment: {e}"))?;
+
+    // Return relative path from note location
+    Ok(format!("attachments/{final_filename}"))
+}
+
+#[tauri::command]
+pub async fn open_file_external(
+    file_path: String,
+    note_path: String,
+    window: tauri::WebviewWindow,
+    _state: State<'_, AppState>,
+) -> Result<(), String> {
+    use tauri_plugin_opener::OpenerExt;
+
+    // Get the directory of the current note
+    let note_path_buf = std::path::Path::new(&note_path);
+    let note_dir = note_path_buf
+        .parent()
+        .ok_or("Failed to get note directory")?;
+
+    // Construct the full path to the attachment
+    let full_path = if file_path.starts_with("attachments/") {
+        note_dir.join(&file_path)
+    } else {
+        // Fallback for absolute paths or other formats
+        std::path::PathBuf::from(&file_path)
+    };
+
+    // Validate that the file exists and is within the expected directory structure
+    if !full_path.exists() {
+        return Err("File not found".to_string());
+    }
+
+    // Security check: ensure the file is within the note directory or its subdirectories
+    if let Ok(canonical_full_path) = full_path.canonicalize() {
+        if let Ok(canonical_note_dir) = note_dir.canonicalize() {
+            if !canonical_full_path.starts_with(&canonical_note_dir) {
+                return Err("Access denied: file is outside the note directory".to_string());
+            }
+        }
+    }
+
+    // Open the file with the default application
+    window
+        .opener()
+        .open_url(
+            format!("file://{}", full_path.to_string_lossy()).as_str(),
+            None::<String>,
+        )
+        .map_err(|e| format!("Failed to open file: {e}"))
+}
+
+#[tauri::command]
 pub async fn get_incomplete_todos(state: State<'_, AppState>) -> Result<Vec<Todo>, String> {
     let cache_db = state
         .cache_db

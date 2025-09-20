@@ -91,11 +91,23 @@ export const tauriApi = {
   },
 
   async saveImage(imageData: Uint8Array, filename: string, notePath: string): Promise<string> {
-    return invoke('save_image', { 
+    return invoke('save_image', {
       imageData: Array.from(imageData),
       filename,
-      notePath 
+      notePath
     });
+  },
+
+  async saveAttachment(fileData: Uint8Array, filename: string, notePath: string): Promise<string> {
+    return invoke('save_attachment', {
+      fileData: Array.from(fileData),
+      filename,
+      notePath
+    });
+  },
+
+  async openFileExternal(filePath: string, notePath: string): Promise<void> {
+    return invoke('open_file_external', { filePath, notePath });
   },
 
   async getIncompleteTodos(): Promise<Todo[]> {

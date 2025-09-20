@@ -96,6 +96,8 @@ pub fn run() {
             commands::get_global_graph,
             commands::get_local_graph,
             commands::save_image,
+            commands::save_attachment,
+            commands::open_file_external,
             commands::get_incomplete_todos,
             commands::toggle_todo,
             commands::get_daily_note_template,
