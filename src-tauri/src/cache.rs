@@ -10,6 +10,7 @@ pub struct Link {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+#[allow(dead_code)]
 pub struct Tag {
     pub tag: String,
     pub note_path: String,
