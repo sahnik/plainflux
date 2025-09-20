@@ -17,6 +17,7 @@ interface NoteEditorProps {
   isPreview: boolean;
   onChange: (content: string) => void;
   onLinkClick: (noteName: string) => void;
+  onLinkOpenInNewTab: (noteName: string) => void;
   onTagClick?: (tag: string) => void;
   onTodoToggle?: (lineNumber: number) => void;
   notes: NoteMetadata[];
@@ -24,7 +25,7 @@ interface NoteEditorProps {
   searchTerm?: string;
 }
 
-export const NoteEditor: React.FC<NoteEditorProps> = ({ note, isPreview, onChange, onLinkClick, onTagClick, onTodoToggle, notes, tags, searchTerm }) => {
+export const NoteEditor: React.FC<NoteEditorProps> = ({ note, isPreview, onChange, onLinkClick, onLinkOpenInNewTab, onTagClick, onTodoToggle, notes, tags, searchTerm }) => {
   const editorRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   const autocompleteDataRef = useRef({ notes, tags });
@@ -62,7 +63,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, isPreview, onChang
         createPasteHandler(note.path),
         createSearchHighlightExtension(),
         createGitBlameExtension(settings.showGitBlame),
-        createNoteLinkExtension(onLinkClick, noteExists),
+        createNoteLinkExtension(onLinkClick, onLinkOpenInNewTab, noteExists),
         EditorView.updateListener.of((update) => {
           if (update.docChanged) {
             onChange(update.state.doc.toString());

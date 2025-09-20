@@ -401,6 +401,40 @@ function AppContent() {
     await handleNoteLinkClick(linkName);
   };
 
+  const handleBacklinkOpenInNewTab = async (path: string) => {
+    const note = await tauriApi.readNote(path);
+    openInNewTab(note);
+    setSearchTerm('');
+  };
+
+  const handleOutgoingLinkOpenInNewTab = async (linkName: string) => {
+    try {
+      // Check if note exists using the new command
+      const existingNotePath = await tauriApi.findNoteByName(linkName);
+
+      if (existingNotePath) {
+        // Note exists, open in new tab
+        const note = await tauriApi.readNote(existingNotePath);
+        openInNewTab(note);
+      } else {
+        // Note doesn't exist, create it and open in new tab
+        const newNotePath = await tauriApi.createNote(linkName);
+        const note = await tauriApi.readNote(newNotePath);
+        openInNewTab(note);
+        // Refresh the notes list
+        queryClient.invalidateQueries({ queryKey: ['notes'] });
+      }
+      setSearchTerm('');
+    } catch (error) {
+      console.error('Failed to handle outgoing link in new tab:', error);
+    }
+  };
+
+  const handleNoteLinkOpenInNewTab = async (linkName: string) => {
+    // Delegate to existing outgoing link handler for new tabs
+    await handleOutgoingLinkOpenInNewTab(linkName);
+  };
+
   const handleNoteMove = async (note: NoteMetadata, targetFolder: string) => {
     try {
       const newPath = await tauriApi.moveNote(note.path, targetFolder);
@@ -865,6 +899,7 @@ function AppContent() {
                 isPreview={isPreview}
                 onChange={(content) => selectedNote && handleNoteChange(selectedNote.path, content)}
                 onLinkClick={handleNoteLinkClick}
+                onLinkOpenInNewTab={handleNoteLinkOpenInNewTab}
                 onTagClick={handleTagSelect}
                 onTodoToggle={handleTodoToggle}
                 notes={notes}
@@ -883,7 +918,9 @@ function AppContent() {
               backlinks={backlinks}
               outgoingLinks={outgoingLinks}
               onBacklinkClick={handleBacklinkClick}
+              onBacklinkOpenInNewTab={handleBacklinkOpenInNewTab}
               onOutgoingLinkClick={handleOutgoingLinkClick}
+              onOutgoingLinkOpenInNewTab={handleOutgoingLinkOpenInNewTab}
             />
           </div>
         </Panel>
