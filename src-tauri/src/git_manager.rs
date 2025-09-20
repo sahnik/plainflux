@@ -148,24 +148,30 @@ impl GitManager {
 
         let mut blame_info = Vec::new();
 
-        for line_num in 0..blame.len() {
-            if let Some(hunk) = blame.get_line(line_num + 1) {
+        // Get the actual number of lines in the file
+        let file_line_count = if let Ok(content) = std::fs::read_to_string(file_path) {
+            content.lines().count()
+        } else {
+            0
+        };
+
+        // Iterate through each line of the file to get blame info
+        for line_num in 1..=file_line_count {
+            if let Some(hunk) = blame.get_line(line_num) {
                 let commit_oid = hunk.final_commit_id();
-                let commit = repo
-                    .find_commit(commit_oid)
-                    .map_err(|e| format!("Failed to find commit: {}", e))?;
+                if let Ok(commit) = repo.find_commit(commit_oid) {
+                    let author = commit.author();
+                    let timestamp = author.when().seconds();
+                    let summary = commit.summary().unwrap_or("").to_string();
 
-                let author = commit.author();
-                let timestamp = author.when().seconds();
-                let summary = commit.summary().unwrap_or("").to_string();
-
-                blame_info.push(GitBlameInfo {
-                    line_number: line_num + 1,
-                    commit_hash: commit_oid.to_string()[..8].to_string(), // Short hash
-                    author: author.name().unwrap_or("Unknown").to_string(),
-                    timestamp,
-                    summary,
-                });
+                    blame_info.push(GitBlameInfo {
+                        line_number: line_num,
+                        commit_hash: commit_oid.to_string()[..8].to_string(), // Short hash
+                        author: author.name().unwrap_or("Unknown").to_string(),
+                        timestamp,
+                        summary,
+                    });
+                }
             }
         }
 
