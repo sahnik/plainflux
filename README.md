@@ -2,7 +2,7 @@
 
 A modern, cross-platform note-taking application with backlinks, tags, and knowledge graph visualization. Built with Tauri and React for a native desktop experience.
 
-![Version](https://img.shields.io/badge/version-0.9.2-blue.svg)
+![Version](https://img.shields.io/badge/version-0.9.8-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 
 ## Features
@@ -98,6 +98,8 @@ npm run tauri build
 # macOS/Linux:
 ./scripts/build-portable.sh
 ```
+
+git tag v0.9.7 && git push origin v0.9.7
 
 ## Usage
 
