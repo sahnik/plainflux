@@ -42,6 +42,10 @@ export const tauriApi = {
     return invoke('get_backlinks', { notePath });
   },
 
+  async getOutgoingLinks(notePath: string): Promise<string[]> {
+    return invoke('get_outgoing_links', { notePath });
+  },
+
   async getAllTags(): Promise<string[]> {
     return invoke('get_all_tags');
   },

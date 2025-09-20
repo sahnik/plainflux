@@ -87,6 +87,12 @@ function AppContent() {
     enabled: !!selectedNote,
   });
 
+  const { data: outgoingLinks = [] } = useQuery({
+    queryKey: ['outgoingLinks', selectedNote?.path],
+    queryFn: () => selectedNote ? tauriApi.getOutgoingLinks(selectedNote.path) : Promise.resolve([]),
+    enabled: !!selectedNote,
+  });
+
   const { data: globalGraphData = { nodes: [], edges: [] } } = useQuery({
     queryKey: ['globalGraph'],
     queryFn: tauriApi.getGlobalGraph,
@@ -373,7 +379,7 @@ function AppContent() {
 
   const handleBacklinkClick = async (path: string) => {
     const note = await tauriApi.readNote(path);
-    
+
     // Backlinks: single click replaces current tab
     if (tabs.length === 0) {
       openInNewTab(note);
@@ -386,8 +392,13 @@ function AppContent() {
       setTabs(updatedTabs);
       setSelectedNote(note);
     }
-    
+
     setSearchTerm('');
+  };
+
+  const handleOutgoingLinkClick = async (linkName: string) => {
+    // Delegate to existing note link handling logic
+    await handleNoteLinkClick(linkName);
   };
 
   const handleNoteMove = async (note: NoteMetadata, targetFolder: string) => {
@@ -870,7 +881,9 @@ function AppContent() {
           <div className="panel info-panel">
             <BacklinksPanel
               backlinks={backlinks}
+              outgoingLinks={outgoingLinks}
               onBacklinkClick={handleBacklinkClick}
+              onOutgoingLinkClick={handleOutgoingLinkClick}
             />
           </div>
         </Panel>

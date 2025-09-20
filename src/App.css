@@ -559,6 +559,23 @@ body, html {
   background-color: var(--hover-color);
 }
 
+.panel-section {
+  margin-bottom: 24px;
+}
+
+.panel-section:last-child {
+  margin-bottom: 0;
+}
+
+/* Note link marks in editor */
+.note-link-mark {
+  /* Base styles are applied via the extension */
+}
+
+.note-link-mark:hover {
+  text-decoration: underline !important;
+}
+
 /* Context Menu */
 .context-menu {
   position: fixed;

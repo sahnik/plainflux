@@ -9,6 +9,7 @@ import { createPasteHandler } from '../utils/imageHandler';
 import { createSearchHighlightExtension, setSearchTerm, scrollToFirstMatch } from '../utils/searchHighlight';
 import { createGitBlameExtension, updateBlameInfo } from '../utils/gitBlame';
 import { createDynamicTheme, createSyntaxHighlighting } from '../utils/editorThemes';
+import { createNoteLinkExtension } from '../utils/editorNoteLinkExtension';
 import { useTheme } from '../contexts/ThemeContext';
 
 interface NoteEditorProps {
@@ -28,11 +29,19 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, isPreview, onChang
   const viewRef = useRef<EditorView | null>(null);
   const autocompleteDataRef = useRef({ notes, tags });
   const { settings } = useTheme();
-  
+
   // Update autocomplete data when notes or tags change
   useEffect(() => {
     autocompleteDataRef.current = { notes, tags };
   }, [notes, tags]);
+
+  // Helper function to check if a note exists
+  const noteExists = (noteName: string): boolean => {
+    return notes.some(note =>
+      note.title.toLowerCase() === noteName.toLowerCase() ||
+      note.title.toLowerCase() === noteName.toLowerCase() + '.md'
+    );
+  };
 
   useEffect(() => {
     if (!note || isPreview || !editorRef.current) return;
@@ -53,6 +62,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, isPreview, onChang
         createPasteHandler(note.path),
         createSearchHighlightExtension(),
         createGitBlameExtension(settings.showGitBlame),
+        createNoteLinkExtension(onLinkClick, noteExists),
         EditorView.updateListener.of((update) => {
           if (update.docChanged) {
             onChange(update.state.doc.toString());

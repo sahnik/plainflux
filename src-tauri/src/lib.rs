@@ -83,6 +83,7 @@ pub fn run() {
             commands::search_notes,
             commands::get_daily_note,
             commands::get_backlinks,
+            commands::get_outgoing_links,
             commands::get_all_tags,
             commands::get_notes_by_tag,
             commands::set_notes_directory,

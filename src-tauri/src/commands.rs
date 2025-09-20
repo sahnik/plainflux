@@ -194,6 +194,20 @@ pub async fn get_backlinks(
 }
 
 #[tauri::command]
+pub async fn get_outgoing_links(note_path: String) -> Result<Vec<String>, String> {
+    use crate::cache::extract_links;
+
+    // Read the note content
+    let content =
+        read_file_with_encoding(&note_path).map_err(|e| format!("Failed to read note: {e}"))?;
+
+    // Extract links from the content
+    let links = extract_links(&content);
+
+    Ok(links)
+}
+
+#[tauri::command]
 pub async fn get_all_tags(state: State<'_, AppState>) -> Result<Vec<String>, String> {
     let cache_db = state
         .cache_db
