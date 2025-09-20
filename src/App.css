@@ -28,6 +28,17 @@ body, html {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* Global text selection styling */
+::selection {
+  background-color: var(--active-color);
+  color: var(--text-primary);
+}
+
+::-moz-selection {
+  background-color: var(--active-color);
+  color: var(--text-primary);
+}
+
 #root {
   height: 100vh;
 }

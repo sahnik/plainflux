@@ -31,8 +31,16 @@ export function createDynamicTheme(themeType: 'dark' | 'light' | 'custom' = 'dar
       borderLeftColor: `${cursorColor} !important`,
       borderLeftWidth: '2px !important',
     },
-    '.cm-focused .cm-selectionBackground, .cm-selectionBackground, .cm-content ::selection': {
-      backgroundColor: 'var(--active-color)',
+    '.cm-focused .cm-selectionBackground, .cm-selectionBackground': {
+      backgroundColor: 'var(--active-color) !important',
+    },
+    '.cm-content ::selection': {
+      backgroundColor: 'var(--active-color) !important',
+      color: 'var(--text-primary) !important',
+    },
+    '.cm-line ::selection': {
+      backgroundColor: 'var(--active-color) !important',
+      color: 'var(--text-primary) !important',
     },
     '.cm-panels': {
       backgroundColor: 'var(--bg-secondary)',
