@@ -27,12 +27,20 @@ fn rebuild_cache(state: &AppState) -> Result<()> {
         }
     };
 
-    println!("Rebuilding cache with FTS5 index for {} notes...", notes.len());
+    println!(
+        "Rebuilding cache with FTS5 index for {} notes...",
+        notes.len()
+    );
 
     for note in notes {
         if let Ok(content) = read_file_with_encoding(&note.path) {
             // Update cache including FTS5 index
-            if let Err(e) = cache_db.update_note_cache_with_fts(&note.path, &note.title, &content, &state.notes_dir) {
+            if let Err(e) = cache_db.update_note_cache_with_fts(
+                &note.path,
+                &note.title,
+                &content,
+                &state.notes_dir,
+            ) {
                 let path = &note.path;
                 eprintln!("Warning: Failed to update cache for '{path}': {e}");
             }

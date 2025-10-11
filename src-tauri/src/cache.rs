@@ -379,7 +379,12 @@ impl CacheDb {
 
     // FTS5 Full-Text Search Methods
 
-    pub fn add_note_content(&self, note_path: &str, title: &str, content: &str) -> Result<(), String> {
+    pub fn add_note_content(
+        &self,
+        note_path: &str,
+        title: &str,
+        content: &str,
+    ) -> Result<(), String> {
         self.conn
             .execute(
                 "INSERT OR REPLACE INTO note_content (note_path, title, content) VALUES (?1, ?2, ?3)",

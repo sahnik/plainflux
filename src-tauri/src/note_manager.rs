@@ -384,7 +384,10 @@ pub fn search_notes_enhanced(
 
     // Use FTS5 to get matching note paths
     let note_paths = cache_db.search_notes_fts(query)?;
-    println!("[SEARCH_ENHANCED] FTS5 returned {} matches", note_paths.len());
+    println!(
+        "[SEARCH_ENHANCED] FTS5 returned {} matches",
+        note_paths.len()
+    );
 
     let mut results = Vec::new();
     let query_lower = query.to_lowercase();
@@ -411,7 +414,10 @@ pub fn search_notes_enhanced(
         }
     }
 
-    println!("[SEARCH_ENHANCED] Search complete. Found {} results", results.len());
+    println!(
+        "[SEARCH_ENHANCED] Search complete. Found {} results",
+        results.len()
+    );
     Ok(results)
 }
 
@@ -443,7 +449,8 @@ fn extract_search_snippets(content: &str, query_lower: &str) -> Vec<SearchSnippe
             }
 
             // Calculate match position within the snippet
-            let match_start_in_snippet = actual_pos - snippet_start + (if snippet_start > 0 { 3 } else { 0 });
+            let match_start_in_snippet =
+                actual_pos - snippet_start + (if snippet_start > 0 { 3 } else { 0 });
 
             snippets.push(SearchSnippet {
                 line_number: line_number + 1, // 1-based line numbers

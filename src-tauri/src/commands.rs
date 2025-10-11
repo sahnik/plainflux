@@ -182,7 +182,10 @@ pub async fn search_notes_enhanced(
 ) -> Result<Vec<note_manager::SearchResult>, String> {
     println!("[COMMAND] search_notes_enhanced called with query: '{query}'");
 
-    let cache_db = lock_mutex!(state.cache_db, "Cache DB mutex was poisoned during search_notes_enhanced");
+    let cache_db = lock_mutex!(
+        state.cache_db,
+        "Cache DB mutex was poisoned during search_notes_enhanced"
+    );
 
     let result = note_manager::search_notes_enhanced(&state.notes_dir, &query, &cache_db);
 
