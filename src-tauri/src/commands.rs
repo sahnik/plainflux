@@ -941,24 +941,68 @@ pub async fn apply_window_state(
     let settings = get_app_settings(state).await?;
 
     // Apply window size if available
-    if let (Some(width), Some(height)) = (settings.window_width, settings.window_height) {
-        // Validate dimensions are reasonable
-        let width = width.clamp(400.0, 2560.0) as u32;
-        let height = height.clamp(300.0, 1440.0) as u32;
+    let (window_width, window_height) =
+        if let (Some(width), Some(height)) = (settings.window_width, settings.window_height) {
+            // Validate dimensions are reasonable
+            let width = width.clamp(400.0, 2560.0) as u32;
+            let height = height.clamp(300.0, 1440.0) as u32;
 
-        window
-            .set_size(tauri::Size::Physical(tauri::PhysicalSize { width, height }))
-            .map_err(|e| format!("Failed to set window size: {e}"))?;
-    }
+            window
+                .set_size(tauri::Size::Physical(tauri::PhysicalSize { width, height }))
+                .map_err(|e| format!("Failed to set window size: {e}"))?;
 
-    // Apply window position if available
+            (width, height)
+        } else {
+            // Get current window size as fallback
+            let size = window
+                .inner_size()
+                .map_err(|e| format!("Failed to get window size: {e}"))?;
+            (size.width, size.height)
+        };
+
+    // Apply window position if available, with validation for multi-monitor setups
     if let (Some(x), Some(y)) = (settings.window_x, settings.window_y) {
-        window
-            .set_position(tauri::Position::Physical(tauri::PhysicalPosition {
-                x: x as i32,
-                y: y as i32,
-            }))
-            .map_err(|e| format!("Failed to set window position: {e}"))?;
+        // Get available monitors to validate the position
+        let monitors = window
+            .available_monitors()
+            .map_err(|e| format!("Failed to get available monitors: {e}"))?;
+
+        // Check if the saved position is visible on any current monitor
+        let is_position_valid =
+            is_window_position_visible(x as i32, y as i32, window_width, window_height, &monitors);
+
+        if is_position_valid {
+            // Position is valid, restore it
+            window
+                .set_position(tauri::Position::Physical(tauri::PhysicalPosition {
+                    x: x as i32,
+                    y: y as i32,
+                }))
+                .map_err(|e| format!("Failed to set window position: {e}"))?;
+        } else {
+            // Position is off-screen, center on primary monitor
+            if let Some(primary) = window
+                .primary_monitor()
+                .map_err(|e| format!("Failed to get primary monitor: {e}"))?
+            {
+                let monitor_pos = primary.position();
+                let monitor_size = primary.size();
+
+                // Center the window on the primary monitor
+                let centered_x =
+                    monitor_pos.x + (monitor_size.width as i32 - window_width as i32) / 2;
+                let centered_y =
+                    monitor_pos.y + (monitor_size.height as i32 - window_height as i32) / 2;
+
+                window
+                    .set_position(tauri::Position::Physical(tauri::PhysicalPosition {
+                        x: centered_x,
+                        y: centered_y,
+                    }))
+                    .map_err(|e| format!("Failed to set centered window position: {e}"))?;
+            }
+            // If we can't get primary monitor, leave window at default position
+        }
     }
 
     // Apply maximized state if specified
@@ -971,4 +1015,45 @@ pub async fn apply_window_state(
     }
 
     Ok(())
+}
+
+/// Check if a window position is visible on any of the available monitors
+/// A window is considered visible if at least 100x100 pixels of it overlaps with a monitor
+fn is_window_position_visible(
+    x: i32,
+    y: i32,
+    width: u32,
+    height: u32,
+    monitors: &[tauri::Monitor],
+) -> bool {
+    const MIN_VISIBLE_SIZE: i32 = 100; // Minimum pixels that should be visible
+
+    for monitor in monitors {
+        let monitor_pos = monitor.position();
+        let monitor_size = monitor.size();
+
+        let monitor_x = monitor_pos.x;
+        let monitor_y = monitor_pos.y;
+        let monitor_right = monitor_x + monitor_size.width as i32;
+        let monitor_bottom = monitor_y + monitor_size.height as i32;
+
+        let window_right = x + width as i32;
+        let window_bottom = y + height as i32;
+
+        // Calculate overlap
+        let overlap_left = x.max(monitor_x);
+        let overlap_top = y.max(monitor_y);
+        let overlap_right = window_right.min(monitor_right);
+        let overlap_bottom = window_bottom.min(monitor_bottom);
+
+        let overlap_width = (overlap_right - overlap_left).max(0);
+        let overlap_height = (overlap_bottom - overlap_top).max(0);
+
+        // Check if there's enough visible area
+        if overlap_width >= MIN_VISIBLE_SIZE && overlap_height >= MIN_VISIBLE_SIZE {
+            return true;
+        }
+    }
+
+    false
 }
