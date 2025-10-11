@@ -1,5 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
-import { Note, NoteMetadata, GitBlameInfo, RecentNote } from '../types';
+import { Note, NoteMetadata, GitBlameInfo, RecentNote, SearchResult } from '../types';
 
 export const tauriApi = {
   async getNotesList(): Promise<NoteMetadata[]> {
@@ -30,6 +30,18 @@ export const tauriApi = {
       return results as Note[];
     } catch (error) {
       console.error('[FRONTEND] Search error:', error);
+      throw error;
+    }
+  },
+
+  async searchNotesEnhanced(query: string): Promise<SearchResult[]> {
+    console.log('[FRONTEND] Enhanced search for:', query);
+    try {
+      const results = await invoke('search_notes_enhanced', { query });
+      console.log('[FRONTEND] Enhanced search returned', results);
+      return results as SearchResult[];
+    } catch (error) {
+      console.error('[FRONTEND] Enhanced search error:', error);
       throw error;
     }
   },

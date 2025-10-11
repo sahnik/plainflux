@@ -110,6 +110,19 @@ impl CacheDb {
             )
             .map_err(|e| format!("Failed to create index: {e}"))?;
 
+        // Create FTS5 virtual table for full-text search
+        self.conn
+            .execute(
+                "CREATE VIRTUAL TABLE IF NOT EXISTS note_content USING fts5(
+                note_path UNINDEXED,
+                title,
+                content,
+                tokenize = 'porter unicode61'
+            )",
+                [],
+            )
+            .map_err(|e| format!("Failed to create FTS5 table: {e}"))?;
+
         Ok(())
     }
 
@@ -142,6 +155,22 @@ impl CacheDb {
         Ok(())
     }
 
+    pub fn update_note_cache_with_fts(
+        &self,
+        note_path: &str,
+        title: &str,
+        content: &str,
+        notes_dir: &str,
+    ) -> Result<(), String> {
+        // Update the regular cache (links, tags, todos)
+        self.update_note_cache(note_path, content, notes_dir)?;
+
+        // Also update FTS5 index
+        self.add_note_content(note_path, title, content)?;
+
+        Ok(())
+    }
+
     pub fn clear_note_cache(&self, note_path: &str) -> Result<(), String> {
         self.conn
             .execute("DELETE FROM links WHERE from_note = ?1", params![note_path])
@@ -154,6 +183,9 @@ impl CacheDb {
         self.conn
             .execute("DELETE FROM todos WHERE note_path = ?1", params![note_path])
             .map_err(|e| format!("Failed to clear todos: {e}"))?;
+
+        // Also remove from FTS index
+        self.remove_note_content(note_path)?;
 
         Ok(())
     }
@@ -343,6 +375,47 @@ impl CacheDb {
             .map_err(|e| format!("Failed to update todo: {e}"))?;
 
         Ok(new_state)
+    }
+
+    // FTS5 Full-Text Search Methods
+
+    pub fn add_note_content(&self, note_path: &str, title: &str, content: &str) -> Result<(), String> {
+        self.conn
+            .execute(
+                "INSERT OR REPLACE INTO note_content (note_path, title, content) VALUES (?1, ?2, ?3)",
+                params![note_path, title, content],
+            )
+            .map_err(|e| format!("Failed to add note content to FTS index: {e}"))?;
+        Ok(())
+    }
+
+    pub fn remove_note_content(&self, note_path: &str) -> Result<(), String> {
+        self.conn
+            .execute(
+                "DELETE FROM note_content WHERE note_path = ?1",
+                params![note_path],
+            )
+            .map_err(|e| format!("Failed to remove note content from FTS index: {e}"))?;
+        Ok(())
+    }
+
+    pub fn search_notes_fts(&self, query: &str) -> Result<Vec<String>, String> {
+        // FTS5 search returning note paths that match
+        let mut stmt = self
+            .conn
+            .prepare("SELECT note_path FROM note_content WHERE note_content MATCH ?1 ORDER BY rank")
+            .map_err(|e| format!("Failed to prepare FTS search: {e}"))?;
+
+        let paths = stmt
+            .query_map(params![query], |row| row.get(0))
+            .map_err(|e| format!("Failed to execute FTS search: {e}"))?;
+
+        let mut result = Vec::new();
+        for path in paths {
+            result.push(path.map_err(|e| format!("Failed to get path: {e}"))?);
+        }
+
+        Ok(result)
     }
 }
 

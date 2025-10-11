@@ -22,6 +22,21 @@ pub struct NoteMetadata {
     pub folder: String,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SearchResult {
+    pub note: Note,
+    pub match_count: usize,
+    pub snippets: Vec<SearchSnippet>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SearchSnippet {
+    pub line_number: usize,
+    pub text: String,
+    pub match_start: usize,
+    pub match_length: usize,
+}
+
 pub fn read_note(path: &str) -> Result<Note, String> {
     let content = read_file_with_encoding(path)?;
 
@@ -358,6 +373,91 @@ pub fn search_notes(base_path: &str, query: &str) -> Result<Vec<Note>, String> {
     println!("[SEARCH] Search complete. Total files: {total_files}, MD files: {md_files}, Skipped: {skipped_files}, Read errors: {read_errors}, Matches: {matched_files}, Results: {results_len}");
 
     Ok(results)
+}
+
+pub fn search_notes_enhanced(
+    _base_path: &str,
+    query: &str,
+    cache_db: &crate::cache::CacheDb,
+) -> Result<Vec<SearchResult>, String> {
+    println!("[SEARCH_ENHANCED] Starting enhanced search for query: '{query}'");
+
+    // Use FTS5 to get matching note paths
+    let note_paths = cache_db.search_notes_fts(query)?;
+    println!("[SEARCH_ENHANCED] FTS5 returned {} matches", note_paths.len());
+
+    let mut results = Vec::new();
+    let query_lower = query.to_lowercase();
+
+    for note_path in note_paths {
+        // Read the note
+        match read_note(&note_path) {
+            Ok(note) => {
+                // Extract snippets from the content
+                let snippets = extract_search_snippets(&note.content, &query_lower);
+                let match_count = snippets.len();
+
+                if match_count > 0 {
+                    results.push(SearchResult {
+                        note,
+                        match_count,
+                        snippets,
+                    });
+                }
+            }
+            Err(e) => {
+                println!("[SEARCH_ENHANCED] ERROR reading note {note_path}: {e}");
+            }
+        }
+    }
+
+    println!("[SEARCH_ENHANCED] Search complete. Found {} results", results.len());
+    Ok(results)
+}
+
+fn extract_search_snippets(content: &str, query_lower: &str) -> Vec<SearchSnippet> {
+    let mut snippets = Vec::new();
+    const CONTEXT_CHARS: usize = 50; // Characters of context on each side
+
+    for (line_number, line) in content.lines().enumerate() {
+        let line_lower = line.to_lowercase();
+
+        // Find all matches in this line
+        let mut start_pos = 0;
+        while let Some(match_pos) = line_lower[start_pos..].find(query_lower) {
+            let actual_pos = start_pos + match_pos;
+
+            // Calculate snippet boundaries
+            let snippet_start = actual_pos.saturating_sub(CONTEXT_CHARS);
+            let snippet_end = (actual_pos + query_lower.len() + CONTEXT_CHARS).min(line.len());
+
+            // Extract the snippet text
+            let mut snippet_text = line[snippet_start..snippet_end].to_string();
+
+            // Add ellipsis if we're not at the start/end
+            if snippet_start > 0 {
+                snippet_text = format!("...{snippet_text}");
+            }
+            if snippet_end < line.len() {
+                snippet_text = format!("{snippet_text}...");
+            }
+
+            // Calculate match position within the snippet
+            let match_start_in_snippet = actual_pos - snippet_start + (if snippet_start > 0 { 3 } else { 0 });
+
+            snippets.push(SearchSnippet {
+                line_number: line_number + 1, // 1-based line numbers
+                text: snippet_text,
+                match_start: match_start_in_snippet,
+                match_length: query_lower.len(),
+            });
+
+            // Move past this match to find the next one
+            start_pos = actual_pos + query_lower.len();
+        }
+    }
+
+    snippets
 }
 
 pub fn move_note(old_path: &str, new_folder: &str, base_path: &str) -> Result<String, String> {

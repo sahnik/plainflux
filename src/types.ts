@@ -42,3 +42,16 @@ export interface RecentNote {
   last_modified: number;
   folder: string;
 }
+
+export interface SearchSnippet {
+  line_number: number;
+  text: string;
+  match_start: number;
+  match_length: number;
+}
+
+export interface SearchResult {
+  note: Note;
+  match_count: number;
+  snippets: SearchSnippet[];
+}

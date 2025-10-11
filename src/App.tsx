@@ -24,7 +24,7 @@ import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { useWindowState } from './hooks/useWindowState';
 
 import { tauriApi, Todo } from './api/tauri';
-import { ViewType, Note, NoteMetadata, Tab, RecentNote } from './types';
+import { ViewType, Note, NoteMetadata, Tab, RecentNote, SearchResult } from './types';
 
 const queryClient = new QueryClient();
 
@@ -41,7 +41,7 @@ function AppContent() {
   const [showHelp, setShowHelp] = useState(false);
   const [showTemplateSettings, setShowTemplateSettings] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const [searchResults, setSearchResults] = useState<Note[]>([]);
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [tagFilteredNotes, setTagFilteredNotes] = useState<NoteMetadata[]>([]);
   const [searchTerm, setSearchTerm] = useState<string>('');
@@ -351,7 +351,7 @@ function AppContent() {
       setSearchTerm('');
       return;
     }
-    const results = await tauriApi.searchNotes(query);
+    const results = await tauriApi.searchNotesEnhanced(query);
     setSearchResults(results);
     setSearchTerm(query);
   }, []);
@@ -717,7 +717,9 @@ function AppContent() {
           <SearchPanel
             onSearch={handleSearch}
             results={searchResults}
-            onResultSelect={async (note) => {
+            onResultSelect={async (notePath) => {
+              // Read the note and open it
+              const note = await tauriApi.readNote(notePath);
               // Search results: single click replaces current tab
               if (tabs.length === 0) {
                 openInNewTab(note);

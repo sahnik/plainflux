@@ -85,14 +85,15 @@ pub async fn save_note(
 ) -> Result<(), String> {
     note_manager::write_note(&path, &content)?;
 
+    // Add to recent notes and get title
+    let note = note_manager::read_note(&path)?;
+
     let cache_db = lock_mutex!(
         state.cache_db,
         "Cache database mutex was poisoned during save_note"
     );
-    cache_db.update_note_cache(&path, &content, &state.notes_dir)?;
-
-    // Add to recent notes
-    let note = note_manager::read_note(&path)?;
+    // Update cache including FTS5 index
+    cache_db.update_note_cache_with_fts(&path, &note.title, &content, &state.notes_dir)?;
     let folder = std::path::Path::new(&path)
         .parent()
         .and_then(|p| p.file_name())
@@ -171,6 +172,29 @@ pub async fn search_notes(query: String, state: State<'_, AppState>) -> Result<V
         }
         Err(e) => println!("[COMMAND] Search error: {e}"),
     }
+    result
+}
+
+#[tauri::command]
+pub async fn search_notes_enhanced(
+    query: String,
+    state: State<'_, AppState>,
+) -> Result<Vec<note_manager::SearchResult>, String> {
+    println!("[COMMAND] search_notes_enhanced called with query: '{query}'");
+
+    let cache_db = lock_mutex!(state.cache_db, "Cache DB mutex was poisoned during search_notes_enhanced");
+
+    let result = note_manager::search_notes_enhanced(&state.notes_dir, &query, &cache_db);
+
+    match &result {
+        Ok(results) => {
+            let count = results.len();
+            let total_matches: usize = results.iter().map(|r| r.match_count).sum();
+            println!("[COMMAND] Enhanced search returned {count} notes with {total_matches} total matches");
+        }
+        Err(e) => println!("[COMMAND] Enhanced search error: {e}"),
+    }
+
     result
 }
 

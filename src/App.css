@@ -264,16 +264,112 @@ body, html {
   padding: 8px;
 }
 
-.search-result {
+.search-stats {
   padding: 8px 12px;
+  font-size: calc(var(--font-size-base) - 2px);
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.search-result {
+  padding: 8px;
+  border-radius: 4px;
+  margin-bottom: 8px;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+}
+
+.result-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 8px;
   cursor: pointer;
   border-radius: 4px;
-  margin-bottom: 4px;
   transition: background-color 0.2s;
 }
 
-.search-result:hover {
+.result-header:hover {
   background-color: var(--hover-color);
+}
+
+.match-badge {
+  font-size: calc(var(--font-size-base) - 3px);
+  padding: 2px 8px;
+  border-radius: 12px;
+  background-color: var(--accent-color);
+  color: white;
+  font-weight: 500;
+}
+
+.snippets-container {
+  margin-top: 8px;
+}
+
+.snippet {
+  padding: 6px 8px;
+  margin: 4px 0;
+  cursor: pointer;
+  border-radius: 4px;
+  border-left: 2px solid var(--accent-color);
+  background-color: var(--bg-primary);
+  transition: background-color 0.2s;
+}
+
+.snippet:hover {
+  background-color: var(--hover-color);
+}
+
+.line-number {
+  display: inline-block;
+  font-size: calc(var(--font-size-base) - 3px);
+  color: var(--text-secondary);
+  margin-right: 8px;
+  min-width: 60px;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+}
+
+.snippet-text {
+  font-size: calc(var(--font-size-base) - 1px);
+  color: var(--text-primary);
+  line-height: 1.5;
+}
+
+.snippet-text mark.highlight {
+  background-color: #ffeb3b;
+  color: #000;
+  padding: 2px 0;
+  border-radius: 2px;
+  font-weight: 500;
+}
+
+.show-more-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 8px;
+  padding: 4px 8px;
+  background: none;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: calc(var(--font-size-base) - 2px);
+  width: 100%;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.show-more-btn:hover {
+  background-color: var(--hover-color);
+  color: var(--text-primary);
+}
+
+.no-results {
+  padding: 32px 16px;
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: calc(var(--font-size-base) - 1px);
 }
 
 .note-preview {

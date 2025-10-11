@@ -27,15 +27,19 @@ fn rebuild_cache(state: &AppState) -> Result<()> {
         }
     };
 
+    println!("Rebuilding cache with FTS5 index for {} notes...", notes.len());
+
     for note in notes {
         if let Ok(content) = read_file_with_encoding(&note.path) {
-            // Ignore individual cache update errors during rebuild
-            if let Err(e) = cache_db.update_note_cache(&note.path, &content, &state.notes_dir) {
+            // Update cache including FTS5 index
+            if let Err(e) = cache_db.update_note_cache_with_fts(&note.path, &note.title, &content, &state.notes_dir) {
                 let path = &note.path;
                 eprintln!("Warning: Failed to update cache for '{path}': {e}");
             }
         }
     }
+
+    println!("Cache rebuild complete!");
 
     Ok(())
 }
@@ -81,6 +85,7 @@ pub fn run() {
             commands::create_note,
             commands::delete_note,
             commands::search_notes,
+            commands::search_notes_enhanced,
             commands::get_daily_note,
             commands::get_backlinks,
             commands::get_outgoing_links,
