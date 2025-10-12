@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Todo } from '../api/tauri';
-import { CheckSquare, FileText, Filter, ChevronDown, ChevronRight, Calendar, AlertCircle, CheckCheck, X } from 'lucide-react';
+import { CheckSquare, FileText, Filter, ChevronDown, ChevronRight, Calendar, AlertCircle, CheckCheck, X, Repeat } from 'lucide-react';
 import './TodosList.css';
 
 interface TodosListProps {
@@ -412,6 +412,12 @@ export const TodosList: React.FC<TodosListProps> = ({ todos, onTodoToggle, onNot
                     <span className={`todo-due-date ${isOverdue(todo.due_date) && !todo.is_completed ? 'overdue' : ''}`}>
                       <Calendar size={12} />
                       {formatDate(todo.due_date)}
+                    </span>
+                  )}
+                  {todo.recurrence_pattern && (
+                    <span className="todo-recurrence" title={`Repeats ${todo.recurrence_pattern}`}>
+                      <Repeat size={12} />
+                      {todo.recurrence_pattern}
                     </span>
                   )}
                 </div>

@@ -23,10 +23,11 @@ pub struct Todo {
     pub line_number: i32,
     pub content: String,
     pub is_completed: bool,
-    pub due_date: Option<String>,     // ISO 8601 date string (YYYY-MM-DD)
-    pub priority: Option<String>,     // "high", "medium", "low"
-    pub indent_level: i32,            // Indentation level (0 = root, 1+ = nested)
-    pub parent_line: Option<i32>,     // Line number of parent todo (if nested)
+    pub due_date: Option<String>, // ISO 8601 date string (YYYY-MM-DD)
+    pub priority: Option<String>, // "high", "medium", "low"
+    pub indent_level: i32,        // Indentation level (0 = root, 1+ = nested)
+    pub parent_line: Option<i32>, // Line number of parent todo (if nested)
+    pub recurrence_pattern: Option<String>, // Recurrence pattern (e.g., "daily", "weekly", "every:monday")
 }
 
 pub struct CacheDb {
@@ -98,6 +99,7 @@ impl CacheDb {
                 priority TEXT,
                 indent_level INTEGER NOT NULL DEFAULT 0,
                 parent_line INTEGER,
+                recurrence_pattern TEXT,
                 UNIQUE(note_path, line_number)
             )",
                 [],
@@ -111,12 +113,16 @@ impl CacheDb {
         let _ = self
             .conn
             .execute("ALTER TABLE todos ADD COLUMN priority TEXT", []);
-        let _ = self
-            .conn
-            .execute("ALTER TABLE todos ADD COLUMN indent_level INTEGER NOT NULL DEFAULT 0", []);
+        let _ = self.conn.execute(
+            "ALTER TABLE todos ADD COLUMN indent_level INTEGER NOT NULL DEFAULT 0",
+            [],
+        );
         let _ = self
             .conn
             .execute("ALTER TABLE todos ADD COLUMN parent_line INTEGER", []);
+        let _ = self
+            .conn
+            .execute("ALTER TABLE todos ADD COLUMN recurrence_pattern TEXT", []);
 
         self.conn
             .execute(
@@ -219,13 +225,14 @@ impl CacheDb {
         for todo in todos {
             self.add_todo(
                 note_path,
-                todo.0,      // line_number
-                &todo.1,     // content
-                todo.2,      // is_completed
-                todo.3.as_deref(),  // due_date
-                todo.4.as_deref(),  // priority
-                todo.5,      // indent_level
-                todo.6,      // parent_line
+                todo.0,            // line_number
+                &todo.1,           // content
+                todo.2,            // is_completed
+                todo.3.as_deref(), // due_date
+                todo.4.as_deref(), // priority
+                todo.5,            // indent_level
+                todo.6,            // parent_line
+                todo.7.as_deref(), // recurrence_pattern
             )?;
         }
 
@@ -408,10 +415,11 @@ impl CacheDb {
         priority: Option<&str>,
         indent_level: i32,
         parent_line: Option<i32>,
+        recurrence_pattern: Option<&str>,
     ) -> Result<(), String> {
         self.conn.execute(
-            "INSERT OR REPLACE INTO todos (note_path, line_number, content, is_completed, due_date, priority, indent_level, parent_line) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
-            params![note_path, line_number, content, is_completed, due_date, priority, indent_level, parent_line],
+            "INSERT OR REPLACE INTO todos (note_path, line_number, content, is_completed, due_date, priority, indent_level, parent_line, recurrence_pattern) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+            params![note_path, line_number, content, is_completed, due_date, priority, indent_level, parent_line, recurrence_pattern],
         ).map_err(|e| format!("Failed to add todo: {e}"))?;
 
         Ok(())
@@ -419,7 +427,7 @@ impl CacheDb {
 
     pub fn get_incomplete_todos(&self) -> Result<Vec<Todo>, String> {
         let mut stmt = self.conn.prepare(
-            "SELECT id, note_path, line_number, content, is_completed, due_date, priority, indent_level, parent_line FROM todos WHERE is_completed = 0 ORDER BY note_path, line_number"
+            "SELECT id, note_path, line_number, content, is_completed, due_date, priority, indent_level, parent_line, recurrence_pattern FROM todos WHERE is_completed = 0 ORDER BY note_path, line_number"
         ).map_err(|e| format!("Failed to prepare statement: {e}"))?;
 
         let todos = stmt
@@ -434,6 +442,7 @@ impl CacheDb {
                     priority: row.get(6)?,
                     indent_level: row.get(7)?,
                     parent_line: row.get(8)?,
+                    recurrence_pattern: row.get(9)?,
                 })
             })
             .map_err(|e| format!("Failed to query todos: {e}"))?;
@@ -448,7 +457,7 @@ impl CacheDb {
 
     pub fn get_all_todos(&self) -> Result<Vec<Todo>, String> {
         let mut stmt = self.conn.prepare(
-            "SELECT id, note_path, line_number, content, is_completed, due_date, priority, indent_level, parent_line FROM todos ORDER BY note_path, is_completed, line_number"
+            "SELECT id, note_path, line_number, content, is_completed, due_date, priority, indent_level, parent_line, recurrence_pattern FROM todos ORDER BY note_path, is_completed, line_number"
         ).map_err(|e| format!("Failed to prepare statement: {e}"))?;
 
         let todos = stmt
@@ -463,6 +472,7 @@ impl CacheDb {
                     priority: row.get(6)?,
                     indent_level: row.get(7)?,
                     parent_line: row.get(8)?,
+                    recurrence_pattern: row.get(9)?,
                 })
             })
             .map_err(|e| format!("Failed to query todos: {e}"))?;
@@ -660,7 +670,18 @@ fn resolve_note_link(link_name: &str, notes_dir: &str) -> Result<String, String>
     Err(format!("Note not found: {link_name}"))
 }
 
-fn extract_todos(content: &str) -> Vec<(i32, String, bool, Option<String>, Option<String>, i32, Option<i32>)> {
+fn extract_todos(
+    content: &str,
+) -> Vec<(
+    i32,
+    String,
+    bool,
+    Option<String>,
+    Option<String>,
+    i32,
+    Option<i32>,
+    Option<String>,
+)> {
     let mut todos = Vec::new();
     let todo_regex = Regex::new(r"^(\s*)[-*]\s*\[([ xX])\]\s*(.+)$").unwrap();
 
@@ -670,6 +691,9 @@ fn extract_todos(content: &str) -> Vec<(i32, String, bool, Option<String>, Optio
 
     // Priority formats: !high, !medium, !low, p:1, p:2, p:3
     let priority_regex = Regex::new(r"(?:!(high|medium|low)|p:([123]))").unwrap();
+
+    // Recurrence formats: @every(Monday), @repeat(weekly), @repeat(daily), etc.
+    let recurrence_regex = Regex::new(r"(?:@every|@repeat)\(([^)]+)\)").unwrap();
 
     // Track todos by indent level to find parent relationships
     let mut indent_stack: Vec<(i32, i32)> = Vec::new(); // (indent_level, line_number)
@@ -712,6 +736,12 @@ fn extract_todos(content: &str) -> Vec<(i32, String, bool, Option<String>, Optio
                 None
             };
 
+            // Extract recurrence pattern
+            let recurrence_pattern = recurrence_regex
+                .captures(&full_content)
+                .and_then(|c| c.get(1))
+                .map(|m| m.as_str().to_lowercase().to_string());
+
             // Find parent todo (last todo with indent level one less than current)
             let parent_line = if indent_level > 0 {
                 // Remove all items from stack that are at same or deeper level
@@ -735,6 +765,7 @@ fn extract_todos(content: &str) -> Vec<(i32, String, bool, Option<String>, Optio
                 priority,
                 indent_level,
                 parent_line,
+                recurrence_pattern,
             ));
         }
     }

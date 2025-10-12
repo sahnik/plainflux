@@ -308,6 +308,25 @@ Examples:
         </div>
 
         <div className="syntax-item">
+          <h3>Recurring Tasks</h3>
+          <p>Create recurring tasks with these formats:</p>
+          <pre>{`@every(Monday)    - Repeats every Monday
+@every(Tuesday)   - Repeats every Tuesday
+@repeat(daily)    - Repeats daily
+@repeat(weekly)   - Repeats weekly
+@repeat(monthly)  - Repeats monthly
+
+Examples:
+- [ ] Team standup @every(Monday) !high
+- [ ] Review metrics @repeat(weekly) #analytics
+- [ ] Take vitamins @repeat(daily) #health`}</pre>
+          <p style={{ marginTop: '8px', color: 'var(--text-secondary)', fontSize: '14px' }}>
+            • Recurring tasks display a repeat icon badge<br/>
+            • When completed, a new instance will be created automatically
+          </p>
+        </div>
+
+        <div className="syntax-item">
           <h3>Filtering & Sorting</h3>
           <p>In the Tasks panel, you can:</p>
           <ul style={{ marginLeft: '20px', color: 'var(--text-secondary)' }}>
@@ -326,11 +345,12 @@ Examples:
 - [ ] Deploy to production !high @due(2025-01-15) #devops #urgent
 - [ ] Code review for PR #123 !medium due:2025-01-16 #review
 - [ ] Update API docs p:3 📅 2025-01-20 #documentation
+- [ ] Team standup @every(Monday) !high #meetings
 - [x] Fix login bug !high @due(2025-01-10) #bugfix
 
 ## Personal
 - [ ] Renew passport due:2025-02-01 #admin
-- [ ] Gym workout 📅 2025-01-15 #health
+- [ ] Gym workout @repeat(daily) 📅 2025-01-15 #health
 - [ ] Call mom !medium #family`}</pre>
         </div>
       </section>

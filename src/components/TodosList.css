@@ -395,6 +395,19 @@
   }
 }
 
+/* Recurrence indicator */
+.todo-recurrence {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 3px;
+  font-size: 11px;
+  background: #2d2d30;
+  border: 1px solid #9cdcfe;
+  color: #9cdcfe;
+}
+
 /* Priority border styling for todo items */
 .todo-item.priority-high {
   border-left-color: #f48771 !important;

@@ -221,10 +221,11 @@ export interface Todo {
   line_number: number;
   content: string;
   is_completed: boolean;
-  due_date?: string | null;     // ISO 8601 date string (YYYY-MM-DD)
-  priority?: string | null;     // "high", "medium", "low"
-  indent_level: number;         // Indentation level (0 = root, 1+ = nested)
-  parent_line?: number | null;  // Line number of parent todo (if nested)
+  due_date?: string | null;           // ISO 8601 date string (YYYY-MM-DD)
+  priority?: string | null;           // "high", "medium", "low"
+  indent_level: number;               // Indentation level (0 = root, 1+ = nested)
+  parent_line?: number | null;        // Line number of parent todo (if nested)
+  recurrence_pattern?: string | null; // Recurrence pattern (e.g., "daily", "weekly", "monday")
 }
 
 export interface CustomTheme {
