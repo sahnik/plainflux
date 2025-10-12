@@ -509,6 +509,31 @@ impl CacheDb {
         Ok(new_state)
     }
 
+    pub fn get_todo(&self, note_path: &str, line_number: i32) -> Result<Todo, String> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, note_path, line_number, content, is_completed, due_date, priority, indent_level, parent_line, recurrence_pattern FROM todos WHERE note_path = ?1 AND line_number = ?2"
+        ).map_err(|e| format!("Failed to prepare statement: {e}"))?;
+
+        let todo = stmt
+            .query_row(params![note_path, line_number], |row| {
+                Ok(Todo {
+                    id: row.get(0)?,
+                    note_path: row.get(1)?,
+                    line_number: row.get(2)?,
+                    content: row.get(3)?,
+                    is_completed: row.get(4)?,
+                    due_date: row.get(5)?,
+                    priority: row.get(6)?,
+                    indent_level: row.get(7)?,
+                    parent_line: row.get(8)?,
+                    recurrence_pattern: row.get(9)?,
+                })
+            })
+            .map_err(|e| format!("Failed to get todo: {e}"))?;
+
+        Ok(todo)
+    }
+
     // FTS5 Full-Text Search Methods
 
     pub fn add_note_content(
@@ -668,6 +693,100 @@ fn resolve_note_link(link_name: &str, notes_dir: &str) -> Result<String, String>
     }
 
     Err(format!("Note not found: {link_name}"))
+}
+
+// Calculate next occurrence date based on recurrence pattern
+pub fn calculate_next_occurrence(pattern: &str) -> Option<String> {
+    use chrono::{Datelike, Duration, Local, Weekday};
+
+    let today = Local::now().date_naive();
+    let pattern_lower = pattern.to_lowercase();
+
+    match pattern_lower.as_str() {
+        "daily" => {
+            let next = today + Duration::days(1);
+            Some(next.format("%Y-%m-%d").to_string())
+        }
+        "weekly" => {
+            let next = today + Duration::weeks(1);
+            Some(next.format("%Y-%m-%d").to_string())
+        }
+        "monthly" => {
+            // Add one month (roughly 30 days, or use next month same day)
+            let next = if today.day() <= 28 {
+                today
+                    .with_month(today.month() % 12 + 1)
+                    .and_then(|d| {
+                        if today.month() == 12 {
+                            d.with_year(today.year() + 1)
+                        } else {
+                            Some(d)
+                        }
+                    })
+                    .unwrap_or(today + Duration::days(30))
+            } else {
+                today + Duration::days(30)
+            };
+            Some(next.format("%Y-%m-%d").to_string())
+        }
+        "monday" => {
+            let days_until =
+                (Weekday::Mon.num_days_from_monday() - today.weekday().num_days_from_monday() + 7)
+                    % 7;
+            let days_to_add = if days_until == 0 { 7 } else { days_until };
+            let next = today + Duration::days(days_to_add as i64);
+            Some(next.format("%Y-%m-%d").to_string())
+        }
+        "tuesday" => {
+            let days_until =
+                (Weekday::Tue.num_days_from_monday() - today.weekday().num_days_from_monday() + 7)
+                    % 7;
+            let days_to_add = if days_until == 0 { 7 } else { days_until };
+            let next = today + Duration::days(days_to_add as i64);
+            Some(next.format("%Y-%m-%d").to_string())
+        }
+        "wednesday" => {
+            let days_until =
+                (Weekday::Wed.num_days_from_monday() - today.weekday().num_days_from_monday() + 7)
+                    % 7;
+            let days_to_add = if days_until == 0 { 7 } else { days_until };
+            let next = today + Duration::days(days_to_add as i64);
+            Some(next.format("%Y-%m-%d").to_string())
+        }
+        "thursday" => {
+            let days_until =
+                (Weekday::Thu.num_days_from_monday() - today.weekday().num_days_from_monday() + 7)
+                    % 7;
+            let days_to_add = if days_until == 0 { 7 } else { days_until };
+            let next = today + Duration::days(days_to_add as i64);
+            Some(next.format("%Y-%m-%d").to_string())
+        }
+        "friday" => {
+            let days_until =
+                (Weekday::Fri.num_days_from_monday() - today.weekday().num_days_from_monday() + 7)
+                    % 7;
+            let days_to_add = if days_until == 0 { 7 } else { days_until };
+            let next = today + Duration::days(days_to_add as i64);
+            Some(next.format("%Y-%m-%d").to_string())
+        }
+        "saturday" => {
+            let days_until =
+                (Weekday::Sat.num_days_from_monday() - today.weekday().num_days_from_monday() + 7)
+                    % 7;
+            let days_to_add = if days_until == 0 { 7 } else { days_until };
+            let next = today + Duration::days(days_to_add as i64);
+            Some(next.format("%Y-%m-%d").to_string())
+        }
+        "sunday" => {
+            let days_until =
+                (Weekday::Sun.num_days_from_monday() - today.weekday().num_days_from_monday() + 7)
+                    % 7;
+            let days_to_add = if days_until == 0 { 7 } else { days_until };
+            let next = today + Duration::days(days_to_add as i64);
+            Some(next.format("%Y-%m-%d").to_string())
+        }
+        _ => None,
+    }
 }
 
 fn extract_todos(

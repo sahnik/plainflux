@@ -757,19 +757,104 @@ pub async fn get_all_todos(state: State<'_, AppState>) -> Result<Vec<Todo>, Stri
     cache_db.get_all_todos()
 }
 
+// Helper function to create a new instance of a recurring todo
+fn create_recurring_todo_instance(
+    todo: &Todo,
+    notes_dir: &str,
+    cache_db: &CacheDb,
+) -> Result<(), String> {
+    use crate::cache::calculate_next_occurrence;
+    use chrono::Local;
+
+    // Get the recurrence pattern
+    let pattern = todo
+        .recurrence_pattern
+        .as_ref()
+        .ok_or_else(|| "No recurrence pattern".to_string())?;
+
+    // Calculate next due date
+    let next_due_date = calculate_next_occurrence(pattern);
+
+    // Get today's daily note path
+    let daily_notes_dir = Path::new(notes_dir).join("Daily Notes");
+    let today = Local::now().format("%Y-%m-%d").to_string();
+    let daily_note_path = daily_notes_dir.join(format!("{}.md", today));
+
+    // Ensure daily note exists
+    if !daily_note_path.exists() {
+        let template = format!("# {}\n\n## Tasks\n\n", today);
+        std::fs::create_dir_all(&daily_notes_dir)
+            .map_err(|e| format!("Failed to create Daily Notes directory: {e}"))?;
+        std::fs::write(&daily_note_path, template)
+            .map_err(|e| format!("Failed to create daily note: {e}"))?;
+    }
+
+    // Read current daily note content
+    let mut content = std::fs::read_to_string(&daily_note_path)
+        .map_err(|e| format!("Failed to read daily note: {e}"))?;
+
+    // Create new todo line with updated due date and same metadata
+    let mut new_todo = format!("- [ ] {}", todo.content);
+
+    // Preserve priority
+    if let Some(priority) = &todo.priority {
+        if !new_todo.contains(&format!("!{}", priority)) {
+            new_todo = format!("{} !{}", new_todo, priority);
+        }
+    }
+
+    // Add new due date if calculated
+    if let Some(due_date) = next_due_date {
+        // Remove old due date patterns from content if present
+        let content_without_date =
+            regex::Regex::new(r"(?:@due\([^)]+\)|due:\d{4}-\d{2}-\d{2}|📅\s*\d{4}-\d{2}-\d{2})")
+                .unwrap()
+                .replace_all(&new_todo, "");
+        new_todo = format!("{} @due({})", content_without_date.trim(), due_date);
+    }
+
+    // Append the new todo to the daily note
+    if !content.ends_with('\n') {
+        content.push('\n');
+    }
+    content.push_str(&format!("{}\n", new_todo));
+
+    // Write back to daily note
+    std::fs::write(&daily_note_path, &content)
+        .map_err(|e| format!("Failed to write daily note: {e}"))?;
+
+    // Update cache for the daily note
+    cache_db.update_note_cache_with_fts(
+        &daily_note_path.to_string_lossy(),
+        &today, // title is the date
+        &content,
+        notes_dir,
+    )?;
+
+    Ok(())
+}
+
 #[tauri::command]
 pub async fn toggle_todo(
     note_path: String,
     line_number: i32,
     state: State<'_, AppState>,
 ) -> Result<String, String> {
-    let cache_db = state
-        .cache_db
-        .lock()
-        .map_err(|_| "Failed to lock cache database")?;
+    // Extract todo info and toggle state (in a scope to drop the mutex guard)
+    let (todo_info, new_state) = {
+        let cache_db = state
+            .cache_db
+            .lock()
+            .map_err(|_| "Failed to lock cache database")?;
 
-    // Toggle the todo in the database
-    let new_state = cache_db.toggle_todo(&note_path, line_number)?;
+        // Get todo info before toggling (to check for recurrence)
+        let todo = cache_db.get_todo(&note_path, line_number)?;
+
+        // Toggle the todo in the database
+        let state = cache_db.toggle_todo(&note_path, line_number)?;
+
+        (todo, state)
+    }; // MutexGuard is dropped here
 
     // Read the note content
     let mut content =
@@ -805,6 +890,21 @@ pub async fn toggle_todo(
 
         // Save the updated content
         std::fs::write(&note_path, &content).map_err(|e| format!("Failed to write note: {e}"))?;
+
+        // Handle recurring tasks: if marked as complete and has recurrence pattern, create new instance
+        if new_state && todo_info.recurrence_pattern.is_some() {
+            // Lock cache again for recurring task creation
+            let cache_db = state
+                .cache_db
+                .lock()
+                .map_err(|_| "Failed to lock cache database")?;
+
+            if let Err(e) = create_recurring_todo_instance(&todo_info, &state.notes_dir, &cache_db)
+            {
+                eprintln!("Failed to create recurring todo instance: {}", e);
+                // Don't fail the whole operation if recurring creation fails
+            }
+        }
     }
 
     Ok(content)
