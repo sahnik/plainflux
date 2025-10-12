@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Todo } from '../api/tauri';
-import { CheckSquare, FileText, Filter, ChevronDown, ChevronRight } from 'lucide-react';
+import { CheckSquare, FileText, Filter, ChevronDown, ChevronRight, Calendar, AlertCircle } from 'lucide-react';
 import './TodosList.css';
 
 interface TodosListProps {
@@ -9,12 +9,16 @@ interface TodosListProps {
   onNoteClick: (notePath: string, lineNumber?: number) => void;
 }
 
-type SortOption = 'note' | 'alphabetical' | 'completion';
+type SortOption = 'note' | 'alphabetical' | 'completion' | 'due_date' | 'priority';
 type FilterOption = 'all' | 'incomplete' | 'completed';
+type DateFilterOption = 'all' | 'today' | 'this_week' | 'overdue' | 'no_date';
+type PriorityFilterOption = 'all' | 'high' | 'medium' | 'low' | 'no_priority';
 
 export const TodosList: React.FC<TodosListProps> = ({ todos, onTodoToggle, onNoteClick }) => {
   const [sortBy, setSortBy] = useState<SortOption>('note');
   const [filterBy, setFilterBy] = useState<FilterOption>('incomplete');
+  const [dateFilter, setDateFilter] = useState<DateFilterOption>('all');
+  const [priorityFilter, setPriorityFilter] = useState<PriorityFilterOption>('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [collapsedNotes, setCollapsedNotes] = useState<Set<string>>(new Set());
   const [showFilters, setShowFilters] = useState(false);
@@ -37,6 +41,36 @@ export const TodosList: React.FC<TodosListProps> = ({ todos, onTodoToggle, onNot
 
   const [selectedTags, setSelectedTags] = useState<Set<string>>(new Set());
 
+  // Date helper functions
+  const getTodayString = () => {
+    return new Date().toISOString().split('T')[0];
+  };
+
+  const getEndOfWeekString = () => {
+    const date = new Date();
+    const dayOfWeek = date.getDay();
+    const daysUntilSunday = 7 - dayOfWeek;
+    date.setDate(date.getDate() + daysUntilSunday);
+    return date.toISOString().split('T')[0];
+  };
+
+  const isOverdue = (dueDate: string | null | undefined): boolean => {
+    if (!dueDate) return false;
+    return dueDate < getTodayString();
+  };
+
+  const isDueToday = (dueDate: string | null | undefined): boolean => {
+    if (!dueDate) return false;
+    return dueDate === getTodayString();
+  };
+
+  const isDueThisWeek = (dueDate: string | null | undefined): boolean => {
+    if (!dueDate) return false;
+    const today = getTodayString();
+    const endOfWeek = getEndOfWeekString();
+    return dueDate >= today && dueDate <= endOfWeek;
+  };
+
   // Filter and sort todos
   const filteredAndSortedTodos = useMemo(() => {
     let filtered = todos;
@@ -46,6 +80,34 @@ export const TodosList: React.FC<TodosListProps> = ({ todos, onTodoToggle, onNot
       filtered = filtered.filter(todo => !todo.is_completed);
     } else if (filterBy === 'completed') {
       filtered = filtered.filter(todo => todo.is_completed);
+    }
+
+    // Filter by date
+    if (dateFilter !== 'all') {
+      filtered = filtered.filter(todo => {
+        switch (dateFilter) {
+          case 'today':
+            return isDueToday(todo.due_date);
+          case 'this_week':
+            return isDueThisWeek(todo.due_date);
+          case 'overdue':
+            return isOverdue(todo.due_date) && !todo.is_completed;
+          case 'no_date':
+            return !todo.due_date;
+          default:
+            return true;
+        }
+      });
+    }
+
+    // Filter by priority
+    if (priorityFilter !== 'all') {
+      filtered = filtered.filter(todo => {
+        if (priorityFilter === 'no_priority') {
+          return !todo.priority;
+        }
+        return todo.priority === priorityFilter;
+      });
     }
 
     // Filter by search term
@@ -78,6 +140,30 @@ export const TodosList: React.FC<TodosListProps> = ({ todos, onTodoToggle, onNot
           return a.is_completed ? 1 : -1;
         });
         break;
+      case 'due_date':
+        sorted.sort((a, b) => {
+          // Overdue first, then by date, no date last
+          const aOverdue = isOverdue(a.due_date) && !a.is_completed;
+          const bOverdue = isOverdue(b.due_date) && !b.is_completed;
+
+          if (aOverdue && !bOverdue) return -1;
+          if (!aOverdue && bOverdue) return 1;
+
+          if (!a.due_date && !b.due_date) return 0;
+          if (!a.due_date) return 1;
+          if (!b.due_date) return -1;
+
+          return a.due_date.localeCompare(b.due_date);
+        });
+        break;
+      case 'priority':
+        sorted.sort((a, b) => {
+          const priorityOrder = { high: 0, medium: 1, low: 2 };
+          const aPriority = a.priority ? priorityOrder[a.priority as keyof typeof priorityOrder] : 999;
+          const bPriority = b.priority ? priorityOrder[b.priority as keyof typeof priorityOrder] : 999;
+          return aPriority - bPriority;
+        });
+        break;
       case 'note':
       default:
         sorted.sort((a, b) => {
@@ -88,7 +174,7 @@ export const TodosList: React.FC<TodosListProps> = ({ todos, onTodoToggle, onNot
     }
 
     return sorted;
-  }, [todos, sortBy, filterBy, searchTerm, selectedTags]);
+  }, [todos, sortBy, filterBy, dateFilter, priorityFilter, searchTerm, selectedTags]);
 
   // Group todos by note
   const todosByNote = useMemo(() => {
@@ -145,6 +231,38 @@ export const TodosList: React.FC<TodosListProps> = ({ todos, onTodoToggle, onNot
 
   const handleTodoClick = (todo: Todo) => {
     onNoteClick(todo.note_path, todo.line_number);
+  };
+
+  const formatDate = (dateStr: string | null | undefined): string => {
+    if (!dateStr) return '';
+
+    const date = new Date(dateStr + 'T00:00:00');
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    const dateOnly = new Date(date);
+    dateOnly.setHours(0, 0, 0, 0);
+
+    if (dateOnly.getTime() === today.getTime()) {
+      return 'Today';
+    } else if (dateOnly.getTime() === tomorrow.getTime()) {
+      return 'Tomorrow';
+    } else {
+      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    }
+  };
+
+  const getPriorityClass = (priority: string | null | undefined): string => {
+    if (!priority) return '';
+    return `priority-${priority}`;
+  };
+
+  const getPriorityLabel = (priority: string | null | undefined): string => {
+    if (!priority) return '';
+    return priority.charAt(0).toUpperCase() + priority.slice(1);
   };
 
   return (
@@ -210,6 +328,78 @@ export const TodosList: React.FC<TodosListProps> = ({ todos, onTodoToggle, onNot
           </div>
 
           <div className="todos-filter-group">
+            <label className="todos-filter-label">Due:</label>
+            <div className="todos-filter-buttons">
+              <button
+                className={`todos-filter-btn ${dateFilter === 'all' ? 'active' : ''}`}
+                onClick={() => setDateFilter('all')}
+              >
+                All
+              </button>
+              <button
+                className={`todos-filter-btn ${dateFilter === 'overdue' ? 'active' : ''}`}
+                onClick={() => setDateFilter('overdue')}
+              >
+                Overdue
+              </button>
+              <button
+                className={`todos-filter-btn ${dateFilter === 'today' ? 'active' : ''}`}
+                onClick={() => setDateFilter('today')}
+              >
+                Today
+              </button>
+              <button
+                className={`todos-filter-btn ${dateFilter === 'this_week' ? 'active' : ''}`}
+                onClick={() => setDateFilter('this_week')}
+              >
+                This Week
+              </button>
+              <button
+                className={`todos-filter-btn ${dateFilter === 'no_date' ? 'active' : ''}`}
+                onClick={() => setDateFilter('no_date')}
+              >
+                No Date
+              </button>
+            </div>
+          </div>
+
+          <div className="todos-filter-group">
+            <label className="todos-filter-label">Priority:</label>
+            <div className="todos-filter-buttons">
+              <button
+                className={`todos-filter-btn ${priorityFilter === 'all' ? 'active' : ''}`}
+                onClick={() => setPriorityFilter('all')}
+              >
+                All
+              </button>
+              <button
+                className={`todos-filter-btn priority-high ${priorityFilter === 'high' ? 'active' : ''}`}
+                onClick={() => setPriorityFilter('high')}
+              >
+                High
+              </button>
+              <button
+                className={`todos-filter-btn priority-medium ${priorityFilter === 'medium' ? 'active' : ''}`}
+                onClick={() => setPriorityFilter('medium')}
+              >
+                Medium
+              </button>
+              <button
+                className={`todos-filter-btn priority-low ${priorityFilter === 'low' ? 'active' : ''}`}
+                onClick={() => setPriorityFilter('low')}
+              >
+                Low
+              </button>
+              <button
+                className={`todos-filter-btn ${priorityFilter === 'no_priority' ? 'active' : ''}`}
+                onClick={() => setPriorityFilter('no_priority')}
+              >
+                No Priority
+              </button>
+            </div>
+          </div>
+
+          <div className="todos-filter-group">
             <label className="todos-filter-label">Sort by:</label>
             <div className="todos-filter-buttons">
               <button
@@ -217,6 +407,18 @@ export const TodosList: React.FC<TodosListProps> = ({ todos, onTodoToggle, onNot
                 onClick={() => setSortBy('note')}
               >
                 Note
+              </button>
+              <button
+                className={`todos-filter-btn ${sortBy === 'due_date' ? 'active' : ''}`}
+                onClick={() => setSortBy('due_date')}
+              >
+                Due Date
+              </button>
+              <button
+                className={`todos-filter-btn ${sortBy === 'priority' ? 'active' : ''}`}
+                onClick={() => setSortBy('priority')}
+              >
+                Priority
               </button>
               <button
                 className={`todos-filter-btn ${sortBy === 'alphabetical' ? 'active' : ''}`}
@@ -293,11 +495,12 @@ export const TodosList: React.FC<TodosListProps> = ({ todos, onTodoToggle, onNot
                     {noteTodos.map((todo) => {
                       const tags = extractTags(todo.content);
                       const contentWithoutTags = todo.content.replace(/#\w+/g, '').trim();
+                      const overdueClass = isOverdue(todo.due_date) && !todo.is_completed ? 'overdue' : '';
 
                       return (
                         <div
                           key={`${todo.note_path}-${todo.line_number}`}
-                          className={`todo-item ${todo.is_completed ? 'completed' : ''}`}
+                          className={`todo-item ${todo.is_completed ? 'completed' : ''} ${getPriorityClass(todo.priority)} ${overdueClass}`}
                         >
                           <label className="todo-label">
                             <input
@@ -306,13 +509,29 @@ export const TodosList: React.FC<TodosListProps> = ({ todos, onTodoToggle, onNot
                               onChange={() => onTodoToggle(todo)}
                             />
                             <div className="todo-content-wrapper">
-                              <span
-                                className="todo-content"
-                                onClick={() => handleTodoClick(todo)}
-                                title={`Jump to line ${todo.line_number}`}
-                              >
-                                {contentWithoutTags}
-                              </span>
+                              <div className="todo-main-content">
+                                <span
+                                  className="todo-content"
+                                  onClick={() => handleTodoClick(todo)}
+                                  title={`Jump to line ${todo.line_number}`}
+                                >
+                                  {contentWithoutTags}
+                                </span>
+                                <div className="todo-metadata">
+                                  {todo.priority && (
+                                    <span className={`todo-priority ${getPriorityClass(todo.priority)}`}>
+                                      <AlertCircle size={12} />
+                                      {getPriorityLabel(todo.priority)}
+                                    </span>
+                                  )}
+                                  {todo.due_date && (
+                                    <span className={`todo-due-date ${isOverdue(todo.due_date) && !todo.is_completed ? 'overdue' : ''}`}>
+                                      <Calendar size={12} />
+                                      {formatDate(todo.due_date)}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
                               {tags.length > 0 && (
                                 <div className="todo-tags">
                                   {tags.map(tag => (

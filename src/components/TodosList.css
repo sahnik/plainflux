@@ -317,6 +317,12 @@
   min-width: 0;
 }
 
+.todo-main-content {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
 .todo-content {
   color: #cccccc;
   line-height: 1.5;
@@ -327,6 +333,118 @@
 
 .todo-content:hover {
   color: #4ec9b0;
+}
+
+.todo-metadata {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.todo-priority,
+.todo-due-date {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.todo-priority {
+  background: #2d2d30;
+  border: 1px solid;
+}
+
+.todo-priority.priority-high {
+  border-color: #f48771;
+  color: #f48771;
+}
+
+.todo-priority.priority-medium {
+  border-color: #dcdcaa;
+  color: #dcdcaa;
+}
+
+.todo-priority.priority-low {
+  border-color: #608b4e;
+  color: #608b4e;
+}
+
+.todo-due-date {
+  background: #2d2d30;
+  border: 1px solid #569cd6;
+  color: #569cd6;
+}
+
+.todo-due-date.overdue {
+  border-color: #f48771;
+  color: #f48771;
+  font-weight: 600;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+/* Priority border styling for todo items */
+.todo-item.priority-high {
+  border-left-color: #f48771 !important;
+}
+
+.todo-item.priority-medium {
+  border-left-color: #dcdcaa !important;
+}
+
+.todo-item.priority-low {
+  border-left-color: #608b4e !important;
+}
+
+.todo-item.overdue {
+  background: rgba(244, 135, 113, 0.05);
+}
+
+.todo-item.overdue:hover {
+  background: rgba(244, 135, 113, 0.1);
+}
+
+/* Priority colors in filter buttons */
+.todos-filter-btn.priority-high {
+  border-color: #f48771;
+  color: #f48771;
+}
+
+.todos-filter-btn.priority-high.active {
+  background: #f48771;
+  color: #1e1e1e;
+}
+
+.todos-filter-btn.priority-medium {
+  border-color: #dcdcaa;
+  color: #dcdcaa;
+}
+
+.todos-filter-btn.priority-medium.active {
+  background: #dcdcaa;
+  color: #1e1e1e;
+}
+
+.todos-filter-btn.priority-low {
+  border-color: #608b4e;
+  color: #608b4e;
+}
+
+.todos-filter-btn.priority-low.active {
+  background: #608b4e;
+  color: #1e1e1e;
 }
 
 .todo-tags {

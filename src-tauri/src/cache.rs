@@ -23,6 +23,8 @@ pub struct Todo {
     pub line_number: i32,
     pub content: String,
     pub is_completed: bool,
+    pub due_date: Option<String>, // ISO 8601 date string (YYYY-MM-DD)
+    pub priority: Option<String>, // "high", "medium", "low"
 }
 
 pub struct CacheDb {
@@ -90,11 +92,21 @@ impl CacheDb {
                 line_number INTEGER NOT NULL,
                 content TEXT NOT NULL,
                 is_completed BOOLEAN NOT NULL DEFAULT 0,
+                due_date TEXT,
+                priority TEXT,
                 UNIQUE(note_path, line_number)
             )",
                 [],
             )
             .map_err(|e| format!("Failed to create todos table: {e}"))?;
+
+        // Add columns if they don't exist (for existing databases)
+        let _ = self
+            .conn
+            .execute("ALTER TABLE todos ADD COLUMN due_date TEXT", []);
+        let _ = self
+            .conn
+            .execute("ALTER TABLE todos ADD COLUMN priority TEXT", []);
 
         self.conn
             .execute(
@@ -106,6 +118,20 @@ impl CacheDb {
         self.conn
             .execute(
                 "CREATE INDEX IF NOT EXISTS idx_todos_completed ON todos(is_completed)",
+                [],
+            )
+            .map_err(|e| format!("Failed to create index: {e}"))?;
+
+        self.conn
+            .execute(
+                "CREATE INDEX IF NOT EXISTS idx_todos_due_date ON todos(due_date)",
+                [],
+            )
+            .map_err(|e| format!("Failed to create index: {e}"))?;
+
+        self.conn
+            .execute(
+                "CREATE INDEX IF NOT EXISTS idx_todos_priority ON todos(priority)",
                 [],
             )
             .map_err(|e| format!("Failed to create index: {e}"))?;
@@ -181,7 +207,14 @@ impl CacheDb {
 
         let todos = extract_todos(content);
         for todo in todos {
-            self.add_todo(note_path, todo.0, &todo.1, todo.2)?;
+            self.add_todo(
+                note_path,
+                todo.0,
+                &todo.1,
+                todo.2,
+                todo.3.as_deref(),
+                todo.4.as_deref(),
+            )?;
         }
 
         Ok(())
@@ -359,10 +392,12 @@ impl CacheDb {
         line_number: i32,
         content: &str,
         is_completed: bool,
+        due_date: Option<&str>,
+        priority: Option<&str>,
     ) -> Result<(), String> {
         self.conn.execute(
-            "INSERT OR REPLACE INTO todos (note_path, line_number, content, is_completed) VALUES (?1, ?2, ?3, ?4)",
-            params![note_path, line_number, content, is_completed],
+            "INSERT OR REPLACE INTO todos (note_path, line_number, content, is_completed, due_date, priority) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            params![note_path, line_number, content, is_completed, due_date, priority],
         ).map_err(|e| format!("Failed to add todo: {e}"))?;
 
         Ok(())
@@ -370,7 +405,7 @@ impl CacheDb {
 
     pub fn get_incomplete_todos(&self) -> Result<Vec<Todo>, String> {
         let mut stmt = self.conn.prepare(
-            "SELECT id, note_path, line_number, content, is_completed FROM todos WHERE is_completed = 0 ORDER BY note_path, line_number"
+            "SELECT id, note_path, line_number, content, is_completed, due_date, priority FROM todos WHERE is_completed = 0 ORDER BY note_path, line_number"
         ).map_err(|e| format!("Failed to prepare statement: {e}"))?;
 
         let todos = stmt
@@ -381,6 +416,8 @@ impl CacheDb {
                     line_number: row.get(2)?,
                     content: row.get(3)?,
                     is_completed: row.get(4)?,
+                    due_date: row.get(5)?,
+                    priority: row.get(6)?,
                 })
             })
             .map_err(|e| format!("Failed to query todos: {e}"))?;
@@ -395,7 +432,7 @@ impl CacheDb {
 
     pub fn get_all_todos(&self) -> Result<Vec<Todo>, String> {
         let mut stmt = self.conn.prepare(
-            "SELECT id, note_path, line_number, content, is_completed FROM todos ORDER BY note_path, is_completed, line_number"
+            "SELECT id, note_path, line_number, content, is_completed, due_date, priority FROM todos ORDER BY note_path, is_completed, line_number"
         ).map_err(|e| format!("Failed to prepare statement: {e}"))?;
 
         let todos = stmt
@@ -406,6 +443,8 @@ impl CacheDb {
                     line_number: row.get(2)?,
                     content: row.get(3)?,
                     is_completed: row.get(4)?,
+                    due_date: row.get(5)?,
+                    priority: row.get(6)?,
                 })
             })
             .map_err(|e| format!("Failed to query todos: {e}"))?;
@@ -603,20 +642,58 @@ fn resolve_note_link(link_name: &str, notes_dir: &str) -> Result<String, String>
     Err(format!("Note not found: {link_name}"))
 }
 
-fn extract_todos(content: &str) -> Vec<(i32, String, bool)> {
+fn extract_todos(content: &str) -> Vec<(i32, String, bool, Option<String>, Option<String>)> {
     let mut todos = Vec::new();
     let todo_regex = Regex::new(r"^\s*[-*]\s*\[([ xX])\]\s*(.+)$").unwrap();
+
+    // Regex patterns for due dates and priority
+    // Due date formats: @due(2025-01-15), due:2025-01-15, 📅 2025-01-15
+    let due_date_regex = Regex::new(r"(?:@due\(|due:|📅\s*)(\d{4}-\d{2}-\d{2})(?:\))?").unwrap();
+
+    // Priority formats: !high, !medium, !low, p:1, p:2, p:3
+    let priority_regex = Regex::new(r"(?:!(high|medium|low)|p:([123]))").unwrap();
 
     for (line_number, line) in content.lines().enumerate() {
         // Match markdown checkbox syntax: - [ ] or - [x]
         if let Some(captures) = todo_regex.captures(line) {
             let is_completed = captures.get(1).is_some_and(|m| m.as_str() != " ");
-            let content = captures
+            let full_content = captures
                 .get(2)
                 .map_or("", |m| m.as_str())
                 .trim()
                 .to_string();
-            todos.push((line_number as i32 + 1, content, is_completed)); // +1 for 1-based line numbers
+
+            // Extract due date
+            let due_date = due_date_regex
+                .captures(&full_content)
+                .and_then(|c| c.get(1))
+                .map(|m| m.as_str().to_string());
+
+            // Extract priority
+            let priority = if let Some(caps) = priority_regex.captures(&full_content) {
+                if let Some(text_priority) = caps.get(1) {
+                    Some(text_priority.as_str().to_string())
+                } else if let Some(num_priority) = caps.get(2) {
+                    match num_priority.as_str() {
+                        "1" => Some("high".to_string()),
+                        "2" => Some("medium".to_string()),
+                        "3" => Some("low".to_string()),
+                        _ => None,
+                    }
+                } else {
+                    None
+                }
+            } else {
+                None
+            };
+
+            todos.push((
+                line_number as i32 + 1,
+                full_content,
+                is_completed,
+                due_date,
+                priority,
+            ));
         }
     }
 

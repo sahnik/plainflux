@@ -221,6 +221,8 @@ export interface Todo {
   line_number: number;
   content: string;
   is_completed: boolean;
+  due_date?: string | null;  // ISO 8601 date string (YYYY-MM-DD)
+  priority?: string | null;  // "high", "medium", "low"
 }
 
 export interface CustomTheme {
