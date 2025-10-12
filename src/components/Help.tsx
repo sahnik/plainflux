@@ -125,7 +125,16 @@ export const Help: React.FC<HelpProps> = ({ isOpen, onClose }) => {
         
         <div className="feature">
           <h3>✅ Tasks</h3>
-          <p>Create tasks within notes using checkbox syntax. View all incomplete tasks across all notes in the tasks view.</p>
+          <p>Create and manage tasks within notes with powerful filtering, sorting, and metadata support.</p>
+          <ul style={{ marginTop: '8px', marginLeft: '20px', color: 'var(--text-secondary)' }}>
+            <li>View all tasks across notes in the tasks panel</li>
+            <li>Add priorities: !high, !medium, !low or p:1, p:2, p:3</li>
+            <li>Set due dates: @due(2025-01-15), due:2025-01-15, or 📅 2025-01-15</li>
+            <li>Add tags with #tagname for organization</li>
+            <li>Filter by completion, date, priority, or tags</li>
+            <li>Sort by note, due date, priority, or alphabetically</li>
+            <li>Click any task to jump to its location in the note</li>
+          </ul>
         </div>
         
         <div className="feature">
@@ -188,9 +197,25 @@ Ordered:
         
         <div className="syntax-item">
           <h3>Tasks</h3>
-          <pre>{`- [ ] Incomplete task
+          <pre>{`Basic tasks:
+- [ ] Incomplete task
 - [x] Completed task
-* [ ] Also works with asterisks`}</pre>
+* [ ] Also works with asterisks
+
+With priorities:
+- [ ] Critical bug fix !high
+- [ ] Review documentation !medium
+- [ ] Clean up code p:3
+
+With due dates:
+- [ ] Submit report @due(2025-01-15)
+- [ ] Team meeting due:2025-01-20
+- [ ] Dentist appointment 📅 2025-01-18
+
+Combined:
+- [ ] Launch feature !high @due(2025-01-15) #work
+- [ ] Buy groceries p:2 due:2025-01-16 #personal
+- [x] Completed task with metadata !low #done`}</pre>
         </div>
         
         <div className="syntax-item">
@@ -247,7 +272,69 @@ ___
 Underscores`}</pre>
         </div>
       </section>
-      
+
+      <section className="help-section">
+        <h2>Task Management</h2>
+
+        <div className="syntax-item">
+          <h3>Priority Levels</h3>
+          <p>Add priorities to tasks using these formats:</p>
+          <pre>{`!high or p:1    - High priority (red/orange)
+!medium or p:2  - Medium priority (yellow)
+!low or p:3     - Low priority (green)
+
+Examples:
+- [ ] Fix security vulnerability !high
+- [ ] Update dependencies p:2
+- [ ] Refactor old code !low`}</pre>
+        </div>
+
+        <div className="syntax-item">
+          <h3>Due Dates</h3>
+          <p>Set due dates using any of these formats:</p>
+          <pre>{`@due(2025-01-15)  - Function style
+due:2025-01-15    - Colon separated
+📅 2025-01-15     - Calendar emoji
+
+Examples:
+- [ ] Submit quarterly report @due(2025-01-31)
+- [ ] Doctor appointment due:2025-01-20
+- [ ] Birthday party 📅 2025-02-14`}</pre>
+          <p style={{ marginTop: '8px', color: 'var(--text-secondary)', fontSize: '14px' }}>
+            • Overdue tasks are highlighted in red with a pulsing indicator<br/>
+            • Tasks due today/tomorrow show friendly labels<br/>
+            • Click any task to jump directly to its line in the note
+          </p>
+        </div>
+
+        <div className="syntax-item">
+          <h3>Filtering & Sorting</h3>
+          <p>In the Tasks panel, you can:</p>
+          <ul style={{ marginLeft: '20px', color: 'var(--text-secondary)' }}>
+            <li><strong>Filter by status:</strong> All, Incomplete, or Completed</li>
+            <li><strong>Filter by date:</strong> All, Overdue, Today, This Week, or No Date</li>
+            <li><strong>Filter by priority:</strong> All, High, Medium, Low, or No Priority</li>
+            <li><strong>Filter by tags:</strong> Click tag buttons to filter by specific tags</li>
+            <li><strong>Search:</strong> Search task content in real-time</li>
+            <li><strong>Sort options:</strong> By Note, Due Date, Priority, A-Z, or Status</li>
+          </ul>
+        </div>
+
+        <div className="syntax-item">
+          <h3>Complete Example</h3>
+          <pre>{`## Work Tasks
+- [ ] Deploy to production !high @due(2025-01-15) #devops #urgent
+- [ ] Code review for PR #123 !medium due:2025-01-16 #review
+- [ ] Update API docs p:3 📅 2025-01-20 #documentation
+- [x] Fix login bug !high @due(2025-01-10) #bugfix
+
+## Personal
+- [ ] Renew passport due:2025-02-01 #admin
+- [ ] Gym workout 📅 2025-01-15 #health
+- [ ] Call mom !medium #family`}</pre>
+        </div>
+      </section>
+
       <section className="help-section">
         <h2>Keyboard Shortcuts</h2>
 
