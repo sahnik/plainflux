@@ -393,6 +393,31 @@ impl CacheDb {
         Ok(result)
     }
 
+    pub fn get_all_todos(&self) -> Result<Vec<Todo>, String> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, note_path, line_number, content, is_completed FROM todos ORDER BY note_path, is_completed, line_number"
+        ).map_err(|e| format!("Failed to prepare statement: {e}"))?;
+
+        let todos = stmt
+            .query_map([], |row| {
+                Ok(Todo {
+                    id: row.get(0)?,
+                    note_path: row.get(1)?,
+                    line_number: row.get(2)?,
+                    content: row.get(3)?,
+                    is_completed: row.get(4)?,
+                })
+            })
+            .map_err(|e| format!("Failed to query todos: {e}"))?;
+
+        let mut result = Vec::new();
+        for todo in todos {
+            result.push(todo.map_err(|e| format!("Failed to get todo: {e}"))?);
+        }
+
+        Ok(result)
+    }
+
     pub fn toggle_todo(&self, note_path: &str, line_number: i32) -> Result<bool, String> {
         // Get current state
         let mut stmt = self

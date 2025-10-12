@@ -135,6 +135,16 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, isPreview, onChang
 
     const scrollToBlock = async () => {
       try {
+        // Check if it's a direct line reference (e.g., "line-42")
+        if (scrollToBlockId.startsWith('line-')) {
+          const lineNumber = parseInt(scrollToBlockId.replace('line-', ''), 10);
+          if (!isNaN(lineNumber)) {
+            scrollToLineAndHighlight(viewRef.current!, lineNumber);
+            return;
+          }
+        }
+
+        // Otherwise, try to resolve it as a block reference
         const blockInfo = await tauriApi.getBlockReference(note.path, scrollToBlockId);
         if (blockInfo) {
           const [lineNumber] = blockInfo;

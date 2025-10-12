@@ -115,6 +115,7 @@ pub fn run() {
             commands::save_attachment,
             commands::open_file_external,
             commands::get_incomplete_todos,
+            commands::get_all_todos,
             commands::toggle_todo,
             commands::get_daily_note_template,
             commands::save_daily_note_template,

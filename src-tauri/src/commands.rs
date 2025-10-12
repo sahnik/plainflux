@@ -256,14 +256,16 @@ pub async fn resolve_transclusion(
         .find(|n| n.title.eq_ignore_ascii_case(note_name))
         .or_else(|| {
             let name_without_ext = note_name.trim_end_matches(".md");
-            notes.iter().find(|n| n.title.eq_ignore_ascii_case(name_without_ext))
+            notes
+                .iter()
+                .find(|n| n.title.eq_ignore_ascii_case(name_without_ext))
         })
         .map(|n| n.path.clone())
         .ok_or_else(|| format!("Note '{}' not found", note_name))?;
 
     // Read the note content
-    let content = std::fs::read_to_string(&note_path)
-        .map_err(|e| format!("Failed to read note: {e}"))?;
+    let content =
+        std::fs::read_to_string(&note_path).map_err(|e| format!("Failed to read note: {e}"))?;
 
     // If block ID is specified, extract just that block's content
     if let Some(block_id) = block_id {
@@ -743,6 +745,16 @@ pub async fn get_incomplete_todos(state: State<'_, AppState>) -> Result<Vec<Todo
         .map_err(|_| "Failed to lock cache database")?;
 
     cache_db.get_incomplete_todos()
+}
+
+#[tauri::command]
+pub async fn get_all_todos(state: State<'_, AppState>) -> Result<Vec<Todo>, String> {
+    let cache_db = state
+        .cache_db
+        .lock()
+        .map_err(|_| "Failed to lock cache database")?;
+
+    cache_db.get_all_todos()
 }
 
 #[tauri::command]

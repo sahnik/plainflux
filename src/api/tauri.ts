@@ -126,6 +126,10 @@ export const tauriApi = {
     return invoke('get_incomplete_todos');
   },
 
+  async getAllTodos(): Promise<Todo[]> {
+    return invoke('get_all_todos');
+  },
+
   async toggleTodo(notePath: string, lineNumber: number): Promise<string> {
     return invoke('toggle_todo', { notePath, lineNumber });
   },

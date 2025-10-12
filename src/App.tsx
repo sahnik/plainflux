@@ -106,9 +106,9 @@ function AppContent() {
     enabled: showLocalGraph && !!selectedNote,
   });
 
-  const { data: incompleteTodos = [] } = useQuery({
-    queryKey: ['incompleteTodos'],
-    queryFn: tauriApi.getIncompleteTodos,
+  const { data: allTodos = [] } = useQuery({
+    queryKey: ['allTodos'],
+    queryFn: tauriApi.getAllTodos,
     enabled: currentView === 'todos',
   });
 
@@ -124,7 +124,7 @@ function AppContent() {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['notes'] });
       queryClient.invalidateQueries({ queryKey: ['tags'] });
-      queryClient.invalidateQueries({ queryKey: ['incompleteTodos'] });
+      queryClient.invalidateQueries({ queryKey: ['allTodos'] });
       queryClient.invalidateQueries({ queryKey: ['recentNotes'] });
       
       // Mark the tab as clean after successful save
@@ -664,7 +664,7 @@ function AppContent() {
       setSelectedNote({ ...selectedNote, content: updatedContent });
       
       // Invalidate todos query to refresh the list
-      queryClient.invalidateQueries({ queryKey: ['incompleteTodos'] });
+      queryClient.invalidateQueries({ queryKey: ['allTodos'] });
     } catch (error) {
       console.error('Failed to toggle todo:', error);
     }
@@ -680,16 +680,16 @@ function AppContent() {
       }
       
       // Invalidate todos query to refresh the list
-      queryClient.invalidateQueries({ queryKey: ['incompleteTodos'] });
+      queryClient.invalidateQueries({ queryKey: ['allTodos'] });
     } catch (error) {
       console.error('Failed to toggle todo:', error);
     }
   };
 
-  const handleTodoNoteClick = async (notePath: string) => {
+  const handleTodoNoteClick = async (notePath: string, lineNumber?: number) => {
     try {
       const note = await tauriApi.readNote(notePath);
-      
+
       // Todo notes: replace current tab
       if (tabs.length === 0) {
         openInNewTab(note);
@@ -702,7 +702,13 @@ function AppContent() {
         setTabs(updatedTabs);
         setSelectedNote(note);
       }
-      
+
+      // If a line number is provided, scroll to that line
+      if (lineNumber !== undefined) {
+        // Set a state to trigger scrolling in NoteEditor
+        setScrollToBlockId(`line-${lineNumber}`);
+      }
+
       setCurrentView('notes');
       setSearchTerm('');
     } catch (error) {
@@ -778,7 +784,7 @@ function AppContent() {
       case 'todos':
         return (
           <TodosList
-            todos={incompleteTodos}
+            todos={allTodos}
             onTodoToggle={handleTodoToggleFromList}
             onNoteClick={handleTodoNoteClick}
           />
