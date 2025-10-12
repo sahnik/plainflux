@@ -562,6 +562,42 @@
   background: rgba(78, 201, 176, 0.25);
 }
 
+/* Nested Todos / Subtasks */
+.todo-item-container {
+  position: relative;
+}
+
+.todo-children {
+  position: relative;
+}
+
+.todo-item-container .todo-item {
+  position: relative;
+}
+
+/* Visual connector line for nested todos */
+.todo-children::before {
+  content: '';
+  position: absolute;
+  left: 8px;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: #3e3e42;
+}
+
+.todo-subtask-progress {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  background: #2d2d30;
+  border: 1px solid #569cd6;
+  border-radius: 10px;
+  color: #569cd6;
+  font-size: 11px;
+  font-weight: 500;
+}
+
 /* Scrollbar styling */
 .todos-list::-webkit-scrollbar {
   width: 8px;

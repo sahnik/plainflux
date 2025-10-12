@@ -23,8 +23,10 @@ pub struct Todo {
     pub line_number: i32,
     pub content: String,
     pub is_completed: bool,
-    pub due_date: Option<String>, // ISO 8601 date string (YYYY-MM-DD)
-    pub priority: Option<String>, // "high", "medium", "low"
+    pub due_date: Option<String>,     // ISO 8601 date string (YYYY-MM-DD)
+    pub priority: Option<String>,     // "high", "medium", "low"
+    pub indent_level: i32,            // Indentation level (0 = root, 1+ = nested)
+    pub parent_line: Option<i32>,     // Line number of parent todo (if nested)
 }
 
 pub struct CacheDb {
@@ -94,6 +96,8 @@ impl CacheDb {
                 is_completed BOOLEAN NOT NULL DEFAULT 0,
                 due_date TEXT,
                 priority TEXT,
+                indent_level INTEGER NOT NULL DEFAULT 0,
+                parent_line INTEGER,
                 UNIQUE(note_path, line_number)
             )",
                 [],
@@ -107,6 +111,12 @@ impl CacheDb {
         let _ = self
             .conn
             .execute("ALTER TABLE todos ADD COLUMN priority TEXT", []);
+        let _ = self
+            .conn
+            .execute("ALTER TABLE todos ADD COLUMN indent_level INTEGER NOT NULL DEFAULT 0", []);
+        let _ = self
+            .conn
+            .execute("ALTER TABLE todos ADD COLUMN parent_line INTEGER", []);
 
         self.conn
             .execute(
@@ -209,11 +219,13 @@ impl CacheDb {
         for todo in todos {
             self.add_todo(
                 note_path,
-                todo.0,
-                &todo.1,
-                todo.2,
-                todo.3.as_deref(),
-                todo.4.as_deref(),
+                todo.0,      // line_number
+                &todo.1,     // content
+                todo.2,      // is_completed
+                todo.3.as_deref(),  // due_date
+                todo.4.as_deref(),  // priority
+                todo.5,      // indent_level
+                todo.6,      // parent_line
             )?;
         }
 
@@ -394,10 +406,12 @@ impl CacheDb {
         is_completed: bool,
         due_date: Option<&str>,
         priority: Option<&str>,
+        indent_level: i32,
+        parent_line: Option<i32>,
     ) -> Result<(), String> {
         self.conn.execute(
-            "INSERT OR REPLACE INTO todos (note_path, line_number, content, is_completed, due_date, priority) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-            params![note_path, line_number, content, is_completed, due_date, priority],
+            "INSERT OR REPLACE INTO todos (note_path, line_number, content, is_completed, due_date, priority, indent_level, parent_line) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+            params![note_path, line_number, content, is_completed, due_date, priority, indent_level, parent_line],
         ).map_err(|e| format!("Failed to add todo: {e}"))?;
 
         Ok(())
@@ -405,7 +419,7 @@ impl CacheDb {
 
     pub fn get_incomplete_todos(&self) -> Result<Vec<Todo>, String> {
         let mut stmt = self.conn.prepare(
-            "SELECT id, note_path, line_number, content, is_completed, due_date, priority FROM todos WHERE is_completed = 0 ORDER BY note_path, line_number"
+            "SELECT id, note_path, line_number, content, is_completed, due_date, priority, indent_level, parent_line FROM todos WHERE is_completed = 0 ORDER BY note_path, line_number"
         ).map_err(|e| format!("Failed to prepare statement: {e}"))?;
 
         let todos = stmt
@@ -418,6 +432,8 @@ impl CacheDb {
                     is_completed: row.get(4)?,
                     due_date: row.get(5)?,
                     priority: row.get(6)?,
+                    indent_level: row.get(7)?,
+                    parent_line: row.get(8)?,
                 })
             })
             .map_err(|e| format!("Failed to query todos: {e}"))?;
@@ -432,7 +448,7 @@ impl CacheDb {
 
     pub fn get_all_todos(&self) -> Result<Vec<Todo>, String> {
         let mut stmt = self.conn.prepare(
-            "SELECT id, note_path, line_number, content, is_completed, due_date, priority FROM todos ORDER BY note_path, is_completed, line_number"
+            "SELECT id, note_path, line_number, content, is_completed, due_date, priority, indent_level, parent_line FROM todos ORDER BY note_path, is_completed, line_number"
         ).map_err(|e| format!("Failed to prepare statement: {e}"))?;
 
         let todos = stmt
@@ -445,6 +461,8 @@ impl CacheDb {
                     is_completed: row.get(4)?,
                     due_date: row.get(5)?,
                     priority: row.get(6)?,
+                    indent_level: row.get(7)?,
+                    parent_line: row.get(8)?,
                 })
             })
             .map_err(|e| format!("Failed to query todos: {e}"))?;
@@ -642,9 +660,9 @@ fn resolve_note_link(link_name: &str, notes_dir: &str) -> Result<String, String>
     Err(format!("Note not found: {link_name}"))
 }
 
-fn extract_todos(content: &str) -> Vec<(i32, String, bool, Option<String>, Option<String>)> {
+fn extract_todos(content: &str) -> Vec<(i32, String, bool, Option<String>, Option<String>, i32, Option<i32>)> {
     let mut todos = Vec::new();
-    let todo_regex = Regex::new(r"^\s*[-*]\s*\[([ xX])\]\s*(.+)$").unwrap();
+    let todo_regex = Regex::new(r"^(\s*)[-*]\s*\[([ xX])\]\s*(.+)$").unwrap();
 
     // Regex patterns for due dates and priority
     // Due date formats: @due(2025-01-15), due:2025-01-15, 📅 2025-01-15
@@ -653,12 +671,19 @@ fn extract_todos(content: &str) -> Vec<(i32, String, bool, Option<String>, Optio
     // Priority formats: !high, !medium, !low, p:1, p:2, p:3
     let priority_regex = Regex::new(r"(?:!(high|medium|low)|p:([123]))").unwrap();
 
+    // Track todos by indent level to find parent relationships
+    let mut indent_stack: Vec<(i32, i32)> = Vec::new(); // (indent_level, line_number)
+
     for (line_number, line) in content.lines().enumerate() {
         // Match markdown checkbox syntax: - [ ] or - [x]
         if let Some(captures) = todo_regex.captures(line) {
-            let is_completed = captures.get(1).is_some_and(|m| m.as_str() != " ");
+            // Calculate indent level (spaces or tabs before the checkbox)
+            let indent_str = captures.get(1).map_or("", |m| m.as_str());
+            let indent_level = (indent_str.len() / 2) as i32; // 2 spaces = 1 level
+
+            let is_completed = captures.get(2).is_some_and(|m| m.as_str() != " ");
             let full_content = captures
-                .get(2)
+                .get(3)
                 .map_or("", |m| m.as_str())
                 .trim()
                 .to_string();
@@ -687,12 +712,29 @@ fn extract_todos(content: &str) -> Vec<(i32, String, bool, Option<String>, Optio
                 None
             };
 
+            // Find parent todo (last todo with indent level one less than current)
+            let parent_line = if indent_level > 0 {
+                // Remove all items from stack that are at same or deeper level
+                indent_stack.retain(|(level, _)| *level < indent_level);
+                // Parent is the last item in the stack
+                indent_stack.last().map(|(_, line)| *line)
+            } else {
+                None
+            };
+
+            let current_line = line_number as i32 + 1;
+
+            // Add current todo to indent stack
+            indent_stack.push((indent_level, current_line));
+
             todos.push((
-                line_number as i32 + 1,
+                current_line,
                 full_content,
                 is_completed,
                 due_date,
                 priority,
+                indent_level,
+                parent_line,
             ));
         }
     }

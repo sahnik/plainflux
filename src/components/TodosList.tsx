@@ -267,6 +267,58 @@ export const TodosList: React.FC<TodosListProps> = ({ todos, onTodoToggle, onNot
     return priority.charAt(0).toUpperCase() + priority.slice(1);
   };
 
+  // Helper to build nested todo hierarchy
+  const buildTodoHierarchy = (todos: Todo[]) => {
+    const rootTodos: Todo[] = [];
+    const todoMap = new Map<number, Todo & { children?: Todo[] }>();
+
+    // Create a map of all todos by line number
+    todos.forEach(todo => {
+      todoMap.set(todo.line_number, { ...todo, children: [] });
+    });
+
+    // Build the hierarchy
+    todos.forEach(todo => {
+      const todoWithChildren = todoMap.get(todo.line_number)!;
+      if (todo.parent_line && todoMap.has(todo.parent_line)) {
+        const parent = todoMap.get(todo.parent_line)!;
+        parent.children = parent.children || [];
+        parent.children.push(todoWithChildren);
+      } else {
+        rootTodos.push(todoWithChildren);
+      }
+    });
+
+    return rootTodos;
+  };
+
+  // Calculate subtask completion
+  const getSubtaskProgress = (todo: Todo & { children?: Todo[] }, allTodos: Todo[]): { completed: number; total: number } => {
+    const children = allTodos.filter(t =>
+      t.note_path === todo.note_path &&
+      t.parent_line === todo.line_number
+    );
+
+    if (children.length === 0) {
+      return { completed: 0, total: 0 };
+    }
+
+    let completed = 0;
+    let total = children.length;
+
+    children.forEach(child => {
+      if (child.is_completed) {
+        completed++;
+      }
+      // Recursively count nested subtasks
+      const childProgress = getSubtaskProgress(child as any, allTodos);
+      completed += childProgress.completed;
+      total += childProgress.total;
+    });
+
+    return { completed, total };
+  };
+
   // Bulk action handlers
   const toggleSelectionMode = () => {
     setSelectionMode(!selectionMode);
@@ -304,6 +356,84 @@ export const TodosList: React.FC<TodosListProps> = ({ todos, onTodoToggle, onNot
   };
 
   const selectedCount = selectedTodoIds.size;
+
+  // Recursive function to render a todo and its children
+  const renderTodoItem = (todo: Todo & { children?: Todo[] }, allTodos: Todo[]): React.ReactNode => {
+    const tags = extractTags(todo.content);
+    const contentWithoutTags = todo.content.replace(/#\w+/g, '').trim();
+    const overdueClass = isOverdue(todo.due_date) && !todo.is_completed ? 'overdue' : '';
+    const subtaskProgress = getSubtaskProgress(todo, allTodos);
+    const hasSubtasks = subtaskProgress.total > 0;
+
+    return (
+      <div key={`${todo.note_path}-${todo.line_number}`} className="todo-item-container">
+        <div
+          className={`todo-item ${todo.is_completed ? 'completed' : ''} ${getPriorityClass(todo.priority)} ${overdueClass} ${selectionMode && selectedTodoIds.has(todo.id) ? 'selected' : ''}`}
+          onClick={() => selectionMode && toggleTodoSelection(todo.id)}
+          style={{ marginLeft: `${todo.indent_level * 20}px` }}
+        >
+          <label className="todo-label">
+            {selectionMode ? (
+              <input
+                type="checkbox"
+                checked={selectedTodoIds.has(todo.id)}
+                onChange={() => toggleTodoSelection(todo.id)}
+                onClick={(e) => e.stopPropagation()}
+              />
+            ) : (
+              <input
+                type="checkbox"
+                checked={todo.is_completed}
+                onChange={() => onTodoToggle(todo)}
+              />
+            )}
+            <div className="todo-content-wrapper">
+              <div className="todo-main-content">
+                <span
+                  className="todo-content"
+                  onClick={() => handleTodoClick(todo)}
+                  title={`Jump to line ${todo.line_number}`}
+                >
+                  {contentWithoutTags}
+                </span>
+                <div className="todo-metadata">
+                  {hasSubtasks && (
+                    <span className="todo-subtask-progress">
+                      {subtaskProgress.completed}/{subtaskProgress.total} subtasks
+                    </span>
+                  )}
+                  {todo.priority && (
+                    <span className={`todo-priority ${getPriorityClass(todo.priority)}`}>
+                      <AlertCircle size={12} />
+                      {getPriorityLabel(todo.priority)}
+                    </span>
+                  )}
+                  {todo.due_date && (
+                    <span className={`todo-due-date ${isOverdue(todo.due_date) && !todo.is_completed ? 'overdue' : ''}`}>
+                      <Calendar size={12} />
+                      {formatDate(todo.due_date)}
+                    </span>
+                  )}
+                </div>
+              </div>
+              {tags.length > 0 && (
+                <div className="todo-tags">
+                  {tags.map(tag => (
+                    <span key={tag} className="todo-tag">#{tag}</span>
+                  ))}
+                </div>
+              )}
+            </div>
+          </label>
+        </div>
+        {todo.children && todo.children.length > 0 && (
+          <div className="todo-children">
+            {todo.children.map(child => renderTodoItem(child, allTodos))}
+          </div>
+        )}
+      </div>
+    );
+  };
 
   return (
     <div className="todos-list">
@@ -584,68 +714,7 @@ export const TodosList: React.FC<TodosListProps> = ({ todos, onTodoToggle, onNot
 
                 {!isCollapsed && (
                   <div className="todos-items">
-                    {noteTodos.map((todo) => {
-                      const tags = extractTags(todo.content);
-                      const contentWithoutTags = todo.content.replace(/#\w+/g, '').trim();
-                      const overdueClass = isOverdue(todo.due_date) && !todo.is_completed ? 'overdue' : '';
-
-                      return (
-                        <div
-                          key={`${todo.note_path}-${todo.line_number}`}
-                          className={`todo-item ${todo.is_completed ? 'completed' : ''} ${getPriorityClass(todo.priority)} ${overdueClass} ${selectionMode && selectedTodoIds.has(todo.id) ? 'selected' : ''}`}
-                          onClick={() => selectionMode && toggleTodoSelection(todo.id)}
-                        >
-                          <label className="todo-label">
-                            {selectionMode ? (
-                              <input
-                                type="checkbox"
-                                checked={selectedTodoIds.has(todo.id)}
-                                onChange={() => toggleTodoSelection(todo.id)}
-                                onClick={(e) => e.stopPropagation()}
-                              />
-                            ) : (
-                              <input
-                                type="checkbox"
-                                checked={todo.is_completed}
-                                onChange={() => onTodoToggle(todo)}
-                              />
-                            )}
-                            <div className="todo-content-wrapper">
-                              <div className="todo-main-content">
-                                <span
-                                  className="todo-content"
-                                  onClick={() => handleTodoClick(todo)}
-                                  title={`Jump to line ${todo.line_number}`}
-                                >
-                                  {contentWithoutTags}
-                                </span>
-                                <div className="todo-metadata">
-                                  {todo.priority && (
-                                    <span className={`todo-priority ${getPriorityClass(todo.priority)}`}>
-                                      <AlertCircle size={12} />
-                                      {getPriorityLabel(todo.priority)}
-                                    </span>
-                                  )}
-                                  {todo.due_date && (
-                                    <span className={`todo-due-date ${isOverdue(todo.due_date) && !todo.is_completed ? 'overdue' : ''}`}>
-                                      <Calendar size={12} />
-                                      {formatDate(todo.due_date)}
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-                              {tags.length > 0 && (
-                                <div className="todo-tags">
-                                  {tags.map(tag => (
-                                    <span key={tag} className="todo-tag">#{tag}</span>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                          </label>
-                        </div>
-                      );
-                    })}
+                    {buildTodoHierarchy(noteTodos).map(todo => renderTodoItem(todo, noteTodos))}
                   </div>
                 )}
               </div>
