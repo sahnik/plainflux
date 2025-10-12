@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Todo } from '../api/tauri';
-import { CheckSquare, FileText, Filter, ChevronDown, ChevronRight, Calendar, AlertCircle } from 'lucide-react';
+import { CheckSquare, FileText, Filter, ChevronDown, ChevronRight, Calendar, AlertCircle, CheckCheck, X } from 'lucide-react';
 import './TodosList.css';
 
 interface TodosListProps {
@@ -22,6 +22,8 @@ export const TodosList: React.FC<TodosListProps> = ({ todos, onTodoToggle, onNot
   const [searchTerm, setSearchTerm] = useState('');
   const [collapsedNotes, setCollapsedNotes] = useState<Set<string>>(new Set());
   const [showFilters, setShowFilters] = useState(false);
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedTodoIds, setSelectedTodoIds] = useState<Set<number>>(new Set());
 
   // Extract tags from todo content
   const extractTags = (content: string): string[] => {
@@ -265,6 +267,44 @@ export const TodosList: React.FC<TodosListProps> = ({ todos, onTodoToggle, onNot
     return priority.charAt(0).toUpperCase() + priority.slice(1);
   };
 
+  // Bulk action handlers
+  const toggleSelectionMode = () => {
+    setSelectionMode(!selectionMode);
+    setSelectedTodoIds(new Set());
+  };
+
+  const toggleTodoSelection = (todoId: number) => {
+    const newSelection = new Set(selectedTodoIds);
+    if (newSelection.has(todoId)) {
+      newSelection.delete(todoId);
+    } else {
+      newSelection.add(todoId);
+    }
+    setSelectedTodoIds(newSelection);
+  };
+
+  const selectAll = () => {
+    const allIds = new Set(filteredAndSortedTodos.map(t => t.id));
+    setSelectedTodoIds(allIds);
+  };
+
+  const deselectAll = () => {
+    setSelectedTodoIds(new Set());
+  };
+
+  const bulkToggleComplete = () => {
+    selectedTodoIds.forEach(id => {
+      const todo = todos.find(t => t.id === id);
+      if (todo) {
+        onTodoToggle(todo);
+      }
+    });
+    setSelectedTodoIds(new Set());
+    setSelectionMode(false);
+  };
+
+  const selectedCount = selectedTodoIds.size;
+
   return (
     <div className="todos-list">
       <div className="todos-header">
@@ -279,27 +319,79 @@ export const TodosList: React.FC<TodosListProps> = ({ todos, onTodoToggle, onNot
         </div>
       </div>
 
-      <div className="todos-controls">
-        <div className="todos-search">
-          <input
-            type="text"
-            placeholder="Search tasks..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="todos-search-input"
-          />
+      {selectionMode ? (
+        <div className="todos-bulk-actions">
+          <div className="todos-bulk-header">
+            <button
+              className="todos-bulk-cancel"
+              onClick={toggleSelectionMode}
+              title="Cancel selection"
+            >
+              <X size={16} />
+            </button>
+            <span className="todos-bulk-count">
+              {selectedCount} selected
+            </span>
+            <div className="todos-bulk-controls">
+              {selectedCount > 0 ? (
+                <button
+                  className="todos-bulk-btn"
+                  onClick={deselectAll}
+                >
+                  Deselect All
+                </button>
+              ) : (
+                <button
+                  className="todos-bulk-btn"
+                  onClick={selectAll}
+                >
+                  Select All
+                </button>
+              )}
+            </div>
+          </div>
+          {selectedCount > 0 && (
+            <div className="todos-bulk-action-buttons">
+              <button
+                className="todos-bulk-action-btn"
+                onClick={bulkToggleComplete}
+              >
+                <CheckCheck size={16} />
+                Toggle Complete
+              </button>
+            </div>
+          )}
         </div>
+      ) : (
+        <div className="todos-controls">
+          <div className="todos-search">
+            <input
+              type="text"
+              placeholder="Search tasks..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="todos-search-input"
+            />
+          </div>
 
-        <div className="todos-control-buttons">
-          <button
-            className={`todos-control-btn ${showFilters ? 'active' : ''}`}
-            onClick={() => setShowFilters(!showFilters)}
-            title="Toggle filters"
-          >
-            <Filter size={16} />
-          </button>
+          <div className="todos-control-buttons">
+            <button
+              className={`todos-control-btn ${showFilters ? 'active' : ''}`}
+              onClick={() => setShowFilters(!showFilters)}
+              title="Toggle filters"
+            >
+              <Filter size={16} />
+            </button>
+            <button
+              className="todos-control-btn"
+              onClick={toggleSelectionMode}
+              title="Bulk select"
+            >
+              <CheckCheck size={16} />
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
       {showFilters && (
         <div className="todos-filters">
@@ -500,14 +592,24 @@ export const TodosList: React.FC<TodosListProps> = ({ todos, onTodoToggle, onNot
                       return (
                         <div
                           key={`${todo.note_path}-${todo.line_number}`}
-                          className={`todo-item ${todo.is_completed ? 'completed' : ''} ${getPriorityClass(todo.priority)} ${overdueClass}`}
+                          className={`todo-item ${todo.is_completed ? 'completed' : ''} ${getPriorityClass(todo.priority)} ${overdueClass} ${selectionMode && selectedTodoIds.has(todo.id) ? 'selected' : ''}`}
+                          onClick={() => selectionMode && toggleTodoSelection(todo.id)}
                         >
                           <label className="todo-label">
-                            <input
-                              type="checkbox"
-                              checked={todo.is_completed}
-                              onChange={() => onTodoToggle(todo)}
-                            />
+                            {selectionMode ? (
+                              <input
+                                type="checkbox"
+                                checked={selectedTodoIds.has(todo.id)}
+                                onChange={() => toggleTodoSelection(todo.id)}
+                                onClick={(e) => e.stopPropagation()}
+                              />
+                            ) : (
+                              <input
+                                type="checkbox"
+                                checked={todo.is_completed}
+                                onChange={() => onTodoToggle(todo)}
+                              />
+                            )}
                             <div className="todo-content-wrapper">
                               <div className="todo-main-content">
                                 <span

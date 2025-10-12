@@ -14,6 +14,7 @@ import { ConfirmDialog } from './components/ConfirmDialog';
 import { InputDialog } from './components/InputDialog';
 import { GraphView } from './components/GraphView';
 import { TodosList } from './components/TodosList';
+import { QuickAddTodo } from './components/QuickAddTodo';
 import { Help } from './components/Help';
 import { TemplateSettings } from './components/TemplateSettings';
 import { Settings } from './components/Settings';
@@ -66,6 +67,7 @@ function AppContent() {
     currentName: string;
   } | null>(null);
   const [scrollToBlockId, setScrollToBlockId] = useState<string | undefined>(undefined);
+  const [showQuickAddTodo, setShowQuickAddTodo] = useState(false);
 
   const { data: notes = [] } = useQuery({
     queryKey: ['notes'],
@@ -716,6 +718,54 @@ function AppContent() {
     }
   };
 
+  const handleQuickAddTodo = async (todoContent: string) => {
+    if (!selectedNote) return;
+
+    try {
+      // Add todo to the end of the current note
+      const newContent = selectedNote.content + `\n- [ ] ${todoContent}`;
+
+      await tauriApi.saveNote(selectedNote.path, newContent);
+
+      // Update the selected note
+      const updatedNote = { ...selectedNote, content: newContent };
+      setSelectedNote(updatedNote);
+
+      // Update the tab if it exists
+      const tabIndex = tabs.findIndex(tab => tab.note.path === selectedNote.path);
+      if (tabIndex !== -1) {
+        const updatedTabs = [...tabs];
+        updatedTabs[tabIndex] = {
+          note: updatedNote,
+          isDirty: false
+        };
+        setTabs(updatedTabs);
+      }
+
+      // Invalidate queries to refresh
+      queryClient.invalidateQueries({ queryKey: ['allTodos'] });
+    } catch (error) {
+      console.error('Failed to add todo:', error);
+    }
+  };
+
+  // Keyboard shortcut for quick add todo (Cmd/Ctrl + Shift + T)
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const cmdOrCtrl = event.metaKey || event.ctrlKey;
+
+      if (cmdOrCtrl && event.shiftKey && event.key === 'T') {
+        event.preventDefault();
+        if (selectedNote) {
+          setShowQuickAddTodo(true);
+        }
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [selectedNote]);
+
   const renderListPanel = () => {
     switch (currentView) {
       case 'notes':
@@ -1019,6 +1069,13 @@ function AppContent() {
       <Help
         isOpen={showHelp}
         onClose={() => setShowHelp(false)}
+      />
+
+      <QuickAddTodo
+        isOpen={showQuickAddTodo}
+        onClose={() => setShowQuickAddTodo(false)}
+        onAdd={handleQuickAddTodo}
+        currentNotePath={selectedNote?.path}
       />
     </div>
   );
