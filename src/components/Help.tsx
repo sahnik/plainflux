@@ -307,6 +307,31 @@ Underscores`}</pre>
           </div>
           <p>Type [[Note# to see autocomplete for all headings in that note. Clicking a heading link scrolls to and highlights that section.</p>
         </div>
+
+        <h3>Transclusion (Embed Content) - Preview Only</h3>
+        <div className="help-section">
+          <p>Embed content from other notes using <code>![[...]]</code> syntax. Transclusions are rendered in <strong>preview mode</strong> only:</p>
+          <div style={{ backgroundColor: 'var(--bg-secondary)', padding: '12px', borderRadius: '4px', marginTop: '8px', marginBottom: '8px', fontFamily: 'monospace', fontSize: '13px' }}>
+            {/* Embed entire note */}
+            ![[Meeting Notes]]<br/><br/>
+
+            {/* Embed specific section */}
+            ![[Project Plan#goals]]<br/><br/>
+
+            {/* Embed subsection */}
+            ![[Documentation#installation-guide]]
+          </div>
+          <p>
+            In edit mode, you'll see the raw <code>![[...]]</code> syntax.
+            Switch to preview mode (Cmd/Ctrl+E) to see the embedded content rendered as a blockquote.
+            Click the arrow (→) link to navigate to the source note.
+          </p>
+          <ul>
+            <li><code>![[Note Name]]</code> - Embeds the entire note</li>
+            <li><code>![[Note Name#heading]]</code> - Embeds just that heading and its content</li>
+            <li>Note: Transclusions only appear in preview mode, not while editing</li>
+          </ul>
+        </div>
       </section>
         </div>
       </div>

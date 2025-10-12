@@ -23,7 +23,26 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, onL
   const todoHandlersRef = React.useRef<{ [key: string]: () => void }>({});
   const noteExistsRef = React.useRef<{ [key: string]: boolean }>({});
   const containerRef = React.useRef<HTMLDivElement>(null);
+  const [transcludedContent, setTranscludedContent] = React.useState<{ [key: string]: string }>({});
   
+  // Load transcluded content
+  React.useEffect(() => {
+    const transclusionRegex = /!\[\[([^\]]+)\]\]/g;
+    const matches = [...content.matchAll(transclusionRegex)];
+
+    matches.forEach(async (match) => {
+      const link = match[1];
+      if (!transcludedContent[link]) {
+        try {
+          const resolvedContent = await tauriApi.resolveTransclusion(link);
+          setTranscludedContent(prev => ({ ...prev, [link]: resolvedContent }));
+        } catch (error) {
+          setTranscludedContent(prev => ({ ...prev, [link]: `Error: ${error}` }));
+        }
+      }
+    });
+  }, [content]);
+
   // Scroll to first search match when search term changes
   React.useEffect(() => {
     if (searchTerm && containerRef.current) {
@@ -44,6 +63,26 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, onL
   // Process content line by line to handle todos
   const lines = content.split('\n');
   const processedLines = lines.map((line, index) => {
+    // Handle transclusions ![[Note]] or ![[Note#block]]
+    // Replace with embedded content in a special div
+    line = line.replace(/!\[\[([^\]]+)\]\]/g, (_match, link) => {
+      const embeddedContent = transcludedContent[link];
+      if (embeddedContent) {
+        // Create a unique marker that we'll replace later
+        const transId = `transclusion-${linkCounter++}`;
+        linkHandlersRef.current[transId] = () => {
+          // Extract note name (strip block reference if present)
+          const noteName = link.split('#')[0];
+          onLinkClick(noteName);
+        };
+        // Return a markdown blockquote with the content
+        return `\n\n> **Embedded: ![[${link}]]** [→](#${transId})\n>\n${embeddedContent.split('\n').map(l => '> ' + l).join('\n')}\n\n`;
+      } else {
+        // Still loading or error
+        return `\n\n> **Loading: ![[${link}]]**\n\n`;
+      }
+    });
+
     // Handle [[Note]] links
     line = line.replace(/\[\[([^\]]+)\]\]/g, (_match, noteName) => {
       const linkId = `note-link-${linkCounter++}`;

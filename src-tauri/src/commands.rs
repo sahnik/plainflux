@@ -236,6 +236,76 @@ pub async fn get_blocks_for_note(
 }
 
 #[tauri::command]
+pub async fn resolve_transclusion(
+    link: String,
+    state: State<'_, AppState>,
+) -> Result<String, String> {
+    // Parse the link to extract note name and optional block ID
+    let (note_name, block_id) = if let Some(pos) = link.find('#') {
+        let (name, block) = link.split_at(pos);
+        (name, Some(&block[1..])) // Skip the # character
+    } else {
+        (link.as_str(), None)
+    };
+
+    // Find the note path
+    let notes = note_manager::list_notes(&state.notes_dir)?;
+
+    let note_path = notes
+        .iter()
+        .find(|n| n.title.eq_ignore_ascii_case(note_name))
+        .or_else(|| {
+            let name_without_ext = note_name.trim_end_matches(".md");
+            notes.iter().find(|n| n.title.eq_ignore_ascii_case(name_without_ext))
+        })
+        .map(|n| n.path.clone())
+        .ok_or_else(|| format!("Note '{}' not found", note_name))?;
+
+    // Read the note content
+    let content = std::fs::read_to_string(&note_path)
+        .map_err(|e| format!("Failed to read note: {e}"))?;
+
+    // If block ID is specified, extract just that block's content
+    if let Some(block_id) = block_id {
+        let cache_db = lock_mutex!(
+            state.cache_db,
+            "Cache DB mutex was poisoned during resolve_transclusion"
+        );
+
+        if let Some((line_number, _heading_text)) = cache_db.get_block(&note_path, block_id)? {
+            // Extract the content from the heading to the next heading of same or higher level
+            let lines: Vec<&str> = content.lines().collect();
+            if line_number > 0 && (line_number as usize) <= lines.len() {
+                let start_idx = (line_number - 1) as usize;
+                let start_line = lines[start_idx];
+
+                // Determine the heading level
+                let heading_level = start_line.chars().take_while(|&c| c == '#').count();
+
+                // Find the end of this block (next heading of same or higher level)
+                let mut block_lines = vec![start_line];
+                for line in &lines[(start_idx + 1)..] {
+                    if line.starts_with('#') {
+                        let line_level = line.chars().take_while(|&c| c == '#').count();
+                        if line_level <= heading_level {
+                            break;
+                        }
+                    }
+                    block_lines.push(line);
+                }
+
+                return Ok(block_lines.join("\n"));
+            }
+        }
+
+        return Err(format!("Block '{}' not found in note", block_id));
+    }
+
+    // Return the entire note content
+    Ok(content)
+}
+
+#[tauri::command]
 pub async fn get_backlinks(
     note_path: String,
     state: State<'_, AppState>,

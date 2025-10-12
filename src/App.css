@@ -1064,3 +1064,99 @@ body, html {
   color: var(--text-secondary);
   opacity: 0.8;
 }
+
+/* Transclusion styles */
+.transclusion-wrapper {
+  margin: 12px 0;
+  border: 1px solid var(--border-color);
+  border-left: 3px solid var(--accent-color);
+  border-radius: 4px;
+  background-color: var(--bg-secondary);
+  padding: 0;
+  overflow: hidden;
+}
+
+.transclusion-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background-color: rgba(0, 0, 0, 0.1);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.transclusion-link {
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-family: monospace;
+}
+
+.transclusion-nav-button {
+  background: none;
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  cursor: pointer;
+  padding: 2px 8px;
+  border-radius: 3px;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+
+.transclusion-nav-button:hover {
+  background-color: var(--hover-color);
+  border-color: var(--accent-color);
+}
+
+.transclusion-content {
+  padding: 12px;
+  font-size: calc(var(--font-size-base) - 1px);
+  line-height: 1.6;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.transclusion-content h1,
+.transclusion-content h2,
+.transclusion-content h3,
+.transclusion-content h4,
+.transclusion-content h5,
+.transclusion-content h6 {
+  margin: 8px 0 4px 0;
+  color: var(--text-primary);
+}
+
+.transclusion-content h1 { font-size: 1.5em; }
+.transclusion-content h2 { font-size: 1.3em; }
+.transclusion-content h3 { font-size: 1.2em; }
+.transclusion-content h4 { font-size: 1.1em; }
+.transclusion-content h5 { font-size: 1.05em; }
+.transclusion-content h6 { font-size: 1em; }
+
+.transclusion-content code {
+  background-color: rgba(0, 0, 0, 0.2);
+  padding: 2px 4px;
+  border-radius: 3px;
+  font-family: monospace;
+  font-size: 0.9em;
+}
+
+.transclusion-content strong {
+  font-weight: 600;
+}
+
+.transclusion-error {
+  background-color: rgba(255, 0, 0, 0.1);
+  border-left-color: #ff4444;
+  padding: 12px;
+  color: #ff4444;
+}
+
+.transclusion-loading {
+  padding: 12px;
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
+.transclusion-hidden {
+  display: none;
+}

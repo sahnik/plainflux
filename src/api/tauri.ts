@@ -189,6 +189,10 @@ export const tauriApi = {
   async applyWindowState(): Promise<void> {
     return invoke('apply_window_state');
   },
+
+  async resolveTransclusion(link: string): Promise<string> {
+    return invoke('resolve_transclusion', { link });
+  },
 };
 
 export interface GraphNode {
