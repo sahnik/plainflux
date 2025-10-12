@@ -250,21 +250,48 @@ Underscores`}</pre>
       
       <section className="help-section">
         <h2>Keyboard Shortcuts</h2>
-        
+
+        <h3>General</h3>
         <div className="shortcut">
           <kbd>Cmd/Ctrl</kbd> + <kbd>E</kbd> - Toggle between edit and preview mode
         </div>
-        
+
         <div className="shortcut">
           <kbd>Cmd/Ctrl</kbd> + <kbd>S</kbd> - Save note
         </div>
-        
+
         <div className="shortcut">
           <kbd>Cmd/Ctrl</kbd> + <kbd>V</kbd> - Paste (including images)
         </div>
-        
+
         <div className="shortcut">
           <kbd>Cmd/Ctrl</kbd> + <kbd>Click</kbd> - Open link in note
+        </div>
+
+        <h3>Multi-Cursor Editing</h3>
+        <div className="shortcut">
+          <kbd>Cmd/Ctrl</kbd> + <kbd>D</kbd> - Select next occurrence of current selection
+        </div>
+
+        <div className="shortcut">
+          <kbd>Cmd/Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>L</kbd> - Select all occurrences
+        </div>
+
+        <h3>Code Folding</h3>
+        <div className="shortcut">
+          <kbd>Cmd/Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>[</kbd> - Fold current section
+        </div>
+
+        <div className="shortcut">
+          <kbd>Cmd/Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>]</kbd> - Unfold current section
+        </div>
+
+        <div className="shortcut">
+          <kbd>Cmd/Ctrl</kbd> + <kbd>K</kbd> <kbd>Cmd/Ctrl</kbd> + <kbd>0</kbd> - Fold all
+        </div>
+
+        <div className="shortcut">
+          <kbd>Cmd/Ctrl</kbd> + <kbd>K</kbd> <kbd>Cmd/Ctrl</kbd> + <kbd>J</kbd> - Unfold all
         </div>
       </section>
         </div>

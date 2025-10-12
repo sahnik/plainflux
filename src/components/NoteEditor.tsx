@@ -10,6 +10,8 @@ import { createSearchHighlightExtension, setSearchTerm, scrollToFirstMatch } fro
 import { createGitBlameExtension, updateBlameInfo } from '../utils/gitBlame';
 import { createDynamicTheme, createSyntaxHighlighting } from '../utils/editorThemes';
 import { createNoteLinkExtension } from '../utils/editorNoteLinkExtension';
+import { multiCursorKeymap } from '../utils/multiCursor';
+import { createFoldingExtension } from '../utils/foldingExtension';
 import { useTheme } from '../contexts/ThemeContext';
 
 interface NoteEditorProps {
@@ -64,6 +66,8 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, isPreview, onChang
         createSearchHighlightExtension(),
         createGitBlameExtension(settings.showGitBlame),
         createNoteLinkExtension(onLinkClick, onLinkOpenInNewTab, noteExists),
+        multiCursorKeymap,
+        createFoldingExtension(),
         EditorView.updateListener.of((update) => {
           if (update.docChanged) {
             onChange(update.state.doc.toString());
