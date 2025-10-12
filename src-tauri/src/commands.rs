@@ -209,6 +209,33 @@ pub async fn get_daily_note(state: State<'_, AppState>) -> Result<String, String
 }
 
 #[tauri::command]
+pub async fn get_block_reference(
+    note_path: String,
+    block_id: String,
+    state: State<'_, AppState>,
+) -> Result<Option<(i32, String)>, String> {
+    let cache_db = lock_mutex!(
+        state.cache_db,
+        "Cache DB mutex was poisoned during get_block_reference"
+    );
+
+    cache_db.get_block(&note_path, &block_id)
+}
+
+#[tauri::command]
+pub async fn get_blocks_for_note(
+    note_path: String,
+    state: State<'_, AppState>,
+) -> Result<Vec<(String, i32, String)>, String> {
+    let cache_db = lock_mutex!(
+        state.cache_db,
+        "Cache DB mutex was poisoned during get_blocks_for_note"
+    );
+
+    cache_db.get_blocks_for_note(&note_path)
+}
+
+#[tauri::command]
 pub async fn get_backlinks(
     note_path: String,
     state: State<'_, AppState>,

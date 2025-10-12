@@ -1,5 +1,6 @@
 import { Extension } from '@codemirror/state';
 import { EditorView, Decoration, DecorationSet, ViewPlugin, ViewUpdate } from '@codemirror/view';
+import { parseBlockReference } from './blockReferences';
 
 function createNoteLinkDecorations(view: EditorView, noteExists: (noteName: string) => boolean): DecorationSet {
   const marks: { from: number; to: number; decoration: Decoration }[] = [];
@@ -12,9 +13,12 @@ function createNoteLinkDecorations(view: EditorView, noteExists: (noteName: stri
     let match;
 
     while ((match = linkRegex.exec(lineText.text)) !== null) {
-      const noteName = match[1];
+      const linkText = match[1];
       const from = lineText.from + match.index;
       const to = from + match[0].length;
+
+      // Parse block reference if present
+      const { noteName, blockId } = parseBlockReference(linkText);
       const exists = noteExists(noteName);
 
       // Create a mark decoration that styles the link but keeps the text editable
@@ -22,6 +26,7 @@ function createNoteLinkDecorations(view: EditorView, noteExists: (noteName: stri
         class: 'note-link-mark',
         attributes: {
           'data-note-name': noteName,
+          'data-block-id': blockId || '',
           'data-note-exists': exists.toString(),
           style: `
             color: ${exists ? '#4ec9b0' : '#ff6b6b'};
@@ -51,8 +56,8 @@ function createNoteLinkDecorations(view: EditorView, noteExists: (noteName: stri
 }
 
 export function createNoteLinkExtension(
-  onLinkClick: (noteName: string) => void,
-  onLinkOpenInNewTab: (noteName: string) => void,
+  onLinkClick: (noteName: string, blockId?: string) => void,
+  onLinkOpenInNewTab: (noteName: string, blockId?: string) => void,
   noteExists: (noteName: string) => boolean
 ): Extension {
   const plugin = ViewPlugin.fromClass(
@@ -80,12 +85,13 @@ export function createNoteLinkExtension(
 
           if (linkElement && linkElement instanceof HTMLElement) {
             const noteName = linkElement.getAttribute('data-note-name');
+            const blockId = linkElement.getAttribute('data-block-id') || undefined;
             if (noteName) {
               // Middle mouse button - open in new tab
               if (e.button === 1) {
                 e.preventDefault();
                 e.stopPropagation();
-                onLinkOpenInNewTab(noteName);
+                onLinkOpenInNewTab(noteName, blockId);
                 return;
               }
             }
@@ -99,10 +105,11 @@ export function createNoteLinkExtension(
 
           if (linkElement && linkElement instanceof HTMLElement) {
             const noteName = linkElement.getAttribute('data-note-name');
+            const blockId = linkElement.getAttribute('data-block-id') || undefined;
             if (noteName) {
               e.preventDefault();
               e.stopPropagation();
-              onLinkClick(noteName);
+              onLinkClick(noteName, blockId);
             }
           }
         });

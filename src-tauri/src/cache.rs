@@ -1,5 +1,5 @@
 use regex::Regex;
-use rusqlite::{params, Connection};
+use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
 use walkdir::WalkDir;
 
@@ -123,6 +123,35 @@ impl CacheDb {
             )
             .map_err(|e| format!("Failed to create FTS5 table: {e}"))?;
 
+        // Create blocks table for block references
+        self.conn
+            .execute(
+                "CREATE TABLE IF NOT EXISTS blocks (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                block_id TEXT NOT NULL,
+                note_path TEXT NOT NULL,
+                line_number INTEGER NOT NULL,
+                content TEXT NOT NULL,
+                UNIQUE(note_path, block_id)
+            )",
+                [],
+            )
+            .map_err(|e| format!("Failed to create blocks table: {e}"))?;
+
+        self.conn
+            .execute(
+                "CREATE INDEX IF NOT EXISTS idx_blocks_note ON blocks(note_path)",
+                [],
+            )
+            .map_err(|e| format!("Failed to create blocks index: {e}"))?;
+
+        self.conn
+            .execute(
+                "CREATE INDEX IF NOT EXISTS idx_blocks_id ON blocks(block_id)",
+                [],
+            )
+            .map_err(|e| format!("Failed to create blocks index: {e}"))?;
+
         Ok(())
     }
 
@@ -136,8 +165,11 @@ impl CacheDb {
 
         let links = extract_links(content);
         for link in links {
+            // Strip block reference if present (e.g., "Note#heading" -> "Note")
+            let note_name = link.split('#').next().unwrap_or(&link);
+
             // Try to find the actual file path for this link
-            if let Ok(link_path) = resolve_note_link(&link, notes_dir) {
+            if let Ok(link_path) = resolve_note_link(note_name, notes_dir) {
                 self.add_link(note_path, &link_path)?;
             }
         }
@@ -168,6 +200,13 @@ impl CacheDb {
         // Also update FTS5 index
         self.add_note_content(note_path, title, content)?;
 
+        // Index blocks
+        let blocks = extract_blocks(content);
+        self.remove_blocks_for_note(note_path)?;
+        for (block_id, line_number, block_content) in blocks {
+            self.add_block(note_path, &block_id, line_number, &block_content)?;
+        }
+
         Ok(())
     }
 
@@ -184,8 +223,9 @@ impl CacheDb {
             .execute("DELETE FROM todos WHERE note_path = ?1", params![note_path])
             .map_err(|e| format!("Failed to clear todos: {e}"))?;
 
-        // Also remove from FTS index
+        // Also remove from FTS index and blocks
         self.remove_note_content(note_path)?;
+        self.remove_blocks_for_note(note_path)?;
 
         Ok(())
     }
@@ -422,6 +462,79 @@ impl CacheDb {
 
         Ok(result)
     }
+
+    // Block Reference Methods
+
+    pub fn add_block(
+        &self,
+        note_path: &str,
+        block_id: &str,
+        line_number: i32,
+        content: &str,
+    ) -> Result<(), String> {
+        self.conn
+            .execute(
+                "INSERT OR REPLACE INTO blocks (note_path, block_id, line_number, content) VALUES (?1, ?2, ?3, ?4)",
+                params![note_path, block_id, line_number, content],
+            )
+            .map_err(|e| format!("Failed to add block: {e}"))?;
+        Ok(())
+    }
+
+    pub fn remove_blocks_for_note(&self, note_path: &str) -> Result<(), String> {
+        self.conn
+            .execute(
+                "DELETE FROM blocks WHERE note_path = ?1",
+                params![note_path],
+            )
+            .map_err(|e| format!("Failed to remove blocks: {e}"))?;
+        Ok(())
+    }
+
+    pub fn get_block(
+        &self,
+        note_path: &str,
+        block_id: &str,
+    ) -> Result<Option<(i32, String)>, String> {
+        let mut stmt = self
+            .conn
+            .prepare(
+                "SELECT line_number, content FROM blocks WHERE note_path = ?1 AND block_id = ?2",
+            )
+            .map_err(|e| format!("Failed to prepare block query: {e}"))?;
+
+        let result = stmt
+            .query_row(params![note_path, block_id], |row| {
+                Ok((row.get(0)?, row.get(1)?))
+            })
+            .optional()
+            .map_err(|e| format!("Failed to query block: {e}"))?;
+
+        Ok(result)
+    }
+
+    pub fn get_blocks_for_note(
+        &self,
+        note_path: &str,
+    ) -> Result<Vec<(String, i32, String)>, String> {
+        let mut stmt = self
+            .conn
+            .prepare("SELECT block_id, line_number, content FROM blocks WHERE note_path = ?1 ORDER BY line_number")
+            .map_err(|e| format!("Failed to prepare blocks query: {e}"))?;
+
+        let blocks = stmt
+            .query_map(params![note_path], |row| {
+                Ok((row.get(0)?, row.get(1)?, row.get(2)?))
+            })
+            .map_err(|e| format!("Failed to query blocks: {e}"))?;
+
+        let mut result = Vec::new();
+        for block in blocks {
+            result.push(block.map_err(|e| format!("Failed to get block: {e}"))?);
+        }
+
+        Ok(result)
+    }
 }
 
 pub fn extract_links(content: &str) -> Vec<String> {
@@ -485,6 +598,42 @@ fn extract_todos(content: &str) -> Vec<(i32, String, bool)> {
     todos
 }
 
+fn extract_blocks(content: &str) -> Vec<(String, i32, String)> {
+    let mut blocks = Vec::new();
+    // Match markdown headings: # Heading, ## Heading, etc.
+    let heading_regex = Regex::new(r"^(#{1,6})\s+(.+)$").unwrap();
+
+    for (line_number, line) in content.lines().enumerate() {
+        if let Some(captures) = heading_regex.captures(line) {
+            let heading_text = captures[2].trim();
+
+            // Generate block ID from heading text (slugify)
+            // Convert to lowercase, replace spaces and special chars with hyphens
+            let block_id = heading_text
+                .to_lowercase()
+                .chars()
+                .map(|c| {
+                    if c.is_alphanumeric() {
+                        c
+                    } else if c.is_whitespace() {
+                        '-'
+                    } else {
+                        '_'
+                    }
+                })
+                .collect::<String>()
+                .split('-')
+                .filter(|s| !s.is_empty())
+                .collect::<Vec<&str>>()
+                .join("-");
+
+            blocks.push((block_id, line_number as i32 + 1, heading_text.to_string()));
+        }
+    }
+
+    blocks
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -496,6 +645,15 @@ mod tests {
         assert_eq!(links.len(), 2);
         assert_eq!(links[0], "Test Note");
         assert_eq!(links[1], "Second Note");
+    }
+
+    #[test]
+    fn test_extract_links_with_block_references() {
+        let content = "Link to [[Note#heading-slug]] and [[Another Note#section]]";
+        let links = extract_links(content);
+        assert_eq!(links.len(), 2);
+        assert_eq!(links[0], "Note#heading-slug");
+        assert_eq!(links[1], "Another Note#section");
     }
 
     #[test]

@@ -293,6 +293,20 @@ Underscores`}</pre>
         <div className="shortcut">
           <kbd>Cmd/Ctrl</kbd> + <kbd>K</kbd> <kbd>Cmd/Ctrl</kbd> + <kbd>J</kbd> - Unfold all
         </div>
+
+        <h3>Block References (Headings)</h3>
+        <div className="help-section">
+          <p>Every heading automatically becomes a linkable block:</p>
+          <div style={{ backgroundColor: 'var(--bg-secondary)', padding: '12px', borderRadius: '4px', marginTop: '8px', marginBottom: '8px', fontFamily: 'monospace', fontSize: '13px' }}>
+            # My Important Section<br/>
+            Some content here...<br/><br/>
+            ## My Subsection<br/>
+            More content...<br/><br/>
+            Link to heading: [[Note Name#my-important-section]]<br/>
+            Link to subsection: [[Note Name#my-subsection]]
+          </div>
+          <p>Type [[Note# to see autocomplete for all headings in that note. Clicking a heading link scrolls to and highlights that section.</p>
+        </div>
       </section>
         </div>
       </div>

@@ -95,6 +95,8 @@ pub fn run() {
             commands::search_notes,
             commands::search_notes_enhanced,
             commands::get_daily_note,
+            commands::get_block_reference,
+            commands::get_blocks_for_note,
             commands::get_backlinks,
             commands::get_outgoing_links,
             commands::get_all_tags,

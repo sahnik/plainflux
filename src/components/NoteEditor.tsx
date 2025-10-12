@@ -12,22 +12,25 @@ import { createDynamicTheme, createSyntaxHighlighting } from '../utils/editorThe
 import { createNoteLinkExtension } from '../utils/editorNoteLinkExtension';
 import { multiCursorKeymap } from '../utils/multiCursor';
 import { createFoldingExtension } from '../utils/foldingExtension';
+import { scrollToLineAndHighlight, highlightLineExtension } from '../utils/editorScrolling';
+import { tauriApi } from '../api/tauri';
 import { useTheme } from '../contexts/ThemeContext';
 
 interface NoteEditorProps {
   note: Note | null;
   isPreview: boolean;
   onChange: (content: string) => void;
-  onLinkClick: (noteName: string) => void;
-  onLinkOpenInNewTab: (noteName: string) => void;
+  onLinkClick: (noteName: string, blockId?: string) => void;
+  onLinkOpenInNewTab: (noteName: string, blockId?: string) => void;
   onTagClick?: (tag: string) => void;
   onTodoToggle?: (lineNumber: number) => void;
   notes: NoteMetadata[];
   tags: string[];
   searchTerm?: string;
+  scrollToBlockId?: string;
 }
 
-export const NoteEditor: React.FC<NoteEditorProps> = ({ note, isPreview, onChange, onLinkClick, onLinkOpenInNewTab, onTagClick, onTodoToggle, notes, tags, searchTerm }) => {
+export const NoteEditor: React.FC<NoteEditorProps> = ({ note, isPreview, onChange, onLinkClick, onLinkOpenInNewTab, onTagClick, onTodoToggle, notes, tags, searchTerm, scrollToBlockId }) => {
   const editorRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   const autocompleteDataRef = useRef({ notes, tags });
@@ -68,6 +71,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, isPreview, onChang
         createNoteLinkExtension(onLinkClick, onLinkOpenInNewTab, noteExists),
         multiCursorKeymap,
         createFoldingExtension(),
+        highlightLineExtension,
         EditorView.updateListener.of((update) => {
           if (update.docChanged) {
             onChange(update.state.doc.toString());
@@ -116,12 +120,31 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, isPreview, onChang
   // Update search highlighting when search term changes
   useEffect(() => {
     if (!viewRef.current || isPreview) return;
-    
+
     setSearchTerm(viewRef.current, searchTerm || '');
     if (searchTerm) {
       scrollToFirstMatch(viewRef.current, searchTerm);
     }
   }, [searchTerm, isPreview]);
+
+  // Scroll to block when scrollToBlockId changes
+  useEffect(() => {
+    if (!viewRef.current || isPreview || !scrollToBlockId || !note) return;
+
+    const scrollToBlock = async () => {
+      try {
+        const blockInfo = await tauriApi.getBlockReference(note.path, scrollToBlockId);
+        if (blockInfo) {
+          const [lineNumber] = blockInfo;
+          scrollToLineAndHighlight(viewRef.current!, lineNumber);
+        }
+      } catch (error) {
+        console.error('Failed to scroll to block:', error);
+      }
+    };
+
+    scrollToBlock();
+  }, [scrollToBlockId, isPreview, note?.path]);
 
   if (!note) {
     return <div className="editor-empty">Select a note to start editing</div>;

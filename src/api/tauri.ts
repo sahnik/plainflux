@@ -162,6 +162,14 @@ export const tauriApi = {
     return invoke('git_commit', { message });
   },
 
+  async getBlockReference(notePath: string, blockId: string): Promise<[number, string] | null> {
+    return invoke('get_block_reference', { notePath, blockId });
+  },
+
+  async getBlocksForNote(notePath: string): Promise<Array<[string, number, string]>> {
+    return invoke('get_blocks_for_note', { notePath });
+  },
+
   async getAppSettings(): Promise<AppSettings> {
     return invoke('get_app_settings');
   },

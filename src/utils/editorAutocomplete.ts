@@ -1,5 +1,6 @@
 import { CompletionContext, CompletionResult, Completion, autocompletion } from '@codemirror/autocomplete';
 import { NoteMetadata } from '../types';
+import { tauriApi } from '../api/tauri';
 import React from 'react';
 
 interface AutocompleteData {
@@ -28,6 +29,30 @@ function createNoteCompletions(notes: NoteMetadata[], from: number, to: number, 
   };
 }
 
+// Create block reference completions
+async function createBlockCompletions(notePath: string, from: number, to: number, hasClosingBrackets: boolean): Promise<CompletionResult | null> {
+  try {
+    const blocks = await tauriApi.getBlocksForNote(notePath);
+
+    const options: Completion[] = blocks.map(([blockId, _lineNumber, content]) => ({
+      label: blockId,
+      detail: content.substring(0, 50) + (content.length > 50 ? '...' : ''),
+      type: 'block',
+      apply: hasClosingBrackets ? blockId : `${blockId}]]`,
+    }));
+
+    return {
+      from,
+      to,
+      options,
+      filter: true,
+    };
+  } catch (error) {
+    console.error('Failed to fetch blocks:', error);
+    return null;
+  }
+}
+
 // Create tag completions
 function createTagCompletions(tags: string[], from: number, to: number): CompletionResult | null {
   const options: Completion[] = tags.map(tag => ({
@@ -48,30 +73,49 @@ function createTagCompletions(tags: string[], from: number, to: number): Complet
 export function createAutocompleteExtension(dataRef: React.MutableRefObject<AutocompleteData>) {
   return autocompletion({
     override: [
-      (context: CompletionContext): CompletionResult | null => {
+      async (context: CompletionContext): Promise<CompletionResult | null> => {
         const { state, pos } = context;
         const line = state.doc.lineAt(pos);
         const textBefore = line.text.slice(0, pos - line.from);
-        
+
+        // Check for block reference pattern [[NoteName#...
+        const blockRefMatch = textBefore.match(/\[\[([^\]]+)#([^\]]*)?$/);
+        if (blockRefMatch) {
+          const noteName = blockRefMatch[1];
+          const from = line.from + blockRefMatch.index! + blockRefMatch[0].length - (blockRefMatch[2]?.length || 0);
+
+          // Find the note by name
+          const note = dataRef.current.notes.find(n =>
+            getNoteTitle(n).toLowerCase() === noteName.toLowerCase()
+          );
+
+          if (note) {
+            const textAfter = line.text.slice(pos - line.from);
+            const hasClosingBrackets = textAfter.startsWith(']]');
+
+            return await createBlockCompletions(note.path, from, pos, hasClosingBrackets);
+          }
+        }
+
         // Check for note link pattern [[...
         const noteLinkMatch = textBefore.match(/\[\[([^\]]*)?$/);
         if (noteLinkMatch) {
           const from = line.from + noteLinkMatch.index! + 2; // After [[
-          
+
           // Check if there are already closing brackets after cursor
           const textAfter = line.text.slice(pos - line.from);
           const hasClosingBrackets = textAfter.startsWith(']]');
-          
+
           return createNoteCompletions(dataRef.current.notes, from, pos, hasClosingBrackets);
         }
-        
+
         // Check for tag pattern #...
         const tagMatch = textBefore.match(/(^|\s)#(\w*)$/);
         if (tagMatch) {
           const from = line.from + tagMatch.index! + tagMatch[1].length; // Start of #
           return createTagCompletions(dataRef.current.tags, from, pos);
         }
-        
+
         return null;
       }
     ],

@@ -65,6 +65,7 @@ function AppContent() {
     oldPath: string;
     currentName: string;
   } | null>(null);
+  const [scrollToBlockId, setScrollToBlockId] = useState<string | undefined>(undefined);
 
   const { data: notes = [] } = useQuery({
     queryKey: ['notes'],
@@ -249,6 +250,16 @@ function AppContent() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isPreview, selectedNote, showGlobalGraph, showLocalGraph, tabs, activeTabIndex, closeTab, switchTab]);
 
+  // Reset scrollToBlockId after a brief delay to allow scrolling to complete
+  useEffect(() => {
+    if (scrollToBlockId) {
+      const timer = setTimeout(() => {
+        setScrollToBlockId(undefined);
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [scrollToBlockId]);
+
   const handleNoteSelect = async (noteMetadata: NoteMetadata) => {
     const note = await tauriApi.readNote(noteMetadata.path);
     
@@ -407,7 +418,7 @@ function AppContent() {
     setSearchTerm('');
   };
 
-  const handleOutgoingLinkOpenInNewTab = async (linkName: string) => {
+  const handleOutgoingLinkOpenInNewTab = async (linkName: string, blockId?: string) => {
     try {
       // Check if note exists using the new command
       const existingNotePath = await tauriApi.findNoteByName(linkName);
@@ -416,6 +427,10 @@ function AppContent() {
         // Note exists, open in new tab
         const note = await tauriApi.readNote(existingNotePath);
         openInNewTab(note);
+        // Set scroll to block ID if provided
+        if (blockId) {
+          setScrollToBlockId(blockId);
+        }
       } else {
         // Note doesn't exist, create it and open in new tab
         const newNotePath = await tauriApi.createNote(linkName);
@@ -430,9 +445,9 @@ function AppContent() {
     }
   };
 
-  const handleNoteLinkOpenInNewTab = async (linkName: string) => {
+  const handleNoteLinkOpenInNewTab = async (linkName: string, blockId?: string) => {
     // Delegate to existing outgoing link handler for new tabs
-    await handleOutgoingLinkOpenInNewTab(linkName);
+    await handleOutgoingLinkOpenInNewTab(linkName, blockId);
   };
 
   const handleNoteMove = async (note: NoteMetadata, targetFolder: string) => {
@@ -451,11 +466,11 @@ function AppContent() {
     }
   };
 
-  const handleNoteLinkClick = async (noteName: string) => {
+  const handleNoteLinkClick = async (noteName: string, blockId?: string) => {
     try {
       // Check if note exists using the new command
       const existingNotePath = await tauriApi.findNoteByName(noteName);
-      
+
       if (existingNotePath) {
         // Note exists, replace current tab
         const note = await tauriApi.readNote(existingNotePath);
@@ -469,6 +484,10 @@ function AppContent() {
           };
           setTabs(updatedTabs);
           setSelectedNote(note);
+        }
+        // Set scroll to block ID if provided
+        if (blockId) {
+          setScrollToBlockId(blockId);
         }
       } else {
         // Note doesn't exist, create it and open in new tab
@@ -907,6 +926,7 @@ function AppContent() {
                 notes={notes}
                 tags={tags}
                 searchTerm={searchTerm}
+                scrollToBlockId={scrollToBlockId}
               />
             )}
           </div>
