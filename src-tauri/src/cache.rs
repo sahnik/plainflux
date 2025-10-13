@@ -30,6 +30,18 @@ pub struct Todo {
     pub recurrence_pattern: Option<String>, // Recurrence pattern (e.g., "daily", "weekly", "every:monday")
 }
 
+// Helper struct for extracted todo data (avoids type complexity)
+type ExtractedTodo = (
+    i32,
+    String,
+    bool,
+    Option<String>,
+    Option<String>,
+    i32,
+    Option<i32>,
+    Option<String>,
+);
+
 pub struct CacheDb {
     conn: Connection,
 }
@@ -405,6 +417,7 @@ impl CacheDb {
         Ok(result)
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn add_todo(
         &self,
         note_path: &str,
@@ -789,18 +802,7 @@ pub fn calculate_next_occurrence(pattern: &str) -> Option<String> {
     }
 }
 
-fn extract_todos(
-    content: &str,
-) -> Vec<(
-    i32,
-    String,
-    bool,
-    Option<String>,
-    Option<String>,
-    i32,
-    Option<i32>,
-    Option<String>,
-)> {
+fn extract_todos(content: &str) -> Vec<ExtractedTodo> {
     let mut todos = Vec::new();
     let todo_regex = Regex::new(r"^(\s*)[-*]\s*\[([ xX])\]\s*(.+)$").unwrap();
 
