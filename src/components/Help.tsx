@@ -309,20 +309,56 @@ Examples:
 
         <div className="syntax-item">
           <h3>Recurring Tasks</h3>
-          <p>Create recurring tasks with these formats:</p>
+          <p>Create recurring tasks that automatically recreate themselves when completed:</p>
           <pre>{`@every(Monday)    - Repeats every Monday
 @every(Tuesday)   - Repeats every Tuesday
-@repeat(daily)    - Repeats daily
-@repeat(weekly)   - Repeats weekly
-@repeat(monthly)  - Repeats monthly
+@every(Wednesday) - Repeats every Wednesday
+@every(Thursday)  - Repeats every Thursday
+@every(Friday)    - Repeats every Friday
+@every(Saturday)  - Repeats every Saturday
+@every(Sunday)    - Repeats every Sunday
+
+@repeat(daily)    - Repeats every day
+@repeat(weekly)   - Repeats every 7 days
+@repeat(monthly)  - Repeats monthly (same day)
 
 Examples:
 - [ ] Team standup @every(Monday) !high
 - [ ] Review metrics @repeat(weekly) #analytics
-- [ ] Take vitamins @repeat(daily) #health`}</pre>
+- [ ] Take vitamins @repeat(daily) #health
+- [ ] Weekly planning @every(Friday) @due(2025-10-17)`}</pre>
           <p style={{ marginTop: '8px', color: 'var(--text-secondary)', fontSize: '14px' }}>
-            • Recurring tasks display a repeat icon badge<br/>
-            • When completed, a new instance will be created automatically
+            <strong>How it works:</strong><br/>
+            • Recurring tasks display a cyan repeat icon badge<br/>
+            • When you mark a recurring task as complete, a new uncompleted instance is automatically created<br/>
+            • The new instance appears in today's daily note with an updated due date<br/>
+            • All metadata (priority, tags, recurrence pattern) is preserved<br/>
+            • Next due date is calculated based on the pattern (e.g., next Monday for @every(Monday))
+          </p>
+          <p style={{ marginTop: '8px', color: 'var(--accent-color)', fontSize: '14px', fontStyle: 'italic' }}>
+            <strong>Example workflow:</strong> Complete "Team standup @every(Monday)" on Monday → New instance created in today's daily note with @due(next Monday)
+          </p>
+        </div>
+
+        <div className="syntax-item">
+          <h3>Subtasks & Nested Todos</h3>
+          <p>Create hierarchical task structures using indentation (2 spaces = 1 level):</p>
+          <pre>{`- [ ] Main project task !high
+  - [ ] Subtask 1
+  - [ ] Subtask 2
+    - [ ] Sub-subtask 2.1
+  - [ ] Subtask 3
+
+- [ ] Another parent task
+  - [ ] Child task @due(2025-10-15)
+  - [ ] Another child task #tag`}</pre>
+          <p style={{ marginTop: '8px', color: 'var(--text-secondary)', fontSize: '14px' }}>
+            <strong>Features:</strong><br/>
+            • Visual connector lines show parent-child relationships<br/>
+            • Parent tasks display subtask progress (e.g., "2/5 subtasks completed")<br/>
+            • Supports unlimited nesting depth<br/>
+            • Each subtask can have its own priority, due date, and tags<br/>
+            • Indentation is automatically detected and rendered hierarchically
           </p>
         </div>
 
@@ -340,18 +376,30 @@ Examples:
         </div>
 
         <div className="syntax-item">
-          <h3>Complete Example</h3>
+          <h3>Complete Example with All Features</h3>
           <pre>{`## Work Tasks
+- [ ] Q4 Planning !high @due(2025-01-15) #strategy
+  - [ ] Review budget proposals !medium #finance
+  - [ ] Schedule team meetings @due(2025-01-12)
+  - [ ] Draft presentation slides
+    - [ ] Create charts and graphs
+    - [ ] Add speaker notes
+
 - [ ] Deploy to production !high @due(2025-01-15) #devops #urgent
 - [ ] Code review for PR #123 !medium due:2025-01-16 #review
-- [ ] Update API docs p:3 📅 2025-01-20 #documentation
 - [ ] Team standup @every(Monday) !high #meetings
+- [ ] Weekly report @repeat(weekly) @due(2025-01-19) #admin
 - [x] Fix login bug !high @due(2025-01-10) #bugfix
 
 ## Personal
 - [ ] Renew passport due:2025-02-01 #admin
-- [ ] Gym workout @repeat(daily) 📅 2025-01-15 #health
+- [ ] Gym workout @repeat(daily) #health
+- [ ] Weekly meal prep @every(Sunday) !low
 - [ ] Call mom !medium #family`}</pre>
+          <p style={{ marginTop: '8px', color: 'var(--text-secondary)', fontSize: '14px' }}>
+            This example showcases: priorities (!high, !medium, !low), due dates (@due, due:, 📅),
+            recurring tasks (@every, @repeat), nested subtasks (indentation), tags (#tag), and completion status.
+          </p>
         </div>
       </section>
 
@@ -399,6 +447,11 @@ Examples:
 
         <div className="shortcut">
           <kbd>Cmd/Ctrl</kbd> + <kbd>K</kbd> <kbd>Cmd/Ctrl</kbd> + <kbd>J</kbd> - Unfold all
+        </div>
+
+        <h3>Tasks</h3>
+        <div className="shortcut">
+          <kbd>Cmd/Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>T</kbd> - Quick add todo (creates new task in current note)
         </div>
 
         <h3>Block References (Headings)</h3>
