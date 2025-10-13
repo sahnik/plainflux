@@ -2,7 +2,7 @@
 
 A modern, cross-platform note-taking application with backlinks, tags, and knowledge graph visualization. Built with Tauri and React for a native desktop experience.
 
-![Version](https://img.shields.io/badge/version-0.9.9-blue.svg)
+![Version](https://img.shields.io/badge/version-0.9.10-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 
 ## Features
@@ -43,10 +43,23 @@ A modern, cross-platform note-taking application with backlinks, tags, and knowl
 - Drag-and-drop file organization
 - Context menu operations
 
+### ✅ Advanced Task Management
+- **Smart Todos**: Track tasks with `- [ ]` syntax across all notes
+- **Priorities**: Set importance levels with `!high`, `!medium`, `!low`
+- **Due Dates**: Add deadlines with `@due(2025-01-15)` or `📅 2025-01-15`
+- **Recurring Tasks**: Automatic recreation with `@repeat(daily)` or `@every(Monday)`
+- **Nested Subtasks**: Hierarchical task structures with indentation
+- **Quick Actions**: Bulk operations and quick-add dialog (Cmd/Ctrl+Shift+T)
+- **Filtering & Sorting**: By status, priority, due date, tags, and more
+- **Progress Tracking**: Visual indicators for subtask completion
+- **Jump to Context**: Click any task to navigate to its source note
+
 ### ✨ Rich Editing Experience
 - Split view: Edit and preview side-by-side
 - Syntax highlighting for Markdown
-- Checkbox/task list support with `- [ ]` syntax
+- Multi-cursor editing and code folding
+- Block references with heading links
+- Content transclusion (preview-only embedding)
 - Image paste and display support
 - Multiple notes open in tabs
 
@@ -55,6 +68,49 @@ A modern, cross-platform note-taking application with backlinks, tags, and knowl
 - Resizable panels for customized workspace
 - Dark and light themes
 - Keyboard shortcuts for common actions
+
+### 🔄 Git Integration
+- Automatic version control for your notes
+- Initialize Git repos directly from the app
+- Commit history tracking
+- Protect your work with automatic versioning
+
+### 🔍 Enhanced Full-Text Search (FTS5)
+- Lightning-fast search with SQLite FTS5
+- Context snippets showing matching content
+- Search across all note content, titles, and metadata
+- Real-time results with intelligent ranking
+
+## What's New in v0.9.10
+
+### 🎯 Major Task Management Overhaul
+This release brings a comprehensive task management system that rivals dedicated todo apps:
+
+- **Priority System**: Color-coded priorities (!high, !medium, !low) with visual indicators
+- **Due Date Support**: Multiple formats supported - @due(), due:, and 📅 emoji syntax
+- **Smart Filtering**: Filter by status, date range, priority, and tags
+- **Advanced Sorting**: Sort by note, due date, priority, alphabetical, or completion status
+- **Nested Subtasks**: Create hierarchical task structures with automatic progress tracking
+- **Recurring Tasks**: Tasks automatically recreate themselves in your daily note when completed
+  - Supports daily, weekly, monthly patterns
+  - Specific weekday patterns (every Monday, Tuesday, etc.)
+  - Preserves all metadata (priority, tags, etc.)
+- **Quick Actions**:
+  - Bulk selection and operations
+  - Quick-add dialog (Cmd/Ctrl+Shift+T)
+  - Jump to source note with one click
+
+### 📝 Editor Enhancements
+- **Multi-cursor editing**: Select and edit multiple locations simultaneously
+- **Code folding**: Collapse/expand sections for better document navigation
+- **Block references**: Link to specific headings with [[Note#heading]] syntax
+- **Content transclusion**: Embed content from other notes (preview-only)
+
+### 🐛 Bug Fixes & Improvements
+- Fixed Clippy linting warnings for better code quality
+- Improved CI/CD pipeline compliance
+- Enhanced Help documentation with comprehensive task management guide
+- Better error handling for recurring task creation
 
 ## Installation
 
@@ -98,8 +154,6 @@ npm run tauri build
 # macOS/Linux:
 ./scripts/build-portable.sh
 ```
-
-git tag v0.9.7 && git push origin v0.9.7
 
 ## Usage
 
