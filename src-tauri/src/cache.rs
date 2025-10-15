@@ -36,13 +36,13 @@ pub struct Bookmark {
     pub url: String,
     pub title: Option<String>,
     pub description: Option<String>,
-    pub note_path: Option<String>,  // Null if manually added
+    pub note_path: Option<String>, // Null if manually added
     pub line_number: Option<i32>,
     pub domain: String,
     pub subdomain: Option<String>,
-    pub path: Option<String>,       // URL path for deeper grouping
-    pub created_at: String,         // ISO 8601 timestamp
-    pub tags: Option<String>,       // Comma-separated tags
+    pub path: Option<String>, // URL path for deeper grouping
+    pub created_at: String,   // ISO 8601 timestamp
+    pub tags: Option<String>, // Comma-separated tags
 }
 
 // Helper struct for extracted todo data (avoids type complexity)
@@ -364,7 +364,10 @@ impl CacheDb {
             .map_err(|e| format!("Failed to clear todos: {e}"))?;
 
         self.conn
-            .execute("DELETE FROM bookmarks WHERE note_path = ?1", params![note_path])
+            .execute(
+                "DELETE FROM bookmarks WHERE note_path = ?1",
+                params![note_path],
+            )
             .map_err(|e| format!("Failed to clear bookmarks: {e}"))?;
 
         // Also remove from FTS index and blocks
@@ -1219,7 +1222,9 @@ fn extract_bookmarks(content: &str) -> Vec<(String, Option<String>, i32, Option<
                 let url_str = url.as_str().to_string();
 
                 // Check if this URL was already captured as a markdown link
-                let already_captured = bookmarks.iter().any(|(u, _, ln, _)| u == &url_str && *ln == line_num);
+                let already_captured = bookmarks
+                    .iter()
+                    .any(|(u, _, ln, _)| u == &url_str && *ln == line_num);
 
                 if !already_captured {
                     // Extract tags from the same line

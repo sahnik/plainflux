@@ -295,7 +295,7 @@ export const Settings: React.FC<SettingsProps> = ({ isOpen, onClose }) => {
                   style={{ fontSize: `${localSettings.fontSize}px` }}
                 >
                   The quick brown fox jumps over the lazy dog.<br />
-                  <code>// Code example: function hello() {}</code>
+                  <code>{'// Code example: function hello() {}'}</code>
                 </div>
               </div>
 

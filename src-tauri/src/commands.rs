@@ -1192,8 +1192,8 @@ pub async fn add_bookmark_manual(
         &url,
         title.as_deref(),
         description.as_deref(),
-        None,  // note_path
-        None,  // line_number
+        None, // note_path
+        None, // line_number
         tags.as_deref(),
     )
 }
@@ -1211,7 +1211,12 @@ pub async fn update_bookmark(
         "Cache database mutex was poisoned during update_bookmark"
     );
 
-    cache_db.update_bookmark(id, title.as_deref(), description.as_deref(), tags.as_deref())
+    cache_db.update_bookmark(
+        id,
+        title.as_deref(),
+        description.as_deref(),
+        tags.as_deref(),
+    )
 }
 
 #[tauri::command]
