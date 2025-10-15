@@ -15,6 +15,8 @@ import { InputDialog } from './components/InputDialog';
 import { GraphView } from './components/GraphView';
 import { TodosList } from './components/TodosList';
 import { QuickAddTodo } from './components/QuickAddTodo';
+import { BookmarksList } from './components/BookmarksList';
+import { QuickAddBookmark } from './components/QuickAddBookmark';
 import { Help } from './components/Help';
 import { TemplateSettings } from './components/TemplateSettings';
 import { Settings } from './components/Settings';
@@ -68,6 +70,7 @@ function AppContent() {
   } | null>(null);
   const [scrollToBlockId, setScrollToBlockId] = useState<string | undefined>(undefined);
   const [showQuickAddTodo, setShowQuickAddTodo] = useState(false);
+  const [showQuickAddBookmark, setShowQuickAddBookmark] = useState(false);
 
   const { data: notes = [] } = useQuery({
     queryKey: ['notes'],
@@ -114,6 +117,12 @@ function AppContent() {
     enabled: currentView === 'todos',
   });
 
+  const { data: allBookmarks = [] } = useQuery({
+    queryKey: ['allBookmarks'],
+    queryFn: tauriApi.getAllBookmarks,
+    enabled: currentView === 'bookmarks',
+  });
+
   const { data: recentNotes = [] } = useQuery({
     queryKey: ['recentNotes'],
     queryFn: tauriApi.getRecentNotes,
@@ -127,8 +136,9 @@ function AppContent() {
       queryClient.invalidateQueries({ queryKey: ['notes'] });
       queryClient.invalidateQueries({ queryKey: ['tags'] });
       queryClient.invalidateQueries({ queryKey: ['allTodos'] });
+      queryClient.invalidateQueries({ queryKey: ['allBookmarks'] });
       queryClient.invalidateQueries({ queryKey: ['recentNotes'] });
-      
+
       // Mark the tab as clean after successful save
       setTabs(currentTabs => {
         const tabIndex = currentTabs.findIndex(tab => tab.note.path === variables.path);
@@ -139,6 +149,29 @@ function AppContent() {
         }
         return currentTabs;
       });
+    },
+  });
+
+  const addBookmarkMutation = useMutation({
+    mutationFn: ({ url, title, description, tags }: { url: string; title?: string; description?: string; tags?: string }) =>
+      tauriApi.addBookmarkManual(url, title, description, tags),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['allBookmarks'] });
+    },
+  });
+
+  const updateBookmarkMutation = useMutation({
+    mutationFn: ({ id, title, description, tags }: { id: number; title?: string; description?: string; tags?: string }) =>
+      tauriApi.updateBookmark(id, title, description, tags),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['allBookmarks'] });
+    },
+  });
+
+  const deleteBookmarkMutation = useMutation({
+    mutationFn: (id: number) => tauriApi.deleteBookmark(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['allBookmarks'] });
     },
   });
 
@@ -749,7 +782,60 @@ function AppContent() {
     }
   };
 
-  // Keyboard shortcut for quick add todo (Cmd/Ctrl + Shift + T)
+  const handleQuickAddBookmark = async (url: string, title?: string, description?: string, tags?: string) => {
+    try {
+      await addBookmarkMutation.mutateAsync({ url, title, description, tags });
+    } catch (error) {
+      console.error('Failed to add bookmark:', error);
+    }
+  };
+
+  const handleBookmarkUpdate = async (id: number, title?: string, description?: string, tags?: string) => {
+    try {
+      await updateBookmarkMutation.mutateAsync({ id, title, description, tags });
+    } catch (error) {
+      console.error('Failed to update bookmark:', error);
+    }
+  };
+
+  const handleBookmarkDelete = async (id: number) => {
+    try {
+      await deleteBookmarkMutation.mutateAsync(id);
+    } catch (error) {
+      console.error('Failed to delete bookmark:', error);
+    }
+  };
+
+  const handleBookmarkNoteClick = async (notePath: string, lineNumber?: number) => {
+    try {
+      const note = await tauriApi.readNote(notePath);
+
+      // Bookmark notes: replace current tab
+      if (tabs.length === 0) {
+        openInNewTab(note);
+      } else {
+        const updatedTabs = [...tabs];
+        updatedTabs[activeTabIndex] = {
+          note,
+          isDirty: false
+        };
+        setTabs(updatedTabs);
+        setSelectedNote(note);
+      }
+
+      // If a line number is provided, scroll to that line
+      if (lineNumber !== undefined) {
+        setScrollToBlockId(`line-${lineNumber}`);
+      }
+
+      setCurrentView('notes');
+      setSearchTerm('');
+    } catch (error) {
+      console.error('Failed to open note:', error);
+    }
+  };
+
+  // Keyboard shortcuts for quick add (Cmd/Ctrl + Shift + T for todo, Cmd/Ctrl + Shift + B for bookmark)
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       const cmdOrCtrl = event.metaKey || event.ctrlKey;
@@ -759,6 +845,11 @@ function AppContent() {
         if (selectedNote) {
           setShowQuickAddTodo(true);
         }
+      }
+
+      if (cmdOrCtrl && event.shiftKey && event.key === 'B') {
+        event.preventDefault();
+        setShowQuickAddBookmark(true);
       }
     };
 
@@ -837,6 +928,15 @@ function AppContent() {
             todos={allTodos}
             onTodoToggle={handleTodoToggleFromList}
             onNoteClick={handleTodoNoteClick}
+          />
+        );
+      case 'bookmarks':
+        return (
+          <BookmarksList
+            bookmarks={allBookmarks}
+            onBookmarkDelete={handleBookmarkDelete}
+            onBookmarkUpdate={handleBookmarkUpdate}
+            onNoteClick={handleBookmarkNoteClick}
           />
         );
       case 'recent':
@@ -1076,6 +1176,12 @@ function AppContent() {
         onClose={() => setShowQuickAddTodo(false)}
         onAdd={handleQuickAddTodo}
         currentNotePath={selectedNote?.path}
+      />
+
+      <QuickAddBookmark
+        isOpen={showQuickAddBookmark}
+        onClose={() => setShowQuickAddBookmark(false)}
+        onAdd={handleQuickAddBookmark}
       />
     </div>
   );

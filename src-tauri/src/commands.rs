@@ -1,4 +1,4 @@
-use crate::cache::{CacheDb, Todo};
+use crate::cache::{Bookmark, CacheDb, Todo};
 use crate::error::AppError;
 use crate::git_manager::{GitBlameInfo, GitManager};
 use crate::lock_mutex;
@@ -1137,6 +1137,117 @@ fn add_recent_note(
     }
 
     Ok(())
+}
+
+#[tauri::command]
+pub async fn get_all_bookmarks(state: State<'_, AppState>) -> Result<Vec<Bookmark>, String> {
+    let cache_db = lock_mutex!(
+        state.cache_db,
+        "Cache database mutex was poisoned during get_all_bookmarks"
+    );
+
+    cache_db.get_all_bookmarks()
+}
+
+#[tauri::command]
+pub async fn search_bookmarks(
+    query: String,
+    state: State<'_, AppState>,
+) -> Result<Vec<Bookmark>, String> {
+    let cache_db = lock_mutex!(
+        state.cache_db,
+        "Cache database mutex was poisoned during search_bookmarks"
+    );
+
+    cache_db.search_bookmarks(&query)
+}
+
+#[tauri::command]
+pub async fn get_bookmarks_by_domain(
+    domain: String,
+    state: State<'_, AppState>,
+) -> Result<Vec<Bookmark>, String> {
+    let cache_db = lock_mutex!(
+        state.cache_db,
+        "Cache database mutex was poisoned during get_bookmarks_by_domain"
+    );
+
+    cache_db.get_bookmarks_by_domain(&domain)
+}
+
+#[tauri::command]
+pub async fn add_bookmark_manual(
+    url: String,
+    title: Option<String>,
+    description: Option<String>,
+    tags: Option<String>,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    let cache_db = lock_mutex!(
+        state.cache_db,
+        "Cache database mutex was poisoned during add_bookmark_manual"
+    );
+
+    cache_db.add_bookmark(
+        &url,
+        title.as_deref(),
+        description.as_deref(),
+        None,  // note_path
+        None,  // line_number
+        tags.as_deref(),
+    )
+}
+
+#[tauri::command]
+pub async fn update_bookmark(
+    id: i32,
+    title: Option<String>,
+    description: Option<String>,
+    tags: Option<String>,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    let cache_db = lock_mutex!(
+        state.cache_db,
+        "Cache database mutex was poisoned during update_bookmark"
+    );
+
+    cache_db.update_bookmark(id, title.as_deref(), description.as_deref(), tags.as_deref())
+}
+
+#[tauri::command]
+pub async fn delete_bookmark(id: i32, state: State<'_, AppState>) -> Result<(), String> {
+    let cache_db = lock_mutex!(
+        state.cache_db,
+        "Cache database mutex was poisoned during delete_bookmark"
+    );
+
+    cache_db.delete_bookmark(id)
+}
+
+#[tauri::command]
+pub async fn get_all_bookmark_domains(state: State<'_, AppState>) -> Result<Vec<String>, String> {
+    let cache_db = lock_mutex!(
+        state.cache_db,
+        "Cache database mutex was poisoned during get_all_bookmark_domains"
+    );
+
+    cache_db.get_all_domains()
+}
+
+#[tauri::command]
+pub async fn open_url_external(url: String, window: WebviewWindow) -> Result<(), String> {
+    use tauri_plugin_opener::OpenerExt;
+
+    // Validate URL format (basic check)
+    if !url.starts_with("http://") && !url.starts_with("https://") {
+        return Err("Invalid URL: must start with http:// or https://".to_string());
+    }
+
+    // Open the URL with the default browser
+    window
+        .opener()
+        .open_url(&url, None::<String>)
+        .map_err(|e| format!("Failed to open URL: {e}"))
 }
 
 #[tauri::command]

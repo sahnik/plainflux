@@ -130,6 +130,14 @@ pub fn run() {
             commands::get_recent_notes,
             commands::save_window_state,
             commands::apply_window_state,
+            commands::get_all_bookmarks,
+            commands::search_bookmarks,
+            commands::get_bookmarks_by_domain,
+            commands::add_bookmark_manual,
+            commands::update_bookmark,
+            commands::delete_bookmark,
+            commands::get_all_bookmark_domains,
+            commands::open_url_external,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

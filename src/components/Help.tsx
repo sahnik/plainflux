@@ -56,7 +56,7 @@ export const Help: React.FC<HelpProps> = ({ isOpen, onClose }) => {
         </div>
 
         <div className="help-content">
-          <p style={{ margin: '0 0 16px 0', color: 'var(--text-secondary)' }}>Version 0.9.10</p>
+          <p style={{ margin: '0 0 16px 0', color: 'var(--text-secondary)' }}>Version 0.9.11</p>
       
       <section className="help-section">
         <h2>Git Version Control</h2>
@@ -134,9 +134,26 @@ export const Help: React.FC<HelpProps> = ({ isOpen, onClose }) => {
             <li>Filter by completion, date, priority, or tags</li>
             <li>Sort by note, due date, priority, or alphabetically</li>
             <li>Click any task to jump to its location in the note</li>
+            <li>Quick-add with Cmd/Ctrl+Shift+T</li>
           </ul>
         </div>
-        
+
+        <div className="feature">
+          <h3>🔖 Bookmarks</h3>
+          <p>Manage and organize URLs from your notes with automatic detection and rich metadata.</p>
+          <ul style={{ marginTop: '8px', marginLeft: '20px', color: 'var(--text-secondary)' }}>
+            <li>URLs in notes are automatically extracted and cataloged</li>
+            <li>Supports both markdown links [text](url) and plain URLs</li>
+            <li>Add bookmarks manually with quick-add dialog (Cmd/Ctrl+Shift+B)</li>
+            <li>Organize by domain and subdomain hierarchy</li>
+            <li>Add custom titles, descriptions, and tags</li>
+            <li>Filter by domain, tags, or source (from notes vs manual)</li>
+            <li>Search across URLs, titles, descriptions, and tags</li>
+            <li>Click bookmark to open in browser or jump to source note</li>
+            <li>Toggle between flat list and hierarchical domain view</li>
+          </ul>
+        </div>
+
         <div className="feature">
           <h3>🖼️ Images</h3>
           <p>Paste images directly into notes (Cmd/Ctrl+V). Images are saved in an _attachments folder and automatically linked.</p>

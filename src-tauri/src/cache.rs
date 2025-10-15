@@ -30,6 +30,21 @@ pub struct Todo {
     pub recurrence_pattern: Option<String>, // Recurrence pattern (e.g., "daily", "weekly", "every:monday")
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct Bookmark {
+    pub id: i32,
+    pub url: String,
+    pub title: Option<String>,
+    pub description: Option<String>,
+    pub note_path: Option<String>,  // Null if manually added
+    pub line_number: Option<i32>,
+    pub domain: String,
+    pub subdomain: Option<String>,
+    pub path: Option<String>,       // URL path for deeper grouping
+    pub created_at: String,         // ISO 8601 timestamp
+    pub tags: Option<String>,       // Comma-separated tags
+}
+
 // Helper struct for extracted todo data (avoids type complexity)
 type ExtractedTodo = (
     i32,
@@ -206,6 +221,55 @@ impl CacheDb {
             )
             .map_err(|e| format!("Failed to create blocks index: {e}"))?;
 
+        // Create bookmarks table
+        self.conn
+            .execute(
+                "CREATE TABLE IF NOT EXISTS bookmarks (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                url TEXT NOT NULL,
+                title TEXT,
+                description TEXT,
+                note_path TEXT,
+                line_number INTEGER,
+                domain TEXT NOT NULL,
+                subdomain TEXT,
+                path TEXT,
+                created_at TEXT NOT NULL,
+                tags TEXT,
+                UNIQUE(url, note_path, line_number)
+            )",
+                [],
+            )
+            .map_err(|e| format!("Failed to create bookmarks table: {e}"))?;
+
+        self.conn
+            .execute(
+                "CREATE INDEX IF NOT EXISTS idx_bookmarks_url ON bookmarks(url)",
+                [],
+            )
+            .map_err(|e| format!("Failed to create bookmarks url index: {e}"))?;
+
+        self.conn
+            .execute(
+                "CREATE INDEX IF NOT EXISTS idx_bookmarks_domain ON bookmarks(domain)",
+                [],
+            )
+            .map_err(|e| format!("Failed to create bookmarks domain index: {e}"))?;
+
+        self.conn
+            .execute(
+                "CREATE INDEX IF NOT EXISTS idx_bookmarks_subdomain ON bookmarks(subdomain)",
+                [],
+            )
+            .map_err(|e| format!("Failed to create bookmarks subdomain index: {e}"))?;
+
+        self.conn
+            .execute(
+                "CREATE INDEX IF NOT EXISTS idx_bookmarks_note ON bookmarks(note_path)",
+                [],
+            )
+            .map_err(|e| format!("Failed to create bookmarks note index: {e}"))?;
+
         Ok(())
     }
 
@@ -248,6 +312,18 @@ impl CacheDb {
             )?;
         }
 
+        let bookmarks = extract_bookmarks(content);
+        for bookmark in bookmarks {
+            self.add_bookmark(
+                &bookmark.0,           // url
+                bookmark.1.as_deref(), // title
+                None,                  // description (not extracted from markdown)
+                Some(note_path),       // note_path
+                Some(bookmark.2),      // line_number
+                bookmark.3.as_deref(), // tags
+            )?;
+        }
+
         Ok(())
     }
 
@@ -286,6 +362,10 @@ impl CacheDb {
         self.conn
             .execute("DELETE FROM todos WHERE note_path = ?1", params![note_path])
             .map_err(|e| format!("Failed to clear todos: {e}"))?;
+
+        self.conn
+            .execute("DELETE FROM bookmarks WHERE note_path = ?1", params![note_path])
+            .map_err(|e| format!("Failed to clear bookmarks: {e}"))?;
 
         // Also remove from FTS index and blocks
         self.remove_note_content(note_path)?;
@@ -665,6 +745,182 @@ impl CacheDb {
 
         Ok(result)
     }
+
+    // Bookmark Methods
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn add_bookmark(
+        &self,
+        url: &str,
+        title: Option<&str>,
+        description: Option<&str>,
+        note_path: Option<&str>,
+        line_number: Option<i32>,
+        tags: Option<&str>,
+    ) -> Result<(), String> {
+        use chrono::Utc;
+
+        // Parse URL to extract domain, subdomain, and path
+        let (domain, subdomain, url_path) = parse_url_components(url)?;
+        let created_at = Utc::now().to_rfc3339();
+
+        self.conn.execute(
+            "INSERT OR REPLACE INTO bookmarks (url, title, description, note_path, line_number, domain, subdomain, path, created_at, tags)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+            params![url, title, description, note_path, line_number, domain, subdomain, url_path, created_at, tags],
+        ).map_err(|e| format!("Failed to add bookmark: {e}"))?;
+
+        Ok(())
+    }
+
+    pub fn get_all_bookmarks(&self) -> Result<Vec<Bookmark>, String> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, url, title, description, note_path, line_number, domain, subdomain, path, created_at, tags
+             FROM bookmarks
+             ORDER BY created_at DESC"
+        ).map_err(|e| format!("Failed to prepare statement: {e}"))?;
+
+        let bookmarks = stmt
+            .query_map([], |row| {
+                Ok(Bookmark {
+                    id: row.get(0)?,
+                    url: row.get(1)?,
+                    title: row.get(2)?,
+                    description: row.get(3)?,
+                    note_path: row.get(4)?,
+                    line_number: row.get(5)?,
+                    domain: row.get(6)?,
+                    subdomain: row.get(7)?,
+                    path: row.get(8)?,
+                    created_at: row.get(9)?,
+                    tags: row.get(10)?,
+                })
+            })
+            .map_err(|e| format!("Failed to query bookmarks: {e}"))?;
+
+        let mut result = Vec::new();
+        for bookmark in bookmarks {
+            result.push(bookmark.map_err(|e| format!("Failed to get bookmark: {e}"))?);
+        }
+
+        Ok(result)
+    }
+
+    pub fn search_bookmarks(&self, query: &str) -> Result<Vec<Bookmark>, String> {
+        let search_pattern = format!("%{}%", query.to_lowercase());
+
+        let mut stmt = self.conn.prepare(
+            "SELECT id, url, title, description, note_path, line_number, domain, subdomain, path, created_at, tags
+             FROM bookmarks
+             WHERE LOWER(url) LIKE ?1
+                OR LOWER(title) LIKE ?1
+                OR LOWER(description) LIKE ?1
+                OR LOWER(tags) LIKE ?1
+             ORDER BY created_at DESC"
+        ).map_err(|e| format!("Failed to prepare statement: {e}"))?;
+
+        let bookmarks = stmt
+            .query_map(params![search_pattern], |row| {
+                Ok(Bookmark {
+                    id: row.get(0)?,
+                    url: row.get(1)?,
+                    title: row.get(2)?,
+                    description: row.get(3)?,
+                    note_path: row.get(4)?,
+                    line_number: row.get(5)?,
+                    domain: row.get(6)?,
+                    subdomain: row.get(7)?,
+                    path: row.get(8)?,
+                    created_at: row.get(9)?,
+                    tags: row.get(10)?,
+                })
+            })
+            .map_err(|e| format!("Failed to query bookmarks: {e}"))?;
+
+        let mut result = Vec::new();
+        for bookmark in bookmarks {
+            result.push(bookmark.map_err(|e| format!("Failed to get bookmark: {e}"))?);
+        }
+
+        Ok(result)
+    }
+
+    pub fn get_bookmarks_by_domain(&self, domain: &str) -> Result<Vec<Bookmark>, String> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, url, title, description, note_path, line_number, domain, subdomain, path, created_at, tags
+             FROM bookmarks
+             WHERE domain = ?1
+             ORDER BY subdomain, path, created_at DESC"
+        ).map_err(|e| format!("Failed to prepare statement: {e}"))?;
+
+        let bookmarks = stmt
+            .query_map(params![domain], |row| {
+                Ok(Bookmark {
+                    id: row.get(0)?,
+                    url: row.get(1)?,
+                    title: row.get(2)?,
+                    description: row.get(3)?,
+                    note_path: row.get(4)?,
+                    line_number: row.get(5)?,
+                    domain: row.get(6)?,
+                    subdomain: row.get(7)?,
+                    path: row.get(8)?,
+                    created_at: row.get(9)?,
+                    tags: row.get(10)?,
+                })
+            })
+            .map_err(|e| format!("Failed to query bookmarks: {e}"))?;
+
+        let mut result = Vec::new();
+        for bookmark in bookmarks {
+            result.push(bookmark.map_err(|e| format!("Failed to get bookmark: {e}"))?);
+        }
+
+        Ok(result)
+    }
+
+    pub fn delete_bookmark(&self, id: i32) -> Result<(), String> {
+        self.conn
+            .execute("DELETE FROM bookmarks WHERE id = ?1", params![id])
+            .map_err(|e| format!("Failed to delete bookmark: {e}"))?;
+
+        Ok(())
+    }
+
+    pub fn update_bookmark(
+        &self,
+        id: i32,
+        title: Option<&str>,
+        description: Option<&str>,
+        tags: Option<&str>,
+    ) -> Result<(), String> {
+        self.conn
+            .execute(
+                "UPDATE bookmarks SET title = ?1, description = ?2, tags = ?3 WHERE id = ?4",
+                params![title, description, tags, id],
+            )
+            .map_err(|e| format!("Failed to update bookmark: {e}"))?;
+
+        Ok(())
+    }
+
+    pub fn get_all_domains(&self) -> Result<Vec<String>, String> {
+        let mut stmt = self
+            .conn
+            .prepare("SELECT DISTINCT domain FROM bookmarks ORDER BY domain")
+            .map_err(|e| format!("Failed to prepare statement: {e}"))?;
+
+        let domains = stmt
+            .query_map([], |row| row.get(0))
+            .map_err(|e| format!("Failed to query domains: {e}"))?;
+
+        let mut result = Vec::new();
+        for domain in domains {
+            result.push(domain.map_err(|e| format!("Failed to get domain: {e}"))?);
+        }
+
+        Ok(result)
+    }
 }
 
 pub fn extract_links(content: &str) -> Vec<String> {
@@ -928,6 +1184,114 @@ fn extract_blocks(content: &str) -> Vec<(String, i32, String)> {
     }
 
     blocks
+}
+
+// Extract bookmarks from note content
+// Returns: Vec<(url, title, line_number, tags)>
+fn extract_bookmarks(content: &str) -> Vec<(String, Option<String>, i32, Option<String>)> {
+    let mut bookmarks = Vec::new();
+
+    // Regex for markdown links: [text](url)
+    let markdown_link_regex = Regex::new(r"\[([^\]]+)\]\((https?://[^\)]+)\)").unwrap();
+
+    // Regex for plain URLs: http:// or https://
+    let plain_url_regex = Regex::new(r"(?:^|\s)(https?://[^\s<>\)\]]+)").unwrap();
+
+    for (line_number, line) in content.lines().enumerate() {
+        let line_num = line_number as i32 + 1;
+
+        // Extract markdown links
+        for captures in markdown_link_regex.captures_iter(line) {
+            if let (Some(title), Some(url)) = (captures.get(1), captures.get(2)) {
+                let url_str = url.as_str().to_string();
+                let title_str = title.as_str().to_string();
+
+                // Extract tags from the same line
+                let tags = extract_tags_from_line(line);
+
+                bookmarks.push((url_str, Some(title_str), line_num, tags));
+            }
+        }
+
+        // Extract plain URLs (not already captured in markdown links)
+        for captures in plain_url_regex.captures_iter(line) {
+            if let Some(url) = captures.get(1) {
+                let url_str = url.as_str().to_string();
+
+                // Check if this URL was already captured as a markdown link
+                let already_captured = bookmarks.iter().any(|(u, _, ln, _)| u == &url_str && *ln == line_num);
+
+                if !already_captured {
+                    // Extract tags from the same line
+                    let tags = extract_tags_from_line(line);
+
+                    bookmarks.push((url_str, None, line_num, tags));
+                }
+            }
+        }
+    }
+
+    bookmarks
+}
+
+fn extract_tags_from_line(line: &str) -> Option<String> {
+    let tag_regex = Regex::new(r"#(\w+)").unwrap();
+    let tags: Vec<String> = tag_regex
+        .captures_iter(line)
+        .map(|cap| cap[1].to_string())
+        .collect();
+
+    if tags.is_empty() {
+        None
+    } else {
+        Some(tags.join(","))
+    }
+}
+
+// Parse URL to extract domain, subdomain, and path
+fn parse_url_components(url: &str) -> Result<(String, Option<String>, Option<String>), String> {
+    use url::Url;
+
+    let parsed_url = Url::parse(url).map_err(|e| format!("Invalid URL: {e}"))?;
+
+    let host = parsed_url
+        .host_str()
+        .ok_or_else(|| "URL has no host".to_string())?;
+
+    // Split host into parts
+    let parts: Vec<&str> = host.split('.').collect();
+
+    // Determine domain and subdomain
+    let (domain, subdomain) = if parts.len() >= 2 {
+        // For domains like "example.com" or "subdomain.example.com"
+        let domain = if parts.len() == 2 {
+            // Simple domain: example.com
+            host.to_string()
+        } else {
+            // Has subdomain: get last two parts as domain
+            format!("{}.{}", parts[parts.len() - 2], parts[parts.len() - 1])
+        };
+
+        let subdomain = if parts.len() > 2 {
+            // Everything before the domain is subdomain
+            Some(parts[..parts.len() - 2].join("."))
+        } else {
+            None
+        };
+
+        (domain, subdomain)
+    } else {
+        (host.to_string(), None)
+    };
+
+    // Get path if it exists and is not just "/"
+    let path = if parsed_url.path() != "/" && !parsed_url.path().is_empty() {
+        Some(parsed_url.path().to_string())
+    } else {
+        None
+    };
+
+    Ok((domain, subdomain, path))
 }
 
 #[cfg(test)]

@@ -2889,7 +2889,7 @@ checksum = "7edddbd0b52d732b21ad9a5fab5c704c14cd949e5e9a1ec5929a24fded1b904c"
 
 [[package]]
 name = "plainflux"
-version = "0.9.10"
+version = "0.9.11"
 dependencies = [
  "chrono",
  "dirs 5.0.1",
@@ -2905,6 +2905,7 @@ dependencies = [
  "tauri-build",
  "tauri-plugin-opener",
  "tokio",
+ "url",
  "walkdir",
 ]
 

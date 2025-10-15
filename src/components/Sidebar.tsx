@@ -1,5 +1,5 @@
 import React from 'react';
-import { FileText, Hash, Search, Calendar, Network, CheckSquare, HelpCircle, Settings, Clock } from 'lucide-react';
+import { FileText, Hash, Search, Calendar, Network, CheckSquare, HelpCircle, Settings, Clock, Bookmark } from 'lucide-react';
 import { ViewType } from '../types';
 
 interface SidebarProps {
@@ -62,7 +62,15 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, onViewChange, onD
       >
         <CheckSquare size={iconSize} />
       </button>
-      
+
+      <button
+        className={`sidebar-icon ${currentView === 'bookmarks' ? 'active' : ''}`}
+        onClick={() => onViewChange('bookmarks')}
+        title="Bookmarks"
+      >
+        <Bookmark size={iconSize} />
+      </button>
+
       <div className="sidebar-spacer" />
       
       <button

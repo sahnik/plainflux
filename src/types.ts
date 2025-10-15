@@ -13,7 +13,7 @@ export interface NoteMetadata {
   folder: string;
 }
 
-export type ViewType = 'notes' | 'tags' | 'search' | 'tag-filter' | 'graph' | 'todos' | 'recent';
+export type ViewType = 'notes' | 'tags' | 'search' | 'tag-filter' | 'graph' | 'todos' | 'recent' | 'bookmarks';
 
 export interface Tab {
   note: Note;
@@ -54,4 +54,18 @@ export interface SearchResult {
   note: Note;
   match_count: number;
   snippets: SearchSnippet[];
+}
+
+export interface Bookmark {
+  id: number;
+  url: string;
+  title: string | null;
+  description: string | null;
+  note_path: string | null;
+  line_number: number | null;
+  domain: string;
+  subdomain: string | null;
+  path: string | null;
+  created_at: string;
+  tags: string | null;
 }

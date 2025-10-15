@@ -1,5 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
-import { Note, NoteMetadata, GitBlameInfo, RecentNote, SearchResult } from '../types';
+import { Note, NoteMetadata, GitBlameInfo, RecentNote, SearchResult, Bookmark } from '../types';
 
 export const tauriApi = {
   async getNotesList(): Promise<NoteMetadata[]> {
@@ -196,6 +196,38 @@ export const tauriApi = {
 
   async resolveTransclusion(link: string): Promise<string> {
     return invoke('resolve_transclusion', { link });
+  },
+
+  async getAllBookmarks(): Promise<Bookmark[]> {
+    return invoke('get_all_bookmarks');
+  },
+
+  async searchBookmarks(query: string): Promise<Bookmark[]> {
+    return invoke('search_bookmarks', { query });
+  },
+
+  async getBookmarksByDomain(domain: string): Promise<Bookmark[]> {
+    return invoke('get_bookmarks_by_domain', { domain });
+  },
+
+  async addBookmarkManual(url: string, title?: string, description?: string, tags?: string): Promise<void> {
+    return invoke('add_bookmark_manual', { url, title, description, tags });
+  },
+
+  async updateBookmark(id: number, title?: string, description?: string, tags?: string): Promise<void> {
+    return invoke('update_bookmark', { id, title, description, tags });
+  },
+
+  async deleteBookmark(id: number): Promise<void> {
+    return invoke('delete_bookmark', { id });
+  },
+
+  async getAllBookmarkDomains(): Promise<string[]> {
+    return invoke('get_all_bookmark_domains');
+  },
+
+  async openUrlExternal(url: string): Promise<void> {
+    return invoke('open_url_external', { url });
   },
 };
 

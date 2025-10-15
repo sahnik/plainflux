@@ -2,7 +2,7 @@
 
 A modern, cross-platform note-taking application with backlinks, tags, and knowledge graph visualization. Built with Tauri and React for a native desktop experience.
 
-![Version](https://img.shields.io/badge/version-0.9.10-blue.svg)
+![Version](https://img.shields.io/badge/version-0.9.11-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 
 ## Features
@@ -54,6 +54,16 @@ A modern, cross-platform note-taking application with backlinks, tags, and knowl
 - **Progress Tracking**: Visual indicators for subtask completion
 - **Jump to Context**: Click any task to navigate to its source note
 
+### 🔖 Bookmark Manager
+- **Automatic Extraction**: URLs automatically detected from your notes
+- **Manual Addition**: Add bookmarks independently with quick-add dialog (Cmd/Ctrl+Shift+B)
+- **Smart Tagging**: Tag bookmarks inline with `#tag` syntax
+- **Domain Grouping**: Organize by domain and subdomain hierarchy
+- **Advanced Search**: Filter by domain, tags, URL, or title
+- **Source Tracking**: Jump back to the note where a bookmark was found
+- **Rich Metadata**: Titles, descriptions, and custom tags
+- **Multiple Views**: Flat list or hierarchical domain grouping
+
 ### ✨ Rich Editing Experience
 - Split view: Edit and preview side-by-side
 - Syntax highlighting for Markdown
@@ -81,36 +91,44 @@ A modern, cross-platform note-taking application with backlinks, tags, and knowl
 - Search across all note content, titles, and metadata
 - Real-time results with intelligent ranking
 
-## What's New in v0.9.10
+## What's New in v0.9.11
+
+### 🔖 Bookmark Manager
+This release introduces a powerful bookmark management system integrated directly into your notes:
+
+- **Automatic URL Extraction**: Any URL in your notes (markdown links or plain URLs) is automatically detected and cataloged
+- **Manual Bookmark Addition**: Add bookmarks outside of notes with quick-add dialog (Cmd/Ctrl+Shift+B)
+- **Domain-Based Organization**:
+  - Hierarchical grouping by domain and subdomain
+  - Perfect for organizing internal company links (e.g., Confluence spaces, GitHub repos)
+  - Collapsible tree structure with bookmark counts
+- **Rich Metadata**:
+  - Custom titles and descriptions
+  - Tag support with `#tag` syntax
+  - Source note tracking with line numbers
+- **Powerful Search & Filtering**:
+  - Filter by domain, tags, or source (from notes vs manual)
+  - Real-time search across titles, URLs, descriptions, and tags
+  - Multiple view modes: flat list or hierarchical grouping
+  - Sort by date, domain, or alphabetically
+- **Context Navigation**: Click any bookmark to open in browser, or jump to its source note
+- **Professional UI**: Modern edit and delete dialogs with proper confirmation
+
+### 🐛 Bug Fixes & Improvements
+- Fixed URL opening in Tauri environment using proper opener plugin
+- Improved button interactions with proper event handling
+- Better dialog UX replacing browser-native prompts
+
+## Previous Release: v0.9.10
 
 ### 🎯 Major Task Management Overhaul
-This release brings a comprehensive task management system that rivals dedicated todo apps:
-
 - **Priority System**: Color-coded priorities (!high, !medium, !low) with visual indicators
 - **Due Date Support**: Multiple formats supported - @due(), due:, and 📅 emoji syntax
 - **Smart Filtering**: Filter by status, date range, priority, and tags
 - **Advanced Sorting**: Sort by note, due date, priority, alphabetical, or completion status
 - **Nested Subtasks**: Create hierarchical task structures with automatic progress tracking
 - **Recurring Tasks**: Tasks automatically recreate themselves in your daily note when completed
-  - Supports daily, weekly, monthly patterns
-  - Specific weekday patterns (every Monday, Tuesday, etc.)
-  - Preserves all metadata (priority, tags, etc.)
-- **Quick Actions**:
-  - Bulk selection and operations
-  - Quick-add dialog (Cmd/Ctrl+Shift+T)
-  - Jump to source note with one click
-
-### 📝 Editor Enhancements
-- **Multi-cursor editing**: Select and edit multiple locations simultaneously
-- **Code folding**: Collapse/expand sections for better document navigation
-- **Block references**: Link to specific headings with [[Note#heading]] syntax
-- **Content transclusion**: Embed content from other notes (preview-only)
-
-### 🐛 Bug Fixes & Improvements
-- Fixed Clippy linting warnings for better code quality
-- Improved CI/CD pipeline compliance
-- Enhanced Help documentation with comprehensive task management guide
-- Better error handling for recurring task creation
+- **Quick Actions**: Bulk selection, quick-add dialog (Cmd/Ctrl+Shift+T), jump to source note
 
 ## Installation
 
@@ -167,6 +185,8 @@ npm run tauri build
 - `Cmd/Ctrl + E`: Toggle edit/preview mode
 - `Cmd/Ctrl + N`: New note
 - `Cmd/Ctrl + ,`: Open settings
+- `Cmd/Ctrl + Shift + T`: Quick-add todo
+- `Cmd/Ctrl + Shift + B`: Quick-add bookmark
 
 ### Linking Notes
 Create links between notes by typing `[[` and selecting from the autocomplete menu, or type the full note name manually.
