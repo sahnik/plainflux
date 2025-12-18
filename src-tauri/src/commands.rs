@@ -1,7 +1,6 @@
 use crate::cache::{Bookmark, CacheDb, Todo};
 use crate::error::AppError;
 use crate::git_manager::{GitBlameInfo, GitManager};
-use crate::lock_mutex;
 use crate::note_manager::{self, read_file_with_encoding, Note, NoteMetadata};
 use crate::utils::{ensure_dir_exists, safe_read_file, safe_write_file, validate_path_security};
 use serde::{Deserialize, Serialize};
