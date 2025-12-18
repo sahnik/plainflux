@@ -1,6 +1,6 @@
 [package]
 name = "plainflux"
-version = "0.9.11"
+version = "0.9.12"
 description = "A modern note-taking app with backlinks and tags"
 authors = ["you"]
 license = "MIT"
