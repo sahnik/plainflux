@@ -72,6 +72,8 @@ function AppContent() {
   const [showQuickAddTodo, setShowQuickAddTodo] = useState(false);
   const [showQuickAddBookmark, setShowQuickAddBookmark] = useState(false);
   const [recentNotesFilter, setRecentNotesFilter] = useState<RecentNotesFilter>('Today');
+  const [graphSearchTerm, setGraphSearchTerm] = useState('');
+  const [graphMaxHops, setGraphMaxHops] = useState(2);
 
   const { data: notes = [] } = useQuery({
     queryKey: ['notes'],
@@ -100,10 +102,10 @@ function AppContent() {
     enabled: !!selectedNote,
   });
 
-  const { data: globalGraphData = { nodes: [], edges: [] } } = useQuery({
-    queryKey: ['globalGraph'],
-    queryFn: tauriApi.getGlobalGraph,
-    enabled: showGlobalGraph,
+  const { data: filteredGraphData = { nodes: [], edges: [] } } = useQuery({
+    queryKey: ['filteredGraph', graphSearchTerm, graphMaxHops],
+    queryFn: () => tauriApi.getFilteredGraph(graphSearchTerm, graphMaxHops),
+    enabled: showGlobalGraph && graphSearchTerm.length > 0,
   });
 
   const { data: localGraphData = { nodes: [], edges: [] } } = useQuery({
@@ -1033,7 +1035,7 @@ function AppContent() {
             </div>
             {showGlobalGraph ? (
               <GraphView
-                data={globalGraphData}
+                data={filteredGraphData}
                 onNodeClick={async (nodeId) => {
                   const note = await tauriApi.readNote(nodeId);
                   // Graph nodes: replace current tab
@@ -1051,6 +1053,17 @@ function AppContent() {
                   setShowGlobalGraph(false);
                 }}
                 isLocal={false}
+                searchTerm={graphSearchTerm}
+                maxHops={graphMaxHops}
+                onSearchChange={setGraphSearchTerm}
+                onMaxHopsChange={setGraphMaxHops}
+                onFocusCurrentNote={() => {
+                  if (selectedNote) {
+                    setGraphSearchTerm(selectedNote.title);
+                  }
+                }}
+                currentNotePath={selectedNote?.path}
+                currentNoteTitle={selectedNote?.title}
               />
             ) : showLocalGraph && selectedNote ? (
               <GraphView

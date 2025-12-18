@@ -497,6 +497,10 @@ pub struct GraphNode {
     id: String,
     label: String,
     title: String,
+    #[serde(rename = "connectionCount")]
+    connection_count: usize,
+    #[serde(rename = "isCenter")]
+    is_center: bool,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -511,6 +515,16 @@ pub struct GraphData {
     edges: Vec<GraphEdge>,
 }
 
+/// Calculate connection count for each node
+fn calculate_connection_counts(links: &[crate::cache::Link]) -> HashMap<String, usize> {
+    let mut counts: HashMap<String, usize> = HashMap::new();
+    for link in links {
+        *counts.entry(link.from_note.clone()).or_insert(0) += 1;
+        *counts.entry(link.to_note.clone()).or_insert(0) += 1;
+    }
+    counts
+}
+
 #[tauri::command]
 pub async fn get_global_graph(state: State<'_, AppState>) -> Result<GraphData, String> {
     let cache_db = state
@@ -521,6 +535,9 @@ pub async fn get_global_graph(state: State<'_, AppState>) -> Result<GraphData, S
     let links = cache_db.get_all_links()?;
     let notes = note_manager::list_notes(&state.notes_dir)?;
 
+    // Calculate connection counts
+    let connection_counts = calculate_connection_counts(&links);
+
     // Create a set of all note paths that have links
     let mut linked_notes = HashSet::new();
     for link in &links {
@@ -530,16 +547,16 @@ pub async fn get_global_graph(state: State<'_, AppState>) -> Result<GraphData, S
 
     // Create nodes only for notes that have links
     let mut nodes = Vec::new();
-    let mut node_map = HashMap::new();
 
     for note in notes {
         if linked_notes.contains(&note.path) {
-            let node_id = note.path.clone();
-            node_map.insert(node_id.clone(), note.title.clone());
+            let connection_count = connection_counts.get(&note.path).copied().unwrap_or(0);
             nodes.push(GraphNode {
-                id: node_id,
+                id: note.path.clone(),
                 label: note.title.clone(),
                 title: note.title,
+                connection_count,
+                is_center: false,
             });
         }
     }
@@ -552,6 +569,123 @@ pub async fn get_global_graph(state: State<'_, AppState>) -> Result<GraphData, S
             to: link.to_note,
         });
     }
+
+    Ok(GraphData { nodes, edges })
+}
+
+#[tauri::command]
+pub async fn get_filtered_graph(
+    search_term: Option<String>,
+    max_hops: Option<usize>,
+    state: State<'_, AppState>,
+) -> Result<GraphData, String> {
+    let cache_db = state
+        .cache_db
+        .lock()
+        .map_err(|_| "Failed to lock cache database")?;
+
+    let all_links = cache_db.get_all_links()?;
+    let notes = note_manager::list_notes(&state.notes_dir)?;
+
+    // Build note title lookup
+    let note_map: HashMap<String, String> = notes
+        .iter()
+        .map(|note| (note.path.clone(), note.title.clone()))
+        .collect();
+
+    // If no search term, return empty graph (user needs to search)
+    let search_term = match search_term {
+        Some(term) if !term.trim().is_empty() => term.to_lowercase(),
+        _ => return Ok(GraphData { nodes: vec![], edges: vec![] }),
+    };
+
+    let max_hops = max_hops.unwrap_or(2);
+
+    // Find starting nodes that match the search term
+    let matching_nodes: HashSet<String> = notes
+        .iter()
+        .filter(|note| note.title.to_lowercase().contains(&search_term))
+        .map(|note| note.path.clone())
+        .collect();
+
+    if matching_nodes.is_empty() {
+        return Ok(GraphData { nodes: vec![], edges: vec![] });
+    }
+
+    // Build adjacency list for BFS
+    let mut adjacency: HashMap<String, Vec<String>> = HashMap::new();
+    for link in &all_links {
+        adjacency
+            .entry(link.from_note.clone())
+            .or_default()
+            .push(link.to_note.clone());
+        adjacency
+            .entry(link.to_note.clone())
+            .or_default()
+            .push(link.from_note.clone());
+    }
+
+    // BFS to find all nodes within max_hops
+    let mut visited: HashSet<String> = HashSet::new();
+    let mut current_frontier: HashSet<String> = matching_nodes.clone();
+    visited.extend(current_frontier.clone());
+
+    for _ in 0..max_hops {
+        let mut next_frontier: HashSet<String> = HashSet::new();
+        for node in &current_frontier {
+            if let Some(neighbors) = adjacency.get(node) {
+                for neighbor in neighbors {
+                    if !visited.contains(neighbor) {
+                        next_frontier.insert(neighbor.clone());
+                        visited.insert(neighbor.clone());
+                    }
+                }
+            }
+        }
+        if next_frontier.is_empty() {
+            break;
+        }
+        current_frontier = next_frontier;
+    }
+
+    // Calculate connection counts for visited nodes only
+    let filtered_links: Vec<_> = all_links
+        .iter()
+        .filter(|link| visited.contains(&link.from_note) && visited.contains(&link.to_note))
+        .collect();
+
+    let mut connection_counts: HashMap<String, usize> = HashMap::new();
+    for link in &filtered_links {
+        *connection_counts.entry(link.from_note.clone()).or_insert(0) += 1;
+        *connection_counts.entry(link.to_note.clone()).or_insert(0) += 1;
+    }
+
+    // Create nodes
+    let nodes: Vec<GraphNode> = visited
+        .iter()
+        .filter_map(|path| {
+            note_map.get(path).map(|title| {
+                let connection_count = connection_counts.get(path).copied().unwrap_or(0);
+                let is_center = matching_nodes.contains(path);
+                GraphNode {
+                    id: path.clone(),
+                    label: title.clone(),
+                    title: title.clone(),
+                    connection_count,
+                    is_center,
+                }
+            })
+        })
+        .collect();
+
+    // Create edges
+    let edges: Vec<GraphEdge> = filtered_links
+        .into_iter()
+        .map(|link| GraphEdge {
+            from: link.from_note.clone(),
+            to: link.to_note.clone(),
+        })
+        .collect();
 
     Ok(GraphData { nodes, edges })
 }
@@ -584,14 +718,24 @@ pub async fn get_local_graph(
         connected_notes.insert(link.to_note.clone());
     }
 
+    // Calculate connection counts for the subgraph
+    let mut connection_counts: HashMap<String, usize> = HashMap::new();
+    for link in &links {
+        *connection_counts.entry(link.from_note.clone()).or_insert(0) += 1;
+        *connection_counts.entry(link.to_note.clone()).or_insert(0) += 1;
+    }
+
     // Create nodes
     let mut nodes = Vec::new();
     for path in &connected_notes {
         if let Some(title) = note_map.get(path) {
+            let connection_count = connection_counts.get(path).copied().unwrap_or(0);
             nodes.push(GraphNode {
                 id: path.clone(),
                 label: title.clone(),
                 title: title.clone(),
+                connection_count,
+                is_center: path == &note_path,
             });
         }
     }

@@ -102,6 +102,10 @@ export const tauriApi = {
     return invoke('get_local_graph', { notePath });
   },
 
+  async getFilteredGraph(searchTerm?: string, maxHops?: number): Promise<GraphData> {
+    return invoke('get_filtered_graph', { searchTerm, maxHops });
+  },
+
   async saveImage(imageData: Uint8Array, filename: string, notePath: string): Promise<string> {
     return invoke('save_image', {
       imageData: Array.from(imageData),
@@ -235,6 +239,8 @@ export interface GraphNode {
   id: string;
   label: string;
   title: string;
+  connectionCount: number;
+  isCenter: boolean;
 }
 
 export interface GraphEdge {

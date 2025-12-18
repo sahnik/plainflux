@@ -206,6 +206,7 @@ pub fn run() {
             commands::get_all_folders,
             commands::get_global_graph,
             commands::get_local_graph,
+            commands::get_filtered_graph,
             commands::save_image,
             commands::save_attachment,
             commands::open_file_external,
