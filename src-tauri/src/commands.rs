@@ -1409,3 +1409,9 @@ fn is_window_position_visible(
 
     false
 }
+
+#[tauri::command]
+pub async fn force_rebuild_cache(state: State<'_, AppState>) -> Result<String, String> {
+    crate::force_rebuild_cache(&state).map_err(|e| e.to_string())?;
+    Ok("Cache rebuilt successfully".to_string())
+}

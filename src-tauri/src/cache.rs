@@ -270,6 +270,18 @@ impl CacheDb {
             )
             .map_err(|e| format!("Failed to create bookmarks note index: {e}"))?;
 
+        // Create note_metadata table for tracking file modification times (incremental cache)
+        self.conn
+            .execute(
+                "CREATE TABLE IF NOT EXISTS note_metadata (
+                path TEXT PRIMARY KEY,
+                mtime_secs INTEGER NOT NULL,
+                mtime_nanos INTEGER NOT NULL
+            )",
+                [],
+            )
+            .map_err(|e| format!("Failed to create note_metadata table: {e}"))?;
+
         Ok(())
     }
 
@@ -923,6 +935,72 @@ impl CacheDb {
         }
 
         Ok(result)
+    }
+
+    // Incremental cache methods for tracking file modification times
+
+    /// Get the cached modification time for a note path
+    pub fn get_cached_mtime(&self, path: &str) -> Result<Option<(i64, u32)>, String> {
+        let mut stmt = self
+            .conn
+            .prepare("SELECT mtime_secs, mtime_nanos FROM note_metadata WHERE path = ?1")
+            .map_err(|e| format!("Failed to prepare statement: {e}"))?;
+
+        let result = stmt
+            .query_row(params![path], |row| Ok((row.get(0)?, row.get(1)?)))
+            .optional()
+            .map_err(|e| format!("Failed to query mtime: {e}"))?;
+
+        Ok(result)
+    }
+
+    /// Store the modification time for a note path
+    pub fn set_cached_mtime(&self, path: &str, secs: i64, nanos: u32) -> Result<(), String> {
+        self.conn
+            .execute(
+                "INSERT OR REPLACE INTO note_metadata (path, mtime_secs, mtime_nanos) VALUES (?1, ?2, ?3)",
+                params![path, secs, nanos],
+            )
+            .map_err(|e| format!("Failed to set mtime: {e}"))?;
+        Ok(())
+    }
+
+    /// Get all paths that are currently cached
+    pub fn get_all_cached_paths(&self) -> Result<Vec<String>, String> {
+        let mut stmt = self
+            .conn
+            .prepare("SELECT path FROM note_metadata")
+            .map_err(|e| format!("Failed to prepare statement: {e}"))?;
+
+        let paths = stmt
+            .query_map([], |row| row.get(0))
+            .map_err(|e| format!("Failed to query paths: {e}"))?;
+
+        let mut result = Vec::new();
+        for path in paths {
+            result.push(path.map_err(|e| format!("Failed to get path: {e}"))?);
+        }
+
+        Ok(result)
+    }
+
+    /// Remove cache entries for deleted files
+    pub fn remove_stale_entries(&self, paths: &[String]) -> Result<(), String> {
+        for path in paths {
+            self.clear_note_cache(path)?;
+            self.conn
+                .execute("DELETE FROM note_metadata WHERE path = ?1", params![path])
+                .map_err(|e| format!("Failed to remove metadata: {e}"))?;
+        }
+        Ok(())
+    }
+
+    /// Clear all cached metadata (for force rebuild)
+    pub fn clear_all_metadata(&self) -> Result<(), String> {
+        self.conn
+            .execute("DELETE FROM note_metadata", [])
+            .map_err(|e| format!("Failed to clear metadata: {e}"))?;
+        Ok(())
     }
 }
 

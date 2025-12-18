@@ -12,10 +12,12 @@ use commands::AppState;
 use error::Result;
 use git_manager::GitManager;
 use note_manager::read_file_with_encoding;
-use std::collections::VecDeque;
+use std::collections::{HashSet, VecDeque};
 use std::sync::Mutex;
+use std::time::UNIX_EPOCH;
 
-fn rebuild_cache(state: &AppState) -> Result<()> {
+/// Sync the cache incrementally - only update files that have changed since last cache
+fn sync_cache(state: &AppState) -> Result<()> {
     let notes = note_manager::list_notes(&state.notes_dir)?;
 
     // Handle mutex with proper poisoning recovery
@@ -27,29 +29,122 @@ fn rebuild_cache(state: &AppState) -> Result<()> {
         }
     };
 
-    println!(
-        "Rebuilding cache with FTS5 index for {} notes...",
-        notes.len()
-    );
+    // Get all currently cached paths to detect deletions
+    let cached_paths: HashSet<String> = cache_db
+        .get_all_cached_paths()
+        .unwrap_or_default()
+        .into_iter()
+        .collect();
+
+    let mut stats = CacheSyncStats::default();
+    let mut current_paths: HashSet<String> = HashSet::new();
 
     for note in notes {
-        if let Ok(content) = read_file_with_encoding(&note.path) {
-            // Update cache including FTS5 index
-            if let Err(e) = cache_db.update_note_cache_with_fts(
-                &note.path,
-                &note.title,
-                &content,
-                &state.notes_dir,
-            ) {
-                let path = &note.path;
-                eprintln!("Warning: Failed to update cache for '{path}': {e}");
+        current_paths.insert(note.path.clone());
+
+        // Get file modification time
+        let file_mtime = match std::fs::metadata(&note.path) {
+            Ok(meta) => match meta.modified() {
+                Ok(mtime) => match mtime.duration_since(UNIX_EPOCH) {
+                    Ok(duration) => (duration.as_secs() as i64, duration.subsec_nanos()),
+                    Err(_) => {
+                        // Time before UNIX epoch - treat as changed
+                        (0, 0)
+                    }
+                },
+                Err(_) => continue, // Can't get mtime, skip
+            },
+            Err(_) => continue, // Can't access file, skip
+        };
+
+        // Check if file needs updating
+        let needs_update = match cache_db.get_cached_mtime(&note.path) {
+            Ok(Some((cached_secs, cached_nanos))) => {
+                // Update if mtime differs (handles both newer and older - for clock skew)
+                file_mtime.0 != cached_secs || file_mtime.1 != cached_nanos
             }
+            Ok(None) => true, // New file, not in cache
+            Err(_) => true,   // Error reading cache, rebuild to be safe
+        };
+
+        if needs_update {
+            if let Ok(content) = read_file_with_encoding(&note.path) {
+                // Update cache including FTS5 index
+                if let Err(e) = cache_db.update_note_cache_with_fts(
+                    &note.path,
+                    &note.title,
+                    &content,
+                    &state.notes_dir,
+                ) {
+                    let path = &note.path;
+                    eprintln!("Warning: Failed to update cache for '{path}': {e}");
+                    continue;
+                }
+
+                // Store the new mtime
+                if let Err(e) = cache_db.set_cached_mtime(&note.path, file_mtime.0, file_mtime.1) {
+                    eprintln!("Warning: Failed to store mtime for '{}': {e}", note.path);
+                }
+
+                if cached_paths.contains(&note.path) {
+                    stats.updated += 1;
+                } else {
+                    stats.added += 1;
+                }
+            }
+        } else {
+            stats.unchanged += 1;
         }
     }
 
-    println!("Cache rebuild complete!");
+    // Find and remove deleted files
+    let deleted_paths: Vec<String> = cached_paths
+        .difference(&current_paths)
+        .cloned()
+        .collect();
+
+    if !deleted_paths.is_empty() {
+        stats.deleted = deleted_paths.len();
+        if let Err(e) = cache_db.remove_stale_entries(&deleted_paths) {
+            eprintln!("Warning: Failed to remove stale cache entries: {e}");
+        }
+    }
+
+    println!(
+        "Cache sync complete: {} added, {} updated, {} deleted, {} unchanged",
+        stats.added, stats.updated, stats.deleted, stats.unchanged
+    );
 
     Ok(())
+}
+
+#[derive(Default)]
+struct CacheSyncStats {
+    added: usize,
+    updated: usize,
+    deleted: usize,
+    unchanged: usize,
+}
+
+/// Force a full cache rebuild (clears all metadata and rebuilds from scratch)
+pub fn force_rebuild_cache(state: &AppState) -> Result<()> {
+    let cache_db = match state.cache_db.lock() {
+        Ok(guard) => guard,
+        Err(poisoned) => {
+            eprintln!("Error: Cache database mutex was poisoned. Attempting recovery...");
+            poisoned.into_inner()
+        }
+    };
+
+    // Clear all metadata to force full rebuild
+    if let Err(e) = cache_db.clear_all_metadata() {
+        eprintln!("Warning: Failed to clear metadata: {e}");
+    }
+
+    drop(cache_db); // Release lock before calling sync_cache
+
+    println!("Forcing full cache rebuild...");
+    sync_cache(state)
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -77,9 +172,9 @@ pub fn run() {
         recent_notes: Mutex::new(VecDeque::new()),
     };
 
-    // Rebuild cache on startup (non-blocking, don't fail app startup)
-    if let Err(e) = rebuild_cache(&app_state) {
-        eprintln!("Warning: Failed to rebuild cache on startup: {e}");
+    // Sync cache on startup - only updates changed files (non-blocking, don't fail app startup)
+    if let Err(e) = sync_cache(&app_state) {
+        eprintln!("Warning: Failed to sync cache on startup: {e}");
         // Continue anyway - cache will be rebuilt as notes are accessed
     }
 
@@ -138,6 +233,7 @@ pub fn run() {
             commands::delete_bookmark,
             commands::get_all_bookmark_domains,
             commands::open_url_external,
+            commands::force_rebuild_cache,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
