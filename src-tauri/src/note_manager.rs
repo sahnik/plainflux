@@ -1,7 +1,6 @@
 use crate::utils::safe_write_file;
 use serde::{Deserialize, Serialize};
 use std::fs;
-use std::io::Read;
 use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
 
@@ -238,10 +237,7 @@ fn apply_template_variables(template: &str) -> String {
     result
 }
 
-use encoding_rs::WINDOWS_1252;
-use encoding_rs_io::DecodeReaderBytesBuilder;
-
-/// Helper function to read file contents with WINDOWS_1252 encoding
+/// Helper function to read file contents, preferring UTF-8 with fallback for legacy files
 pub fn read_file_with_encoding(path: &str) -> Result<String, String> {
     // On Windows, ensure path uses proper separators
     #[cfg(target_os = "windows")]
@@ -249,31 +245,31 @@ pub fn read_file_with_encoding(path: &str) -> Result<String, String> {
     #[cfg(not(target_os = "windows"))]
     let path = path.to_string();
 
-    let file = fs::File::open(&path).map_err(|e| {
-        let err_msg = format!("Failed to open file: {e}");
-        println!("[READ] ERROR: {err_msg}");
-        err_msg
-    })?;
-
-    let _file_size = file.metadata().map(|m| m.len()).unwrap_or(0);
-
-    let mut reader = DecodeReaderBytesBuilder::new()
-        .encoding(Some(WINDOWS_1252))
-        .build(file);
-    let mut content = String::new();
-
-    match reader.read_to_string(&mut content) {
-        Ok(_) => {
-            // Successfully read file
-        }
+    // First try reading as UTF-8 (the standard encoding)
+    match fs::read_to_string(&path) {
+        Ok(content) => Ok(content),
         Err(e) => {
-            let err_msg = format!("Failed to read file: {e}");
-            println!("[READ] ERROR reading {path}: {err_msg}");
-            return Err(err_msg);
+            // If UTF-8 fails, try reading as bytes and convert lossily
+            // This handles legacy files that may have been created with other encodings
+            if e.kind() == std::io::ErrorKind::InvalidData {
+                match fs::read(&path) {
+                    Ok(bytes) => {
+                        println!("[READ] Warning: File {path} contains invalid UTF-8, using lossy conversion");
+                        Ok(String::from_utf8_lossy(&bytes).into_owned())
+                    }
+                    Err(read_err) => {
+                        let err_msg = format!("Failed to read file {path}: {read_err}");
+                        println!("[READ] ERROR: {err_msg}");
+                        Err(err_msg)
+                    }
+                }
+            } else {
+                let err_msg = format!("Failed to read file {path}: {e}");
+                println!("[READ] ERROR: {err_msg}");
+                Err(err_msg)
+            }
         }
     }
-
-    Ok(content)
 }
 
 pub fn search_notes(base_path: &str, query: &str) -> Result<Vec<Note>, String> {

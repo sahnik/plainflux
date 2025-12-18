@@ -28,8 +28,6 @@ tokio = { version = "1", features = ["full"] }
 chrono = { version = "0.4", features = ["serde"] }
 walkdir = "2.3"
 image = "0.24.6"
-encoding_rs = "0.8.33"
-encoding_rs_io = "0.1.7"
 regex = "1"
 dirs = "5"
 git2 = "0.18"
