@@ -596,7 +596,12 @@ pub async fn get_filtered_graph(
     // If no search term, return empty graph (user needs to search)
     let search_term = match search_term {
         Some(term) if !term.trim().is_empty() => term.to_lowercase(),
-        _ => return Ok(GraphData { nodes: vec![], edges: vec![] }),
+        _ => {
+            return Ok(GraphData {
+                nodes: vec![],
+                edges: vec![],
+            })
+        }
     };
 
     let max_hops = max_hops.unwrap_or(2);
@@ -609,7 +614,10 @@ pub async fn get_filtered_graph(
         .collect();
 
     if matching_nodes.is_empty() {
-        return Ok(GraphData { nodes: vec![], edges: vec![] });
+        return Ok(GraphData {
+            nodes: vec![],
+            edges: vec![],
+        });
     }
 
     // Build adjacency list for BFS

@@ -98,10 +98,7 @@ fn sync_cache(state: &AppState) -> Result<()> {
     }
 
     // Find and remove deleted files
-    let deleted_paths: Vec<String> = cached_paths
-        .difference(&current_paths)
-        .cloned()
-        .collect();
+    let deleted_paths: Vec<String> = cached_paths.difference(&current_paths).cloned().collect();
 
     if !deleted_paths.is_empty() {
         stats.deleted = deleted_paths.len();
