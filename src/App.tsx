@@ -27,7 +27,7 @@ import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { useWindowState } from './hooks/useWindowState';
 
 import { tauriApi, Todo } from './api/tauri';
-import { ViewType, Note, NoteMetadata, Tab, RecentNote, SearchResult } from './types';
+import { ViewType, Note, NoteMetadata, Tab, RecentNote, RecentNotesFilter, SearchResult } from './types';
 
 const queryClient = new QueryClient();
 
@@ -71,6 +71,7 @@ function AppContent() {
   const [scrollToBlockId, setScrollToBlockId] = useState<string | undefined>(undefined);
   const [showQuickAddTodo, setShowQuickAddTodo] = useState(false);
   const [showQuickAddBookmark, setShowQuickAddBookmark] = useState(false);
+  const [recentNotesFilter, setRecentNotesFilter] = useState<RecentNotesFilter>('Today');
 
   const { data: notes = [] } = useQuery({
     queryKey: ['notes'],
@@ -124,8 +125,8 @@ function AppContent() {
   });
 
   const { data: recentNotes = [] } = useQuery({
-    queryKey: ['recentNotes'],
-    queryFn: tauriApi.getRecentNotes,
+    queryKey: ['recentNotes', recentNotesFilter],
+    queryFn: () => tauriApi.getRecentNotes(recentNotesFilter),
     enabled: currentView === 'recent',
   });
 
@@ -946,6 +947,8 @@ function AppContent() {
             selectedPath={selectedNote?.path}
             onNoteSelect={handleRecentNoteSelect}
             onNoteDoubleClick={handleRecentNoteDoubleClick}
+            filter={recentNotesFilter}
+            onFilterChange={setRecentNotesFilter}
           />
         );
     }

@@ -43,6 +43,8 @@ export interface RecentNote {
   folder: string;
 }
 
+export type RecentNotesFilter = 'Today' | 'Week' | 'Month' | 'All';
+
 export interface SearchSnippet {
   line_number: number;
   text: string;

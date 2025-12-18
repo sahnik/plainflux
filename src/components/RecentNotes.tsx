@@ -1,12 +1,14 @@
 import React from 'react';
 import { FileText, Clock } from 'lucide-react';
-import { RecentNote } from '../types';
+import { RecentNote, RecentNotesFilter } from '../types';
 
 interface RecentNotesProps {
   recentNotes: RecentNote[];
   selectedPath?: string;
   onNoteSelect: (note: RecentNote) => void;
   onNoteDoubleClick: (note: RecentNote) => void;
+  filter: RecentNotesFilter;
+  onFilterChange: (filter: RecentNotesFilter) => void;
 }
 
 const formatRelativeTime = (timestamp: number): string => {
@@ -27,11 +29,20 @@ const formatRelativeTime = (timestamp: number): string => {
   }
 };
 
+const filterLabels: Record<RecentNotesFilter, string> = {
+  Today: 'Today',
+  Week: 'Week',
+  Month: 'Month',
+  All: 'All',
+};
+
 export const RecentNotes: React.FC<RecentNotesProps> = ({
   recentNotes,
   selectedPath,
   onNoteSelect,
   onNoteDoubleClick,
+  filter,
+  onFilterChange,
 }) => {
   const handleMouseDown = (e: React.MouseEvent, note: RecentNote) => {
     // Middle mouse button - open in new tab
@@ -49,11 +60,25 @@ export const RecentNotes: React.FC<RecentNotesProps> = ({
     // Could add "Open in New Tab" option in the future
   };
 
+  const filters: RecentNotesFilter[] = ['Today', 'Week', 'Month', 'All'];
+
   return (
     <div className="recent-notes">
       <div className="recent-notes-header">
         <Clock size={16} />
         <span>Recently Edited</span>
+      </div>
+
+      <div className="recent-notes-filters">
+        {filters.map((f) => (
+          <button
+            key={f}
+            className={`recent-notes-filter ${filter === f ? 'active' : ''}`}
+            onClick={() => onFilterChange(f)}
+          >
+            {filterLabels[f]}
+          </button>
+        ))}
       </div>
 
       {recentNotes.length === 0 ? (

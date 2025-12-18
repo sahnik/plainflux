@@ -1090,15 +1090,59 @@ pub async fn save_app_settings(
         .map_err(|e| format!("Failed to save settings: {e}"))
 }
 
-#[tauri::command]
-pub async fn get_recent_notes(state: State<'_, AppState>) -> Result<Vec<RecentNote>, String> {
-    let recent_notes = lock_mutex!(
-        state.recent_notes,
-        "Recent notes mutex was poisoned during get_recent_notes"
-    );
+/// Time filter for recent notes query
+#[derive(Debug, Deserialize)]
+pub enum RecentNotesFilter {
+    Today,
+    Week,
+    Month,
+    All,
+}
 
-    // Return the notes in reverse order (most recent first)
-    Ok(recent_notes.iter().rev().cloned().collect())
+#[tauri::command]
+pub async fn get_recent_notes(
+    state: State<'_, AppState>,
+    filter: Option<RecentNotesFilter>,
+) -> Result<Vec<RecentNote>, String> {
+    let filter = filter.unwrap_or(RecentNotesFilter::Today);
+
+    // Get current time
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_err(|e| format!("Failed to get current time: {e}"))?
+        .as_secs();
+
+    // Calculate cutoff timestamp based on filter
+    let cutoff = match filter {
+        RecentNotesFilter::Today => {
+            // Start of today (midnight)
+            let secs_since_midnight = now % 86400;
+            now - secs_since_midnight
+        }
+        RecentNotesFilter::Week => now - (7 * 24 * 60 * 60),
+        RecentNotesFilter::Month => now - (30 * 24 * 60 * 60),
+        RecentNotesFilter::All => 0,
+    };
+
+    // Get all notes from filesystem
+    let notes = note_manager::list_notes(&state.notes_dir)?;
+
+    // Filter by time and convert to RecentNote format
+    let mut recent_notes: Vec<RecentNote> = notes
+        .into_iter()
+        .filter(|note| (note.last_modified as u64) >= cutoff)
+        .map(|note| RecentNote {
+            path: note.path,
+            title: note.title,
+            last_modified: note.last_modified as u64,
+            folder: note.folder,
+        })
+        .collect();
+
+    // Sort by last_modified descending (most recent first)
+    recent_notes.sort_by(|a, b| b.last_modified.cmp(&a.last_modified));
+
+    Ok(recent_notes)
 }
 
 fn add_recent_note(
