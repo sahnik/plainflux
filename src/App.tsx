@@ -141,6 +141,10 @@ function AppContent() {
       queryClient.invalidateQueries({ queryKey: ['allTodos'] });
       queryClient.invalidateQueries({ queryKey: ['allBookmarks'] });
       queryClient.invalidateQueries({ queryKey: ['recentNotes'] });
+      queryClient.invalidateQueries({ queryKey: ['backlinks'] });
+      queryClient.invalidateQueries({ queryKey: ['outgoingLinks'] });
+      queryClient.invalidateQueries({ queryKey: ['filteredGraphData'] });
+      queryClient.invalidateQueries({ queryKey: ['localGraph'] });
 
       // Mark the tab as clean after successful save
       setTabs(currentTabs => {
@@ -474,8 +478,12 @@ function AppContent() {
         const newNotePath = await tauriApi.createNote(linkName);
         const note = await tauriApi.readNote(newNotePath);
         openInNewTab(note);
-        // Refresh the notes list
+        // Refresh the notes list and link data (new note may have incoming links)
         queryClient.invalidateQueries({ queryKey: ['notes'] });
+        queryClient.invalidateQueries({ queryKey: ['backlinks'] });
+        queryClient.invalidateQueries({ queryKey: ['outgoingLinks'] });
+        queryClient.invalidateQueries({ queryKey: ['filteredGraphData'] });
+        queryClient.invalidateQueries({ queryKey: ['localGraph'] });
       }
       setSearchTerm('');
     } catch (error) {
@@ -532,8 +540,12 @@ function AppContent() {
         const newNotePath = await tauriApi.createNote(noteName);
         const note = await tauriApi.readNote(newNotePath);
         openInNewTab(note);
-        // Refresh the notes list
+        // Refresh the notes list and link data (new note may have incoming links)
         queryClient.invalidateQueries({ queryKey: ['notes'] });
+        queryClient.invalidateQueries({ queryKey: ['backlinks'] });
+        queryClient.invalidateQueries({ queryKey: ['outgoingLinks'] });
+        queryClient.invalidateQueries({ queryKey: ['filteredGraphData'] });
+        queryClient.invalidateQueries({ queryKey: ['localGraph'] });
       }
       setSearchTerm('');
     } catch (error) {
@@ -586,10 +598,14 @@ function AppContent() {
         }
       }
       
-      // Refresh the notes list
+      // Refresh the notes list and related caches
       queryClient.invalidateQueries({ queryKey: ['notes'] });
       queryClient.invalidateQueries({ queryKey: ['folders'] });
       queryClient.invalidateQueries({ queryKey: ['tags'] });
+      queryClient.invalidateQueries({ queryKey: ['backlinks'] });
+      queryClient.invalidateQueries({ queryKey: ['outgoingLinks'] });
+      queryClient.invalidateQueries({ queryKey: ['filteredGraphData'] });
+      queryClient.invalidateQueries({ queryKey: ['localGraph'] });
     } catch (error) {
       console.error(`Failed to delete ${deleteDialog.type}:`, error);
     }
@@ -638,13 +654,17 @@ function AppContent() {
         : noteName;
       
       const newNotePath = await tauriApi.createNote(fullPath);
-      
+
       // Open the newly created note
       const note = await tauriApi.readNote(newNotePath);
       setSelectedNote(note);
-      
-      // Refresh the notes list to show the new note
+
+      // Refresh the notes list and link data (new note may have incoming links)
       queryClient.invalidateQueries({ queryKey: ['notes'] });
+      queryClient.invalidateQueries({ queryKey: ['backlinks'] });
+      queryClient.invalidateQueries({ queryKey: ['outgoingLinks'] });
+      queryClient.invalidateQueries({ queryKey: ['filteredGraphData'] });
+      queryClient.invalidateQueries({ queryKey: ['localGraph'] });
     } catch (error) {
       console.error('Failed to create note:', error);
     }
@@ -689,6 +709,9 @@ function AppContent() {
       queryClient.invalidateQueries({ queryKey: ['folders'] });
       queryClient.invalidateQueries({ queryKey: ['tags'] });
       queryClient.invalidateQueries({ queryKey: ['backlinks'] });
+      queryClient.invalidateQueries({ queryKey: ['outgoingLinks'] });
+      queryClient.invalidateQueries({ queryKey: ['filteredGraphData'] });
+      queryClient.invalidateQueries({ queryKey: ['localGraph'] });
     } catch (error) {
       console.error(`Failed to rename ${renameDialog.type}:`, error);
     }
