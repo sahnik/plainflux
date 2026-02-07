@@ -66,6 +66,22 @@ pub struct AppState {
     pub recent_notes: Mutex<VecDeque<RecentNote>>,
 }
 
+fn get_file_mtime(path: &str) -> Result<(i64, u32), String> {
+    let metadata = std::fs::metadata(path).map_err(|e| format!("Failed to get metadata: {e}"))?;
+    let modified = metadata
+        .modified()
+        .map_err(|e| format!("Failed to get modified time: {e}"))?;
+    let duration = modified
+        .duration_since(UNIX_EPOCH)
+        .map_err(|e| format!("Failed to convert modification time: {e}"))?;
+    Ok((duration.as_secs() as i64, duration.subsec_nanos()))
+}
+
+fn update_cached_mtime(cache_db: &CacheDb, path: &str) -> Result<(), String> {
+    let (secs, nanos) = get_file_mtime(path)?;
+    cache_db.set_cached_mtime(path, secs, nanos)
+}
+
 #[tauri::command]
 pub async fn get_notes_list(state: State<'_, AppState>) -> Result<Vec<NoteMetadata>, String> {
     note_manager::list_notes(&state.notes_dir)
@@ -93,6 +109,7 @@ pub async fn save_note(
     );
     // Update cache including FTS5 index
     cache_db.update_note_cache_with_fts(&path, &note.title, &content, &state.notes_dir)?;
+    update_cached_mtime(&cache_db, &path)?;
     let folder = std::path::Path::new(&path)
         .parent()
         .and_then(|p| p.file_name())
@@ -135,7 +152,9 @@ pub async fn create_note(filename: String, state: State<'_, AppState>) -> Result
         state.cache_db,
         "Cache database mutex was poisoned during create_note"
     );
-    cache_db.update_note_cache(&path_str, &content, &state.notes_dir)?;
+    let note = note_manager::read_note(&path_str)?;
+    cache_db.update_note_cache_with_fts(&path_str, &note.title, &content, &state.notes_dir)?;
+    update_cached_mtime(&cache_db, &path_str)?;
 
     // Also need to check if any existing notes link to this new note
     // and update their cache entries
@@ -153,7 +172,8 @@ pub async fn delete_note(path: String, state: State<'_, AppState>) -> Result<(),
         state.cache_db,
         "Cache database mutex was poisoned during delete_note"
     );
-    cache_db.clear_note_cache(&path)?;
+    let stale_paths = vec![path];
+    cache_db.remove_stale_entries(&stale_paths)?;
 
     Ok(())
 }
@@ -408,11 +428,17 @@ pub async fn move_note(
         .lock()
         .map_err(|_| "Failed to lock cache database")?;
 
-    // Clear old cache
-    cache_db.clear_note_cache(&old_path)?;
+    // Clear old cache and stale metadata
+    let stale_paths = vec![old_path];
+    cache_db.remove_stale_entries(&stale_paths)?;
 
-    // Update cache with new path
-    cache_db.update_note_cache(&new_path, &content, &state.notes_dir)?;
+    // Update cache and FTS with new path
+    let title = Path::new(&new_path)
+        .file_stem()
+        .and_then(|name| name.to_str())
+        .unwrap_or("Untitled");
+    cache_db.update_note_cache_with_fts(&new_path, title, &content, &state.notes_dir)?;
+    update_cached_mtime(&cache_db, &new_path)?;
 
     Ok(new_path)
 }
@@ -430,28 +456,8 @@ pub async fn delete_folder(folder_path: String, state: State<'_, AppState>) -> R
     // Delete the folder
     note_manager::delete_folder_confirmed(&folder_path, &state.notes_dir)?;
 
-    // Clear cache for all deleted notes
-    let cache_db = state
-        .cache_db
-        .lock()
-        .map_err(|_| "Failed to lock cache database")?;
-
-    // We should clear cache for all notes in the deleted folder
-    // For simplicity, we'll rebuild the entire cache
-    drop(cache_db);
-
-    // Rebuild cache
-    let notes = note_manager::list_notes(&state.notes_dir)?;
-    let cache_db = state
-        .cache_db
-        .lock()
-        .map_err(|_| "Failed to lock cache database")?;
-
-    for note in notes {
-        if let Ok(content) = read_file_with_encoding(&note.path) {
-            let _ = cache_db.update_note_cache(&note.path, &content, &state.notes_dir);
-        }
-    }
+    // Rebuild cache from scratch to remove stale entries and refresh FTS.
+    crate::force_rebuild_cache(&state).map_err(|e| e.to_string())?;
 
     Ok(())
 }
@@ -483,7 +489,12 @@ fn rebuild_cache_for_new_note(note_name: &str, state: &AppState) -> Result<(), S
                 || content.contains(&format!("[[{note_name_without_ext}.md]]"))
             {
                 // Re-update the cache for this note to include the new link
-                let _ = cache_db.update_note_cache(&note.path, &content, &state.notes_dir);
+                let _ = cache_db.update_note_cache_with_fts(
+                    &note.path,
+                    &note.title,
+                    &content,
+                    &state.notes_dir,
+                );
             }
         }
     }
@@ -981,6 +992,7 @@ fn create_recurring_todo_instance(
         &content,
         notes_dir,
     )?;
+    update_cached_mtime(cache_db, &daily_note_path.to_string_lossy())?;
 
     Ok(())
 }
@@ -1056,6 +1068,18 @@ pub async fn toggle_todo(
                 // Don't fail the whole operation if recurring creation fails
             }
         }
+
+        // Refresh cache/FTS for the updated note content
+        let cache_db = state
+            .cache_db
+            .lock()
+            .map_err(|_| "Failed to lock cache database")?;
+        let title = Path::new(&note_path)
+            .file_stem()
+            .and_then(|name| name.to_str())
+            .unwrap_or("Untitled");
+        cache_db.update_note_cache_with_fts(&note_path, title, &content, &state.notes_dir)?;
+        update_cached_mtime(&cache_db, &note_path)?;
     }
 
     Ok(content)
@@ -1116,13 +1140,18 @@ pub async fn rename_note(
         .lock()
         .map_err(|_| "Failed to lock cache database")?;
 
-    // Clear old cache
-    cache_db.clear_note_cache(&old_path)?;
+    // Clear old cache and stale metadata
+    let stale_paths = vec![old_path];
+    cache_db.remove_stale_entries(&stale_paths)?;
 
-    // Read content and update cache with new path
-    if let Ok(content) = read_file_with_encoding(&new_path) {
-        cache_db.update_note_cache(&new_path, &content, &state.notes_dir)?;
-    }
+    // Read content and update cache/FTS with new path
+    let content = read_file_with_encoding(&new_path)?;
+    let title = Path::new(&new_path)
+        .file_stem()
+        .and_then(|name| name.to_str())
+        .unwrap_or("Untitled");
+    cache_db.update_note_cache_with_fts(&new_path, title, &content, &state.notes_dir)?;
+    update_cached_mtime(&cache_db, &new_path)?;
 
     Ok(new_path)
 }
@@ -1148,17 +1177,25 @@ pub async fn rename_folder(
         .lock()
         .map_err(|_| "Failed to lock cache database")?;
 
-    for old_note in notes_in_folder {
-        // Clear old cache
-        cache_db.clear_note_cache(&old_note.path)?;
+    // Remove old cache/metadata entries for all moved notes.
+    let stale_paths: Vec<String> = notes_in_folder.iter().map(|note| note.path.clone()).collect();
+    if !stale_paths.is_empty() {
+        cache_db.remove_stale_entries(&stale_paths)?;
+    }
 
+    for old_note in notes_in_folder {
         // Calculate new note path
         let new_note_path = old_note.path.replace(&old_path, &new_path);
 
-        // Update cache with new path
-        if let Ok(content) = read_file_with_encoding(&new_note_path) {
-            cache_db.update_note_cache(&new_note_path, &content, &state.notes_dir)?;
-        }
+        // Update cache and FTS with new path
+        let content = read_file_with_encoding(&new_note_path)?;
+        cache_db.update_note_cache_with_fts(
+            &new_note_path,
+            &old_note.title,
+            &content,
+            &state.notes_dir,
+        )?;
+        update_cached_mtime(&cache_db, &new_note_path)?;
     }
 
     Ok(new_path)
