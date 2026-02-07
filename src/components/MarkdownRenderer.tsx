@@ -249,29 +249,29 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, onL
         remarkPlugins={[remarkGfm]}
         components={{
           // Highlight text in paragraphs
-          p: ({ node, children, ...props }) => {
+          p: ({ node: _node, children, ...props }) => {
             return <p {...props}>{processChildren(children)}</p>;
           },
           // Highlight text in headings  
-          h1: ({ node, children, ...props }) => {
+          h1: ({ node: _node, children, ...props }) => {
             return <h1 {...props}>{processChildren(children)}</h1>;
           },
-          h2: ({ node, children, ...props }) => {
+          h2: ({ node: _node, children, ...props }) => {
             return <h2 {...props}>{processChildren(children)}</h2>;
           },
-          h3: ({ node, children, ...props }) => {
+          h3: ({ node: _node, children, ...props }) => {
             return <h3 {...props}>{processChildren(children)}</h3>;
           },
-          h4: ({ node, children, ...props }) => {
+          h4: ({ node: _node, children, ...props }) => {
             return <h4 {...props}>{processChildren(children)}</h4>;
           },
-          h5: ({ node, children, ...props }) => {
+          h5: ({ node: _node, children, ...props }) => {
             return <h5 {...props}>{processChildren(children)}</h5>;
           },
-          h6: ({ node, children, ...props }) => {
+          h6: ({ node: _node, children, ...props }) => {
             return <h6 {...props}>{processChildren(children)}</h6>;
           },
-          a: ({ node, ...props }) => {
+          a: ({ node: _node, ...props }) => {
             const href = props.href || '';
             
             // Style note links differently
@@ -344,7 +344,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, onL
             // Regular external links
             return <a {...props} target="_blank" rel="noopener noreferrer" />;
           },
-          img: ({ node, ...props }) => {
+          img: ({ node: _node, ...props }) => {
             const src = props.src || '';
             
             // If it's a relative path and we have the note path, convert to absolute
