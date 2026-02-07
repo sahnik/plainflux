@@ -35,7 +35,6 @@ function AppContent() {
   useKeyboardShortcuts(); // Add keyboard shortcuts for font size
   useWindowState(); // Handle window state persistence
   const [currentView, setCurrentView] = useState<ViewType>('notes');
-  const [selectedNote, setSelectedNote] = useState<Note | null>(null);
   const [tabs, setTabs] = useState<Tab[]>([]);
   const [activeTabIndex, setActiveTabIndex] = useState(0);
   const [isPreview, setIsPreview] = useState(false);
@@ -74,6 +73,7 @@ function AppContent() {
   const [recentNotesFilter, setRecentNotesFilter] = useState<RecentNotesFilter>('Today');
   const [graphSearchTerm, setGraphSearchTerm] = useState('');
   const [graphMaxHops, setGraphMaxHops] = useState(2);
+  const selectedNote = tabs[activeTabIndex]?.note ?? null;
 
   const { data: notes = [] } = useQuery({
     queryKey: ['notes'],
@@ -182,23 +182,76 @@ function AppContent() {
     },
   });
 
+  const replaceActiveTabOrOpen = useCallback((note: Note) => {
+    setTabs(currentTabs => {
+      if (currentTabs.length === 0) {
+        setActiveTabIndex(0);
+        return [{ note, isDirty: false }];
+      }
+
+      const safeIndex = Math.min(activeTabIndex, currentTabs.length - 1);
+      if (safeIndex !== activeTabIndex) {
+        setActiveTabIndex(safeIndex);
+      }
+
+      const updatedTabs = [...currentTabs];
+      updatedTabs[safeIndex] = { note, isDirty: false };
+      return updatedTabs;
+    });
+  }, [activeTabIndex]);
+
+  const updateTabByPath = useCallback((path: string, updater: (tab: Tab) => Tab) => {
+    setTabs(currentTabs => currentTabs.map(tab => (tab.note.path === path ? updater(tab) : tab)));
+  }, []);
+
+  const removeTabs = useCallback((predicate: (tab: Tab) => boolean) => {
+    setTabs(currentTabs => {
+      if (currentTabs.length === 0) {
+        return currentTabs;
+      }
+
+      const activePath = currentTabs[activeTabIndex]?.note.path;
+      const remainingTabs = currentTabs.filter(tab => !predicate(tab));
+
+      if (remainingTabs.length === 0) {
+        setActiveTabIndex(0);
+        return [];
+      }
+
+      if (activePath && remainingTabs.some(tab => tab.note.path === activePath)) {
+        const newActiveIndex = remainingTabs.findIndex(tab => tab.note.path === activePath);
+        setActiveTabIndex(newActiveIndex);
+      } else {
+        setActiveTabIndex(Math.min(activeTabIndex, remainingTabs.length - 1));
+      }
+
+      return remainingTabs;
+    });
+  }, [activeTabIndex]);
+
+  const normalizePathForCompare = useCallback((path: string) => path.replace(/\\/g, '/'), []);
+
+  const isPathInsideFolder = useCallback((notePath: string, folderPath: string) => {
+    const normalizedFolder = normalizePathForCompare(folderPath).replace(/^\/+|\/+$/g, '');
+    if (!normalizedFolder) return false;
+    const normalizedNotePath = normalizePathForCompare(notePath);
+    return normalizedNotePath.includes(`/${normalizedFolder}/`);
+  }, [normalizePathForCompare]);
+
   // Tab management functions
   const openInNewTab = useCallback((note: Note) => {
-    // Check if the note is already open in a tab
-    const existingTabIndex = tabs.findIndex(tab => tab.note.path === note.path);
-    
-    if (existingTabIndex !== -1) {
-      // Note is already open, switch to that tab
-      setActiveTabIndex(existingTabIndex);
-    } else {
-      // Open in new tab
-      const newTab: Tab = { note, isDirty: false };
-      setTabs([...tabs, newTab]);
-      setActiveTabIndex(tabs.length);
-    }
-    
-    setSelectedNote(note);
-  }, [tabs]);
+    setTabs(currentTabs => {
+      const existingTabIndex = currentTabs.findIndex(tab => tab.note.path === note.path);
+
+      if (existingTabIndex !== -1) {
+        setActiveTabIndex(existingTabIndex);
+        return currentTabs;
+      }
+
+      setActiveTabIndex(currentTabs.length);
+      return [...currentTabs, { note, isDirty: false }];
+    });
+  }, []);
 
   const closeTab = useCallback((index: number) => {
     const tabToClose = tabs[index];
@@ -217,13 +270,11 @@ function AppContent() {
     
     // Adjust active tab index
     if (newTabs.length === 0) {
-      setSelectedNote(null);
       setActiveTabIndex(0);
     } else if (index === activeTabIndex) {
       // Closing the active tab
       const newActiveIndex = index >= newTabs.length ? newTabs.length - 1 : index;
       setActiveTabIndex(newActiveIndex);
-      setSelectedNote(newTabs[newActiveIndex].note);
     } else if (index < activeTabIndex) {
       // Closing a tab before the active one
       setActiveTabIndex(activeTabIndex - 1);
@@ -233,7 +284,6 @@ function AppContent() {
   const switchTab = useCallback((index: number) => {
     if (index >= 0 && index < tabs.length) {
       setActiveTabIndex(index);
-      setSelectedNote(tabs[index].note);
     }
   }, [tabs]);
 
@@ -304,20 +354,7 @@ function AppContent() {
 
   const handleNoteSelect = async (noteMetadata: NoteMetadata) => {
     const note = await tauriApi.readNote(noteMetadata.path);
-    
-    // Single click: replace current tab or open first tab
-    if (tabs.length === 0) {
-      openInNewTab(note);
-    } else {
-      // Replace current tab's content
-      const updatedTabs = [...tabs];
-      updatedTabs[activeTabIndex] = {
-        note,
-        isDirty: false
-      };
-      setTabs(updatedTabs);
-      setSelectedNote(note);
-    }
+    replaceActiveTabOrOpen(note);
     
     // Clear search term when selecting from non-search views
     if (currentView !== 'search') {
@@ -336,20 +373,7 @@ function AppContent() {
 
   const handleRecentNoteSelect = async (recentNote: RecentNote) => {
     const note = await tauriApi.readNote(recentNote.path);
-
-    // Single click: replace current tab or open first tab
-    if (tabs.length === 0) {
-      openInNewTab(note);
-    } else {
-      // Replace current tab's content
-      const updatedTabs = [...tabs];
-      updatedTabs[activeTabIndex] = {
-        note,
-        isDirty: false
-      };
-      setTabs(updatedTabs);
-      setSelectedNote(note);
-    }
+    replaceActiveTabOrOpen(note);
 
     setSearchTerm('');
   };
@@ -386,13 +410,6 @@ function AppContent() {
       };
       return updatedTabs;
     });
-
-    // Update selectedNote with the new content
-    setSelectedNote(current =>
-      current && current.path === notePath
-        ? { ...current, content }
-        : current
-    );
 
     // Save with explicit path to avoid closure issues
     saveMutation.mutate({ path: notePath, content });
@@ -432,19 +449,7 @@ function AppContent() {
 
   const handleBacklinkClick = async (path: string) => {
     const note = await tauriApi.readNote(path);
-
-    // Backlinks: single click replaces current tab
-    if (tabs.length === 0) {
-      openInNewTab(note);
-    } else {
-      const updatedTabs = [...tabs];
-      updatedTabs[activeTabIndex] = {
-        note,
-        isDirty: false
-      };
-      setTabs(updatedTabs);
-      setSelectedNote(note);
-    }
+    replaceActiveTabOrOpen(note);
 
     setSearchTerm('');
   };
@@ -499,11 +504,10 @@ function AppContent() {
   const handleNoteMove = async (note: NoteMetadata, targetFolder: string) => {
     try {
       const newPath = await tauriApi.moveNote(note.path, targetFolder);
-      
-      // If this is the currently selected note, update its path
-      if (selectedNote && selectedNote.path === note.path) {
-        setSelectedNote({ ...selectedNote, path: newPath });
-      }
+      updateTabByPath(note.path, (tab) => ({
+        ...tab,
+        note: { ...tab.note, path: newPath }
+      }));
       
       // Refresh the notes list
       queryClient.invalidateQueries({ queryKey: ['notes'] });
@@ -520,17 +524,7 @@ function AppContent() {
       if (existingNotePath) {
         // Note exists, replace current tab
         const note = await tauriApi.readNote(existingNotePath);
-        if (tabs.length === 0) {
-          openInNewTab(note);
-        } else {
-          const updatedTabs = [...tabs];
-          updatedTabs[activeTabIndex] = {
-            note,
-            isDirty: false
-          };
-          setTabs(updatedTabs);
-          setSelectedNote(note);
-        }
+        replaceActiveTabOrOpen(note);
         // Set scroll to block ID if provided
         if (blockId) {
           setScrollToBlockId(blockId);
@@ -584,18 +578,10 @@ function AppContent() {
     try {
       if (deleteDialog.type === 'note') {
         await tauriApi.deleteNote(deleteDialog.item.path);
-        
-        // If the deleted note was selected, clear selection
-        if (selectedNote && selectedNote.path === deleteDialog.item.path) {
-          setSelectedNote(null);
-        }
+        removeTabs(tab => tab.note.path === deleteDialog.item.path);
       } else {
         await tauriApi.deleteFolder(deleteDialog.item.path);
-        
-        // If a note in the deleted folder was selected, clear selection
-        if (selectedNote && selectedNote.path.startsWith(deleteDialog.item.path)) {
-          setSelectedNote(null);
-        }
+        removeTabs(tab => isPathInsideFolder(tab.note.path, deleteDialog.item.path));
       }
       
       // Refresh the notes list and related caches
@@ -657,7 +643,7 @@ function AppContent() {
 
       // Open the newly created note
       const note = await tauriApi.readNote(newNotePath);
-      setSelectedNote(note);
+      openInNewTab(note);
 
       // Refresh the notes list and link data (new note may have incoming links)
       queryClient.invalidateQueries({ queryKey: ['notes'] });
@@ -694,14 +680,38 @@ function AppContent() {
     try {
       if (renameDialog.type === 'note') {
         const newPath = await tauriApi.renameNote(renameDialog.oldPath, newName);
-        
-        // If the renamed note was selected, update its path
-        if (selectedNote?.path === renameDialog.oldPath) {
-          const updatedNote = await tauriApi.readNote(newPath);
-          setSelectedNote(updatedNote);
-        }
+        const updatedNote = await tauriApi.readNote(newPath);
+        updateTabByPath(renameDialog.oldPath, () => ({
+          note: updatedNote,
+          isDirty: false
+        }));
       } else {
-        await tauriApi.renameFolder(renameDialog.oldPath, newName);
+        const newFolderPath = await tauriApi.renameFolder(renameDialog.oldPath, newName);
+        setTabs(currentTabs => currentTabs.map(tab => {
+          const normalizedTabPath = normalizePathForCompare(tab.note.path);
+          const normalizedOldFolder = normalizePathForCompare(renameDialog.oldPath).replace(/^\/+|\/+$/g, '');
+          const normalizedNewFolder = normalizePathForCompare(newFolderPath).replace(/^\/+|\/+$/g, '');
+
+          if (!normalizedOldFolder) {
+            return tab;
+          }
+
+          const oldSegment = `/${normalizedOldFolder}/`;
+          if (!normalizedTabPath.includes(oldSegment)) {
+            return tab;
+          }
+
+          const newSegment = `/${normalizedNewFolder}/`;
+          const updatedNormalizedPath = normalizedTabPath.replace(oldSegment, newSegment);
+          const updatedPath = tab.note.path.includes('\\')
+            ? updatedNormalizedPath.replace(/\//g, '\\')
+            : updatedNormalizedPath;
+
+          return {
+            ...tab,
+            note: { ...tab.note, path: updatedPath }
+          };
+        }));
       }
       
       // Refresh the lists
@@ -722,7 +732,11 @@ function AppContent() {
     
     try {
       const updatedContent = await tauriApi.toggleTodo(selectedNote.path, lineNumber);
-      setSelectedNote({ ...selectedNote, content: updatedContent });
+      updateTabByPath(selectedNote.path, (tab) => ({
+        ...tab,
+        note: { ...tab.note, content: updatedContent },
+        isDirty: false
+      }));
       
       // Invalidate todos query to refresh the list
       queryClient.invalidateQueries({ queryKey: ['allTodos'] });
@@ -734,11 +748,11 @@ function AppContent() {
   const handleTodoToggleFromList = async (todo: Todo) => {
     try {
       const updatedContent = await tauriApi.toggleTodo(todo.note_path, todo.line_number);
-      
-      // If this is the currently selected note, update its content
-      if (selectedNote && selectedNote.path === todo.note_path) {
-        setSelectedNote({ ...selectedNote, content: updatedContent });
-      }
+      updateTabByPath(todo.note_path, (tab) => ({
+        ...tab,
+        note: { ...tab.note, content: updatedContent },
+        isDirty: false
+      }));
       
       // Invalidate todos query to refresh the list
       queryClient.invalidateQueries({ queryKey: ['allTodos'] });
@@ -750,19 +764,7 @@ function AppContent() {
   const handleTodoNoteClick = async (notePath: string, lineNumber?: number) => {
     try {
       const note = await tauriApi.readNote(notePath);
-
-      // Todo notes: replace current tab
-      if (tabs.length === 0) {
-        openInNewTab(note);
-      } else {
-        const updatedTabs = [...tabs];
-        updatedTabs[activeTabIndex] = {
-          note,
-          isDirty: false
-        };
-        setTabs(updatedTabs);
-        setSelectedNote(note);
-      }
+      replaceActiveTabOrOpen(note);
 
       // If a line number is provided, scroll to that line
       if (lineNumber !== undefined) {
@@ -785,21 +787,11 @@ function AppContent() {
       const newContent = selectedNote.content + `\n- [ ] ${todoContent}`;
 
       await tauriApi.saveNote(selectedNote.path, newContent);
-
-      // Update the selected note
-      const updatedNote = { ...selectedNote, content: newContent };
-      setSelectedNote(updatedNote);
-
-      // Update the tab if it exists
-      const tabIndex = tabs.findIndex(tab => tab.note.path === selectedNote.path);
-      if (tabIndex !== -1) {
-        const updatedTabs = [...tabs];
-        updatedTabs[tabIndex] = {
-          note: updatedNote,
-          isDirty: false
-        };
-        setTabs(updatedTabs);
-      }
+      updateTabByPath(selectedNote.path, (tab) => ({
+        ...tab,
+        note: { ...tab.note, content: newContent },
+        isDirty: false
+      }));
 
       // Invalidate queries to refresh
       queryClient.invalidateQueries({ queryKey: ['allTodos'] });
@@ -835,19 +827,7 @@ function AppContent() {
   const handleBookmarkNoteClick = async (notePath: string, lineNumber?: number) => {
     try {
       const note = await tauriApi.readNote(notePath);
-
-      // Bookmark notes: replace current tab
-      if (tabs.length === 0) {
-        openInNewTab(note);
-      } else {
-        const updatedTabs = [...tabs];
-        updatedTabs[activeTabIndex] = {
-          note,
-          isDirty: false
-        };
-        setTabs(updatedTabs);
-        setSelectedNote(note);
-      }
+      replaceActiveTabOrOpen(note);
 
       // If a line number is provided, scroll to that line
       if (lineNumber !== undefined) {
@@ -912,18 +892,7 @@ function AppContent() {
             onResultSelect={async (notePath) => {
               // Read the note and open it
               const note = await tauriApi.readNote(notePath);
-              // Search results: single click replaces current tab
-              if (tabs.length === 0) {
-                openInNewTab(note);
-              } else {
-                const updatedTabs = [...tabs];
-                updatedTabs[activeTabIndex] = {
-                  note,
-                  isDirty: false
-                };
-                setTabs(updatedTabs);
-                setSelectedNote(note);
-              }
+              replaceActiveTabOrOpen(note);
             }}
           />
         );
@@ -1061,18 +1030,7 @@ function AppContent() {
                 data={filteredGraphData}
                 onNodeClick={async (nodeId) => {
                   const note = await tauriApi.readNote(nodeId);
-                  // Graph nodes: replace current tab
-                  if (tabs.length === 0) {
-                    openInNewTab(note);
-                  } else {
-                    const updatedTabs = [...tabs];
-                    updatedTabs[activeTabIndex] = {
-                      note,
-                      isDirty: false
-                    };
-                    setTabs(updatedTabs);
-                    setSelectedNote(note);
-                  }
+                  replaceActiveTabOrOpen(note);
                   setShowGlobalGraph(false);
                 }}
                 isLocal={false}
@@ -1093,18 +1051,7 @@ function AppContent() {
                 data={localGraphData}
                 onNodeClick={async (nodeId) => {
                   const note = await tauriApi.readNote(nodeId);
-                  // Graph nodes: replace current tab
-                  if (tabs.length === 0) {
-                    openInNewTab(note);
-                  } else {
-                    const updatedTabs = [...tabs];
-                    updatedTabs[activeTabIndex] = {
-                      note,
-                      isDirty: false
-                    };
-                    setTabs(updatedTabs);
-                    setSelectedNote(note);
-                  }
+                  replaceActiveTabOrOpen(note);
                   setShowLocalGraph(false);
                 }}
                 isLocal={true}
