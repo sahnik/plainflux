@@ -139,6 +139,10 @@ export const NotesTree: React.FC<NotesTreeProps> = ({
     setExpandedFolders(newExpanded);
   };
 
+  const isRootFolderContext =
+    contextMenu?.type === 'folder' &&
+    (!contextMenu.item?.path || contextMenu.item.path === '.' || contextMenu.item.path === '/' || contextMenu.item.path === '\\');
+
   return (
     <div className="notes-tree">
       <FolderItem
@@ -207,39 +211,43 @@ export const NotesTree: React.FC<NotesTreeProps> = ({
               <div className="context-menu-separator" />
             </>
           )}
-          {contextMenu.type === 'folder' && <div className="context-menu-separator" />}
-          <button
-            className="context-menu-item"
-            onClick={(e) => {
-              e.stopPropagation();
-              // Trigger rename dialog
-              if (contextMenu.type === 'note') {
-                onNoteRename?.(contextMenu.item);
-              } else {
-                onFolderRename?.(contextMenu.item.path, contextMenu.item.name);
-              }
-              setContextMenu(null);
-            }}
-          >
-            <Edit size={14} />
-            <span>Rename</span>
-          </button>
-          <div className="context-menu-separator" />
-          <button
-            className="context-menu-item"
-            onClick={(e) => {
-              e.stopPropagation();
-              if (contextMenu.type === 'note') {
-                onNoteDelete(contextMenu.item);
-              } else {
-                onFolderDelete(contextMenu.item.path);
-              }
-              setContextMenu(null);
-            }}
-          >
-            <Trash2 size={14} />
-            <span>Delete {contextMenu.type}</span>
-          </button>
+          {(contextMenu.type === 'note' || !isRootFolderContext) && (
+            <>
+              {contextMenu.type === 'folder' && <div className="context-menu-separator" />}
+              <button
+                className="context-menu-item"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  // Trigger rename dialog
+                  if (contextMenu.type === 'note') {
+                    onNoteRename?.(contextMenu.item);
+                  } else {
+                    onFolderRename?.(contextMenu.item.path, contextMenu.item.name);
+                  }
+                  setContextMenu(null);
+                }}
+              >
+                <Edit size={14} />
+                <span>Rename</span>
+              </button>
+              <div className="context-menu-separator" />
+              <button
+                className="context-menu-item"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (contextMenu.type === 'note') {
+                    onNoteDelete(contextMenu.item);
+                  } else {
+                    onFolderDelete(contextMenu.item.path);
+                  }
+                  setContextMenu(null);
+                }}
+              >
+                <Trash2 size={14} />
+                <span>Delete {contextMenu.type}</span>
+              </button>
+            </>
+          )}
         </div>
       )}
     </div>

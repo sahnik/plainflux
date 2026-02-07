@@ -1,7 +1,7 @@
 use crate::utils::safe_write_file;
 use serde::{Deserialize, Serialize};
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 use walkdir::WalkDir;
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -463,7 +463,64 @@ fn extract_search_snippets(content: &str, query_lower: &str) -> Vec<SearchSnippe
     snippets
 }
 
+fn validate_relative_folder_path(folder_path: &str, allow_root: bool) -> Result<(), String> {
+    let trimmed = folder_path.trim();
+
+    if trimmed.is_empty() {
+        return if allow_root {
+            Ok(())
+        } else {
+            Err("Cannot perform this operation on the root notes folder".to_string())
+        };
+    }
+
+    let path = Path::new(trimmed);
+    if path.is_absolute() {
+        return Err("Absolute folder paths are not allowed".to_string());
+    }
+
+    let mut has_normal_component = false;
+
+    for component in path.components() {
+        match component {
+            Component::ParentDir => {
+                return Err("Parent directory traversal is not allowed".to_string())
+            }
+            Component::RootDir | Component::Prefix(_) => {
+                return Err("Absolute folder paths are not allowed".to_string())
+            }
+            Component::Normal(_) => has_normal_component = true,
+            Component::CurDir => {}
+        }
+    }
+
+    if !has_normal_component {
+        return if allow_root {
+            Ok(())
+        } else {
+            Err("Cannot perform this operation on the root notes folder".to_string())
+        };
+    }
+
+    Ok(())
+}
+
+fn validate_folder_name(name: &str) -> Result<(), String> {
+    let trimmed = name.trim();
+    if trimmed.is_empty() {
+        return Err("Folder name cannot be empty".to_string());
+    }
+
+    if trimmed == "." || trimmed == ".." || trimmed.contains('/') || trimmed.contains('\\') {
+        return Err("Folder name must not contain path separators or traversal".to_string());
+    }
+
+    Ok(())
+}
+
 pub fn move_note(old_path: &str, new_folder: &str, base_path: &str) -> Result<String, String> {
+    validate_relative_folder_path(new_folder, true)?;
+
     let old_path_buf = Path::new(old_path);
     let filename = old_path_buf
         .file_name()
@@ -487,6 +544,8 @@ pub fn move_note(old_path: &str, new_folder: &str, base_path: &str) -> Result<St
 }
 
 pub fn delete_folder(folder_path: &str, base_path: &str) -> Result<Vec<String>, String> {
+    validate_relative_folder_path(folder_path, false)?;
+
     let base = Path::new(base_path);
     let full_path = base.join(folder_path);
 
@@ -513,6 +572,8 @@ pub fn delete_folder(folder_path: &str, base_path: &str) -> Result<Vec<String>, 
 }
 
 pub fn delete_folder_confirmed(folder_path: &str, base_path: &str) -> Result<(), String> {
+    validate_relative_folder_path(folder_path, false)?;
+
     let base = Path::new(base_path);
     let full_path = base.join(folder_path);
 
@@ -522,6 +583,8 @@ pub fn delete_folder_confirmed(folder_path: &str, base_path: &str) -> Result<(),
 }
 
 pub fn create_folder(folder_path: &str, base_path: &str) -> Result<(), String> {
+    validate_relative_folder_path(folder_path, false)?;
+
     let base = Path::new(base_path);
     let full_path = base.join(folder_path);
 
@@ -569,6 +632,9 @@ pub fn rename_note(old_path: &str, new_name: &str) -> Result<String, String> {
 }
 
 pub fn rename_folder(old_path: &str, new_name: &str, base_path: &str) -> Result<String, String> {
+    validate_relative_folder_path(old_path, false)?;
+    validate_folder_name(new_name)?;
+
     let base = Path::new(base_path);
     let old_full_path = base.join(old_path);
 
