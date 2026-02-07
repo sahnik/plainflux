@@ -6,6 +6,8 @@ mod error;
 mod git_manager;
 mod note_manager;
 mod utils;
+#[cfg(test)]
+mod integration_tests;
 
 use cache::CacheDb;
 use commands::AppState;
