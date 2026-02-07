@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 import { EditorView, basicSetup } from 'codemirror';
 import { EditorState } from '@codemirror/state';
 import { markdown } from '@codemirror/lang-markdown';
@@ -35,30 +35,52 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, isPreview, onChang
   const editorRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   const autocompleteDataRef = useRef({ notes, tags });
+  const onChangeRef = useRef(onChange);
+  const onLinkClickRef = useRef(onLinkClick);
+  const onLinkOpenInNewTabRef = useRef(onLinkOpenInNewTab);
   const { settings } = useTheme();
+  const notePath = note?.path;
+  const noteContent = note?.content ?? '';
+  const noteContentRef = useRef(noteContent);
 
   // Update autocomplete data when notes or tags change
   useEffect(() => {
     autocompleteDataRef.current = { notes, tags };
   }, [notes, tags]);
 
+  useEffect(() => {
+    onChangeRef.current = onChange;
+  }, [onChange]);
+
+  useEffect(() => {
+    onLinkClickRef.current = onLinkClick;
+  }, [onLinkClick]);
+
+  useEffect(() => {
+    onLinkOpenInNewTabRef.current = onLinkOpenInNewTab;
+  }, [onLinkOpenInNewTab]);
+
+  useEffect(() => {
+    noteContentRef.current = noteContent;
+  }, [noteContent]);
+
   // Helper function to check if a note exists
-  const noteExists = (noteName: string): boolean => {
-    return notes.some(note =>
+  const noteExists = useCallback((noteName: string): boolean => {
+    return autocompleteDataRef.current.notes.some(note =>
       note.title.toLowerCase() === noteName.toLowerCase() ||
       note.title.toLowerCase() === noteName.toLowerCase() + '.md'
     );
-  };
+  }, []);
 
   useEffect(() => {
-    if (!note || isPreview || !editorRef.current) return;
+    if (!notePath || isPreview || !editorRef.current) return;
 
     if (viewRef.current) {
       viewRef.current.destroy();
     }
 
     const startState = EditorState.create({
-      doc: note.content,
+      doc: noteContentRef.current,
       extensions: [
         basicSetup,
         markdown(),
@@ -66,17 +88,21 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, isPreview, onChang
         createSyntaxHighlighting(settings.theme),
         EditorView.lineWrapping,
         createAutocompleteExtension(autocompleteDataRef),
-        createPasteHandler(note.path),
+        createPasteHandler(notePath),
         createSearchHighlightExtension(),
         createGitBlameExtension(settings.showGitBlame),
-        createNoteLinkExtension(onLinkClick, onLinkOpenInNewTab, noteExists),
+        createNoteLinkExtension(
+          (noteName, blockId) => onLinkClickRef.current(noteName, blockId),
+          (noteName, blockId) => onLinkOpenInNewTabRef.current(noteName, blockId),
+          noteExists,
+        ),
         // createTransclusionExtension(onLinkClick), // Temporarily disabled - needs fix
         multiCursorKeymap,
         createFoldingExtension(),
         highlightLineExtension,
         EditorView.updateListener.of((update) => {
           if (update.docChanged) {
-            onChange(update.state.doc.toString());
+            onChangeRef.current(update.state.doc.toString());
           }
         }),
       ],
@@ -87,37 +113,38 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, isPreview, onChang
       parent: editorRef.current,
     });
 
-    // Apply search highlighting immediately if there's a search term
-    if (searchTerm) {
-      setSearchTerm(viewRef.current, searchTerm);
-      scrollToFirstMatch(viewRef.current, searchTerm);
-    }
-
     // Load git blame info for the current note
-    updateBlameInfo(viewRef.current, note.path, settings.showGitBlame);
+    updateBlameInfo(viewRef.current, notePath, settings.showGitBlame);
 
     return () => {
       if (viewRef.current) {
         viewRef.current.destroy();
       }
     };
-  }, [note?.path, isPreview, searchTerm, settings.theme, settings.fontSize, settings.showGitBlame]);
+  }, [
+    notePath,
+    isPreview,
+    settings.theme,
+    settings.fontSize,
+    settings.showGitBlame,
+    noteExists,
+  ]);
 
   // Update editor content when note changes
   useEffect(() => {
-    if (!note || isPreview || !viewRef.current) return;
+    if (!notePath || isPreview || !viewRef.current) return;
     
     const currentContent = viewRef.current.state.doc.toString();
-    if (currentContent !== note.content) {
+    if (currentContent !== noteContent) {
       viewRef.current.dispatch({
         changes: {
           from: 0,
           to: currentContent.length,
-          insert: note.content,
+          insert: noteContent,
         },
       });
     }
-  }, [note?.content, isPreview]);
+  }, [noteContent, notePath, isPreview]);
 
   // Update search highlighting when search term changes
   useEffect(() => {
@@ -131,7 +158,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, isPreview, onChang
 
   // Scroll to block when scrollToBlockId changes
   useEffect(() => {
-    if (!viewRef.current || isPreview || !scrollToBlockId || !note) return;
+    if (!viewRef.current || isPreview || !scrollToBlockId || !notePath) return;
 
     const scrollToBlock = async () => {
       try {
@@ -145,7 +172,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, isPreview, onChang
         }
 
         // Otherwise, try to resolve it as a block reference
-        const blockInfo = await tauriApi.getBlockReference(note.path, scrollToBlockId);
+        const blockInfo = await tauriApi.getBlockReference(notePath, scrollToBlockId);
         if (blockInfo) {
           const [lineNumber] = blockInfo;
           scrollToLineAndHighlight(viewRef.current!, lineNumber);
@@ -156,7 +183,7 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, isPreview, onChang
     };
 
     scrollToBlock();
-  }, [scrollToBlockId, isPreview, note?.path]);
+  }, [scrollToBlockId, isPreview, notePath]);
 
   if (!note) {
     return <div className="editor-empty">Select a note to start editing</div>;

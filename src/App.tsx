@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { QueryClient, QueryClientProvider, useQuery, useMutation } from '@tanstack/react-query';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 import { Eye, Edit, FileText, Network } from 'lucide-react';
@@ -82,6 +82,7 @@ function AppContent() {
   const [recentNotesFilter, setRecentNotesFilter] = useState<RecentNotesFilter>('Today');
   const [graphSearchTerm, setGraphSearchTerm] = useState('');
   const [graphMaxHops, setGraphMaxHops] = useState(2);
+  const didOpenDailyNoteRef = useRef(false);
   const selectedNote = tabs[activeTabIndex]?.note ?? null;
 
   const { data: notes = [] } = useQuery({
@@ -252,12 +253,6 @@ function AppContent() {
     }
   }, [tabs]);
 
-
-  // Open daily note on startup
-  useEffect(() => {
-    handleDailyNote();
-  }, []); // Empty dependency array means this runs once on mount
-
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -391,13 +386,23 @@ function AppContent() {
     setSearchTerm(query);
   }, []);
 
-  const handleDailyNote = async () => {
+  const handleDailyNote = useCallback(async () => {
     const path = await tauriApi.getDailyNote();
     const note = await tauriApi.readNote(path);
     openInNewTab(note);
     setCurrentView('notes');
     setSearchTerm('');
-  };
+  }, [openInNewTab]);
+
+  // Open daily note on startup
+  useEffect(() => {
+    if (didOpenDailyNoteRef.current) {
+      return;
+    }
+
+    didOpenDailyNoteRef.current = true;
+    void handleDailyNote();
+  }, [handleDailyNote]);
 
   const handleTagSelect = async (tag: string) => {
     const notePaths = await tauriApi.getNotesByTag(tag);

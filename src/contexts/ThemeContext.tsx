@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useState, ReactNode } from 'react';
 import { tauriApi, AppSettings as TauriAppSettings } from '../api/tauri';
 import { AppSettings, ThemeColors, getThemeColors, applyCSSVariables, defaultSettings } from '../utils/themes';
 
@@ -28,11 +28,6 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
   const [colors, setColors] = useState<ThemeColors>(getThemeColors(defaultSettings));
   const [isLoading, setIsLoading] = useState(true);
 
-  // Load settings on mount
-  useEffect(() => {
-    loadSettings();
-  }, []);
-
   // Apply theme whenever settings change
   useEffect(() => {
     const newColors = getThemeColors(settings);
@@ -40,7 +35,7 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
     applyCSSVariables(newColors, settings.fontSize);
   }, [settings]);
 
-  const convertFromTauriSettings = (tauriSettings: TauriAppSettings): AppSettings => {
+  const convertFromTauriSettings = useCallback((tauriSettings: TauriAppSettings): AppSettings => {
     return {
       theme: tauriSettings.theme as 'dark' | 'light' | 'custom',
       fontSize: tauriSettings.font_size,
@@ -61,9 +56,9 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
       windowY: tauriSettings.window_y,
       windowMaximized: tauriSettings.window_maximized,
     };
-  };
+  }, []);
 
-  const convertToTauriSettings = (settings: AppSettings): TauriAppSettings => {
+  const convertToTauriSettings = useCallback((settings: AppSettings): TauriAppSettings => {
     return {
       theme: settings.theme,
       font_size: settings.fontSize,
@@ -84,9 +79,9 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
       window_y: settings.windowY,
       window_maximized: settings.windowMaximized,
     };
-  };
+  }, []);
 
-  const loadSettings = async () => {
+  const loadSettings = useCallback(async () => {
     try {
       const savedSettings = await tauriApi.getAppSettings();
       setSettings(convertFromTauriSettings(savedSettings));
@@ -96,7 +91,12 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [convertFromTauriSettings]);
+
+  // Load settings on mount
+  useEffect(() => {
+    void loadSettings();
+  }, [loadSettings]);
 
   const updateSettings = async (newSettings: Partial<AppSettings>) => {
     const updatedSettings = { ...settings, ...newSettings };

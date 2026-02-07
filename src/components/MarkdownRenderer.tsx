@@ -44,7 +44,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, onL
         }
       }
     });
-  }, [content]);
+  }, [content, transcludedContent]);
 
   // Scroll to first search match when search term changes
   React.useEffect(() => {

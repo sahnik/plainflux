@@ -14,6 +14,42 @@ type FilterOption = 'all' | 'incomplete' | 'completed';
 type DateFilterOption = 'all' | 'today' | 'this_week' | 'overdue' | 'no_date';
 type PriorityFilterOption = 'all' | 'high' | 'medium' | 'low' | 'no_priority';
 
+const formatLocalDate = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const getTodayString = (): string => {
+  return formatLocalDate(new Date());
+};
+
+const getEndOfWeekString = (): string => {
+  const date = new Date();
+  const dayOfWeek = date.getDay();
+  const daysUntilSunday = 7 - dayOfWeek;
+  date.setDate(date.getDate() + daysUntilSunday);
+  return formatLocalDate(date);
+};
+
+const isOverdue = (dueDate: string | null | undefined): boolean => {
+  if (!dueDate) return false;
+  return dueDate < getTodayString();
+};
+
+const isDueToday = (dueDate: string | null | undefined): boolean => {
+  if (!dueDate) return false;
+  return dueDate === getTodayString();
+};
+
+const isDueThisWeek = (dueDate: string | null | undefined): boolean => {
+  if (!dueDate) return false;
+  const today = getTodayString();
+  const endOfWeek = getEndOfWeekString();
+  return dueDate >= today && dueDate <= endOfWeek;
+};
+
 export const TodosList: React.FC<TodosListProps> = ({ todos, onTodoToggle, onNoteClick }) => {
   const [sortBy, setSortBy] = useState<SortOption>('note');
   const [filterBy, setFilterBy] = useState<FilterOption>('incomplete');
@@ -42,43 +78,6 @@ export const TodosList: React.FC<TodosListProps> = ({ todos, onTodoToggle, onNot
   }, [todos]);
 
   const [selectedTags, setSelectedTags] = useState<Set<string>>(new Set());
-
-  // Date helper functions
-  const formatLocalDate = (date: Date): string => {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  };
-
-  const getTodayString = () => {
-    return formatLocalDate(new Date());
-  };
-
-  const getEndOfWeekString = () => {
-    const date = new Date();
-    const dayOfWeek = date.getDay();
-    const daysUntilSunday = 7 - dayOfWeek;
-    date.setDate(date.getDate() + daysUntilSunday);
-    return formatLocalDate(date);
-  };
-
-  const isOverdue = (dueDate: string | null | undefined): boolean => {
-    if (!dueDate) return false;
-    return dueDate < getTodayString();
-  };
-
-  const isDueToday = (dueDate: string | null | undefined): boolean => {
-    if (!dueDate) return false;
-    return dueDate === getTodayString();
-  };
-
-  const isDueThisWeek = (dueDate: string | null | undefined): boolean => {
-    if (!dueDate) return false;
-    const today = getTodayString();
-    const endOfWeek = getEndOfWeekString();
-    return dueDate >= today && dueDate <= endOfWeek;
-  };
 
   // Filter and sort todos
   const filteredAndSortedTodos = useMemo(() => {
