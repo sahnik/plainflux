@@ -44,8 +44,15 @@ export const TodosList: React.FC<TodosListProps> = ({ todos, onTodoToggle, onNot
   const [selectedTags, setSelectedTags] = useState<Set<string>>(new Set());
 
   // Date helper functions
+  const formatLocalDate = (date: Date): string => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
   const getTodayString = () => {
-    return new Date().toISOString().split('T')[0];
+    return formatLocalDate(new Date());
   };
 
   const getEndOfWeekString = () => {
@@ -53,7 +60,7 @@ export const TodosList: React.FC<TodosListProps> = ({ todos, onTodoToggle, onNot
     const dayOfWeek = date.getDay();
     const daysUntilSunday = 7 - dayOfWeek;
     date.setDate(date.getDate() + daysUntilSunday);
-    return date.toISOString().split('T')[0];
+    return formatLocalDate(date);
   };
 
   const isOverdue = (dueDate: string | null | undefined): boolean => {

@@ -3,6 +3,7 @@ use crate::error::AppError;
 use crate::git_manager::{GitBlameInfo, GitManager};
 use crate::note_manager::{self, read_file_with_encoding, Note, NoteMetadata};
 use crate::utils::{ensure_dir_exists, safe_read_file, safe_write_file, validate_path_security};
+use chrono::{Duration as ChronoDuration, Local, TimeZone};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::path::Path;
@@ -1294,23 +1295,27 @@ pub async fn get_recent_notes(
 ) -> Result<Vec<RecentNote>, String> {
     let filter = filter.unwrap_or(RecentNotesFilter::Today);
 
-    // Get current time
-    let now = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map_err(|e| format!("Failed to get current time: {e}"))?
-        .as_secs();
+    let now_local = Local::now();
 
-    // Calculate cutoff timestamp based on filter
-    let cutoff = match filter {
+    // Calculate cutoff timestamp in local time based on filter
+    let cutoff_timestamp = match filter {
         RecentNotesFilter::Today => {
-            // Start of today (midnight)
-            let secs_since_midnight = now % 86400;
-            now - secs_since_midnight
+            let local_midnight = now_local
+                .date_naive()
+                .and_hms_opt(0, 0, 0)
+                .ok_or_else(|| "Failed to construct local midnight".to_string())?;
+            let local_midnight_result = Local.from_local_datetime(&local_midnight);
+            local_midnight_result
+                .earliest()
+                .or_else(|| local_midnight_result.latest())
+                .map(|dt| dt.timestamp())
+                .ok_or_else(|| "Failed to resolve local midnight timestamp".to_string())?
         }
-        RecentNotesFilter::Week => now - (7 * 24 * 60 * 60),
-        RecentNotesFilter::Month => now - (30 * 24 * 60 * 60),
+        RecentNotesFilter::Week => (now_local - ChronoDuration::days(7)).timestamp(),
+        RecentNotesFilter::Month => (now_local - ChronoDuration::days(30)).timestamp(),
         RecentNotesFilter::All => 0,
     };
+    let cutoff = cutoff_timestamp.max(0) as u64;
 
     // Get all notes from filesystem
     let notes = note_manager::list_notes(&state.notes_dir)?;
