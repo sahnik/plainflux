@@ -17,6 +17,9 @@ interface MarkdownRendererProps {
 }
 
 export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, onLinkClick, onTagClick, onTodoToggle, notePath, notes, searchTerm }) => {
+  const TODO_LINE_MARKER_PREFIX = '__plainflux_todo_line_';
+  const TODO_LINE_MARKER_REGEX = new RegExp(`^${TODO_LINE_MARKER_PREFIX}(\\d+)__$`);
+
   // Store link and tag handlers in a ref to avoid stale closures
   const linkHandlersRef = React.useRef<{ [key: string]: () => void }>({});
   const tagHandlersRef = React.useRef<{ [key: string]: () => void }>({});
@@ -100,10 +103,19 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, onL
     
     // Don't process checkboxes here, we'll handle them in the component
     // Just track line numbers for todos
-    if (onTodoToggle && /^(\s*[-*]\s*)\[([ xX])\]/.test(line)) {
-      const lineNumber = index + 1;
-      const todoId = `todo-line-${lineNumber}`;
-      todoHandlersRef.current[todoId] = () => onTodoToggle(lineNumber);
+    if (onTodoToggle) {
+      const todoMatch = line.match(/^(\s*[-*]\s*)\[([ xX])\]\s*(.*)$/);
+      if (todoMatch) {
+        const lineNumber = index + 1;
+        const todoId = `todo-line-${lineNumber}`;
+        todoHandlersRef.current[todoId] = () => onTodoToggle(lineNumber);
+
+        // Inject a stable line marker to avoid ambiguous matching when duplicate todo text exists.
+        const prefix = todoMatch[1];
+        const checkboxState = todoMatch[2];
+        const todoContent = todoMatch[3];
+        line = `${prefix}[${checkboxState}] ${TODO_LINE_MARKER_PREFIX}${lineNumber}__ ${todoContent}`;
+      }
     }
     
     return line;
@@ -370,13 +382,22 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, onL
             
             if (match && onTodoToggle) {
               const isChecked = match[1] !== ' ';
-              const content = match[2];
-              
-              // Find the line number for this todo
-              const lineText = `${isChecked ? '[x]' : '[ ]'} ${content}`;
-              const lineIndex = lines.findIndex(line => line.includes(lineText));
-              const lineNumber = lineIndex + 1;
-              const todoId = `todo-line-${lineNumber}`;
+              const rawContent = match[2];
+
+              const [firstToken = '', ...remainingTokens] = rawContent.split(/\s+/);
+              const markerMatch = firstToken.match(TODO_LINE_MARKER_REGEX);
+              const lineNumber = markerMatch ? parseInt(markerMatch[1], 10) : -1;
+              const content = markerMatch ? remainingTokens.join(' ').trim() : rawContent;
+
+              // Fallback if marker is missing for any reason
+              const resolvedLineNumber = lineNumber > 0
+                ? lineNumber
+                : lines.findIndex(line => line.includes(`${isChecked ? '[x]' : '[ ]'} ${content}`)) + 1;
+              if (resolvedLineNumber <= 0) {
+                return <li {...props}>{children}</li>;
+              }
+
+              const todoId = `todo-line-${resolvedLineNumber}`;
               
               return (
                 <li style={{ listStyle: 'none' }}>
