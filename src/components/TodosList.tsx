@@ -299,7 +299,7 @@ export const TodosList: React.FC<TodosListProps> = ({ todos, onTodoToggle, onNot
   };
 
   // Calculate subtask completion
-  const getSubtaskProgress = (todo: Todo & { children?: Todo[] }, allTodos: Todo[]): { completed: number; total: number } => {
+  const getSubtaskProgress = (todo: Todo, allTodos: Todo[]): { completed: number; total: number } => {
     const children = allTodos.filter(t =>
       t.note_path === todo.note_path &&
       t.parent_line === todo.line_number
@@ -317,7 +317,7 @@ export const TodosList: React.FC<TodosListProps> = ({ todos, onTodoToggle, onNot
         completed++;
       }
       // Recursively count nested subtasks
-      const childProgress = getSubtaskProgress(child as any, allTodos);
+      const childProgress = getSubtaskProgress(child, allTodos);
       completed += childProgress.completed;
       total += childProgress.total;
     });

@@ -9,6 +9,11 @@ interface QuickAddTodoProps {
   currentNotePath?: string;
 }
 
+type TodoPriority = 'none' | 'high' | 'medium' | 'low';
+
+const isTodoPriority = (value: string): value is TodoPriority =>
+  value === 'none' || value === 'high' || value === 'medium' || value === 'low';
+
 export const QuickAddTodo: React.FC<QuickAddTodoProps> = ({
   isOpen,
   onClose,
@@ -16,7 +21,7 @@ export const QuickAddTodo: React.FC<QuickAddTodoProps> = ({
   currentNotePath
 }) => {
   const [content, setContent] = useState('');
-  const [priority, setPriority] = useState<'none' | 'high' | 'medium' | 'low'>('none');
+  const [priority, setPriority] = useState<TodoPriority>('none');
   const [dueDate, setDueDate] = useState('');
   const [tags, setTags] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
@@ -105,7 +110,12 @@ export const QuickAddTodo: React.FC<QuickAddTodoProps> = ({
               </label>
               <select
                 value={priority}
-                onChange={(e) => setPriority(e.target.value as any)}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  if (isTodoPriority(value)) {
+                    setPriority(value);
+                  }
+                }}
                 className="quick-add-select"
               >
                 <option value="none">None</option>

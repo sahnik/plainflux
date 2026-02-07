@@ -24,6 +24,25 @@ interface FolderNode {
   notes: NoteMetadata[];
 }
 
+type FolderContextMenuItem = {
+  path: string;
+  name?: string;
+};
+
+type NotesTreeContextMenu =
+  | {
+      x: number;
+      y: number;
+      type: 'note';
+      item: NoteMetadata;
+    }
+  | {
+      x: number;
+      y: number;
+      type: 'folder';
+      item: FolderContextMenuItem;
+    };
+
 const buildFolderTree = (notes: NoteMetadata[], folders: string[]): FolderNode => {
   const root: FolderNode = {
     name: 'Notes',
@@ -100,7 +119,7 @@ export const NotesTree: React.FC<NotesTreeProps> = ({
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const [draggedNote, setDraggedNote] = useState<NoteMetadata | null>(null);
   const [dropTargetFolder, setDropTargetFolder] = useState<string | null>(null);
-  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; type: 'note' | 'folder'; item: any } | null>(null);
+  const [contextMenu, setContextMenu] = useState<NotesTreeContextMenu | null>(null);
   
   const folderTree = useMemo(() => buildFolderTree(notes, folders), [notes, folders]);
 
@@ -222,7 +241,7 @@ export const NotesTree: React.FC<NotesTreeProps> = ({
                   if (contextMenu.type === 'note') {
                     onNoteRename?.(contextMenu.item);
                   } else {
-                    onFolderRename?.(contextMenu.item.path, contextMenu.item.name);
+                    onFolderRename?.(contextMenu.item.path, contextMenu.item.name ?? '');
                   }
                   setContextMenu(null);
                 }}
@@ -270,7 +289,7 @@ const FolderItem: React.FC<{
   setDraggedNote: (note: NoteMetadata | null) => void;
   dropTargetFolder: string | null;
   setDropTargetFolder: (folder: string | null) => void;
-  setContextMenu: (menu: { x: number; y: number; type: 'note' | 'folder'; item: any } | null) => void;
+  setContextMenu: (menu: NotesTreeContextMenu | null) => void;
 }> = ({ 
   folder, 
   level, 
@@ -325,7 +344,7 @@ const FolderItem: React.FC<{
         x: e.clientX,
         y: e.clientY,
         type: 'folder',
-        item: folder
+        item: { path: folder.path, name: folder.name }
       });
     }
   };
@@ -458,7 +477,7 @@ const NoteItem: React.FC<{
   onDelete: (note: NoteMetadata) => void;
   setDraggedNote: (note: NoteMetadata | null) => void;
   isDragging: boolean;
-  setContextMenu: (menu: { x: number; y: number; type: 'note' | 'folder'; item: any } | null) => void;
+  setContextMenu: (menu: NotesTreeContextMenu | null) => void;
 }> = ({ note, level, selected, onSelect, onDoubleClick, setDraggedNote, isDragging, setContextMenu }) => {
   const [dragStart, setDragStart] = useState<{ x: number; y: number } | null>(null);
 

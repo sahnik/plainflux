@@ -40,6 +40,20 @@ import {
 
 const queryClient = new QueryClient();
 
+type DeleteDialogState =
+  | {
+      isOpen: boolean;
+      type: 'note';
+      item: NoteMetadata;
+      message: string;
+    }
+  | {
+      isOpen: boolean;
+      type: 'folder';
+      item: { path: string };
+      message: string;
+    };
+
 function AppContent() {
   useKeyboardShortcuts(); // Add keyboard shortcuts for font size
   useWindowState(); // Handle window state persistence
@@ -56,12 +70,7 @@ function AppContent() {
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [tagFilteredNotes, setTagFilteredNotes] = useState<NoteMetadata[]>([]);
   const [searchTerm, setSearchTerm] = useState<string>('');
-  const [deleteDialog, setDeleteDialog] = useState<{
-    isOpen: boolean;
-    type: 'note' | 'folder';
-    item: any;
-    message: string;
-  } | null>(null);
+  const [deleteDialog, setDeleteDialog] = useState<DeleteDialogState | null>(null);
   const [createFolderDialog, setCreateFolderDialog] = useState<{
     isOpen: boolean;
     parentPath: string;

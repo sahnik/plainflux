@@ -1,4 +1,4 @@
-import { Extension } from '@codemirror/state';
+import { Extension, type Range } from '@codemirror/state';
 import { EditorView, Decoration, DecorationSet, ViewUpdate, ViewPlugin, WidgetType } from '@codemirror/view';
 import { GitBlameInfo } from '../types';
 import { tauriApi } from '../api/tauri';
@@ -83,7 +83,7 @@ const blamePlugin = ViewPlugin.fromClass(
     }
 
     updateDecorations(view: EditorView) {
-      const decorations: any[] = [];
+      const decorations: Range<Decoration>[] = [];
 
       if (currentBlameInfo.length === 0) {
         this.decorations = Decoration.set([]);
