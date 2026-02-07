@@ -143,7 +143,7 @@ function AppContent() {
       queryClient.invalidateQueries({ queryKey: ['recentNotes'] });
       queryClient.invalidateQueries({ queryKey: ['backlinks'] });
       queryClient.invalidateQueries({ queryKey: ['outgoingLinks'] });
-      queryClient.invalidateQueries({ queryKey: ['filteredGraphData'] });
+      queryClient.invalidateQueries({ queryKey: ['filteredGraph'] });
       queryClient.invalidateQueries({ queryKey: ['localGraph'] });
 
       // Mark the tab as clean after successful save
@@ -487,7 +487,7 @@ function AppContent() {
         queryClient.invalidateQueries({ queryKey: ['notes'] });
         queryClient.invalidateQueries({ queryKey: ['backlinks'] });
         queryClient.invalidateQueries({ queryKey: ['outgoingLinks'] });
-        queryClient.invalidateQueries({ queryKey: ['filteredGraphData'] });
+        queryClient.invalidateQueries({ queryKey: ['filteredGraph'] });
         queryClient.invalidateQueries({ queryKey: ['localGraph'] });
       }
       setSearchTerm('');
@@ -538,7 +538,7 @@ function AppContent() {
         queryClient.invalidateQueries({ queryKey: ['notes'] });
         queryClient.invalidateQueries({ queryKey: ['backlinks'] });
         queryClient.invalidateQueries({ queryKey: ['outgoingLinks'] });
-        queryClient.invalidateQueries({ queryKey: ['filteredGraphData'] });
+        queryClient.invalidateQueries({ queryKey: ['filteredGraph'] });
         queryClient.invalidateQueries({ queryKey: ['localGraph'] });
       }
       setSearchTerm('');
@@ -590,7 +590,7 @@ function AppContent() {
       queryClient.invalidateQueries({ queryKey: ['tags'] });
       queryClient.invalidateQueries({ queryKey: ['backlinks'] });
       queryClient.invalidateQueries({ queryKey: ['outgoingLinks'] });
-      queryClient.invalidateQueries({ queryKey: ['filteredGraphData'] });
+      queryClient.invalidateQueries({ queryKey: ['filteredGraph'] });
       queryClient.invalidateQueries({ queryKey: ['localGraph'] });
     } catch (error) {
       console.error(`Failed to delete ${deleteDialog.type}:`, error);
@@ -649,7 +649,7 @@ function AppContent() {
       queryClient.invalidateQueries({ queryKey: ['notes'] });
       queryClient.invalidateQueries({ queryKey: ['backlinks'] });
       queryClient.invalidateQueries({ queryKey: ['outgoingLinks'] });
-      queryClient.invalidateQueries({ queryKey: ['filteredGraphData'] });
+      queryClient.invalidateQueries({ queryKey: ['filteredGraph'] });
       queryClient.invalidateQueries({ queryKey: ['localGraph'] });
     } catch (error) {
       console.error('Failed to create note:', error);
@@ -720,7 +720,7 @@ function AppContent() {
       queryClient.invalidateQueries({ queryKey: ['tags'] });
       queryClient.invalidateQueries({ queryKey: ['backlinks'] });
       queryClient.invalidateQueries({ queryKey: ['outgoingLinks'] });
-      queryClient.invalidateQueries({ queryKey: ['filteredGraphData'] });
+      queryClient.invalidateQueries({ queryKey: ['filteredGraph'] });
       queryClient.invalidateQueries({ queryKey: ['localGraph'] });
     } catch (error) {
       console.error(`Failed to rename ${renameDialog.type}:`, error);

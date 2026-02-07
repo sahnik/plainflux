@@ -25,61 +25,57 @@ export function useWindowState() {
   }, [saveWindowState]);
 
   useEffect(() => {
+    const appWindow = getCurrentWindow();
+    let isDisposed = false;
+    let listenersCleanup: (() => void) | null = null;
+
     const setupWindowListeners = async () => {
-      const appWindow = getCurrentWindow();
-
-      // Listen for window resize events
-      const resizeUnlisten = await appWindow.listen('tauri://resize', () => {
-        debouncedSaveWindowState();
-      });
-
-      // Listen for window move events
-      const moveUnlisten = await appWindow.listen('tauri://move', () => {
-        debouncedSaveWindowState();
-      });
-
-      // Listen for window focus events (to catch maximize/minimize state changes)
-      const focusUnlisten = await appWindow.listen('tauri://focus', () => {
-        debouncedSaveWindowState();
-      });
-
-      // Cleanup function
-      return () => {
-        resizeUnlisten();
-        moveUnlisten();
-        focusUnlisten();
-        if (timeoutRef.current !== null) {
-          clearTimeout(timeoutRef.current);
-          timeoutRef.current = null;
-        }
-      };
-    };
-
-    setupWindowListeners().then((cleanup) => {
-      return cleanup;
-    });
-
-    // Apply saved window state on mount with a slight delay
-    // to ensure the window is fully initialized
-    const applyWindowState = async () => {
       try {
-        // Small delay to ensure window is ready
-        setTimeout(async () => {
-          try {
-            await tauriApi.applyWindowState();
-          } catch (error) {
-            console.warn('Failed to apply window state:', error);
-          }
-        }, 100);
+        const [resizeUnlisten, moveUnlisten, focusUnlisten] = await Promise.all([
+          appWindow.listen('tauri://resize', () => {
+            debouncedSaveWindowState();
+          }),
+          appWindow.listen('tauri://move', () => {
+            debouncedSaveWindowState();
+          }),
+          appWindow.listen('tauri://focus', () => {
+            debouncedSaveWindowState();
+          }),
+        ]);
+
+        const cleanup = () => {
+          resizeUnlisten();
+          moveUnlisten();
+          focusUnlisten();
+        };
+
+        if (isDisposed) {
+          cleanup();
+          return;
+        }
+
+        listenersCleanup = cleanup;
       } catch (error) {
-        console.warn('Failed to apply window state:', error);
+        console.warn('Failed to setup window listeners:', error);
       }
     };
 
-    applyWindowState();
+    void setupWindowListeners();
+
+    const applyWindowStateTimer = setTimeout(() => {
+      tauriApi.applyWindowState().catch((error) => {
+        console.warn('Failed to apply window state:', error);
+      });
+    }, 100);
 
     // Cleanup on unmount
     return () => {
+      isDisposed = true;
+      clearTimeout(applyWindowStateTimer);
+      if (listenersCleanup) {
+        listenersCleanup();
+        listenersCleanup = null;
+      }
       if (timeoutRef.current !== null) {
         clearTimeout(timeoutRef.current);
         timeoutRef.current = null;
