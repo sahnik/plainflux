@@ -28,6 +28,15 @@ import { useWindowState } from './hooks/useWindowState';
 
 import { tauriApi, Todo } from './api/tauri';
 import { ViewType, Note, NoteMetadata, Tab, RecentNote, RecentNotesFilter, SearchResult } from './types';
+import {
+  getCloseTabState,
+  getOpenInNewTabState,
+  getRemoveTabsState,
+  getRenamedFolderTabs,
+  getReplaceActiveTabState,
+  isNotePathInsideFolder,
+  mapTabsByPath,
+} from './utils/tabState';
 
 const queryClient = new QueryClient();
 
@@ -184,77 +193,42 @@ function AppContent() {
 
   const replaceActiveTabOrOpen = useCallback((note: Note) => {
     setTabs(currentTabs => {
-      if (currentTabs.length === 0) {
-        setActiveTabIndex(0);
-        return [{ note, isDirty: false }];
+      const nextState = getReplaceActiveTabState(currentTabs, activeTabIndex, note);
+      if (nextState.activeTabIndex !== activeTabIndex) {
+        setActiveTabIndex(nextState.activeTabIndex);
       }
-
-      const safeIndex = Math.min(activeTabIndex, currentTabs.length - 1);
-      if (safeIndex !== activeTabIndex) {
-        setActiveTabIndex(safeIndex);
-      }
-
-      const updatedTabs = [...currentTabs];
-      updatedTabs[safeIndex] = { note, isDirty: false };
-      return updatedTabs;
+      return nextState.tabs;
     });
   }, [activeTabIndex]);
 
   const updateTabByPath = useCallback((path: string, updater: (tab: Tab) => Tab) => {
-    setTabs(currentTabs => currentTabs.map(tab => (tab.note.path === path ? updater(tab) : tab)));
+    setTabs(currentTabs => mapTabsByPath(currentTabs, path, updater));
   }, []);
 
   const removeTabs = useCallback((predicate: (tab: Tab) => boolean) => {
     setTabs(currentTabs => {
-      if (currentTabs.length === 0) {
-        return currentTabs;
+      const nextState = getRemoveTabsState(currentTabs, activeTabIndex, predicate);
+      if (nextState.activeTabIndex !== activeTabIndex) {
+        setActiveTabIndex(nextState.activeTabIndex);
       }
-
-      const activePath = currentTabs[activeTabIndex]?.note.path;
-      const remainingTabs = currentTabs.filter(tab => !predicate(tab));
-
-      if (remainingTabs.length === 0) {
-        setActiveTabIndex(0);
-        return [];
-      }
-
-      if (activePath && remainingTabs.some(tab => tab.note.path === activePath)) {
-        const newActiveIndex = remainingTabs.findIndex(tab => tab.note.path === activePath);
-        setActiveTabIndex(newActiveIndex);
-      } else {
-        setActiveTabIndex(Math.min(activeTabIndex, remainingTabs.length - 1));
-      }
-
-      return remainingTabs;
+      return nextState.tabs;
     });
   }, [activeTabIndex]);
-
-  const normalizePathForCompare = useCallback((path: string) => path.replace(/\\/g, '/'), []);
-
-  const isPathInsideFolder = useCallback((notePath: string, folderPath: string) => {
-    const normalizedFolder = normalizePathForCompare(folderPath).replace(/^\/+|\/+$/g, '');
-    if (!normalizedFolder) return false;
-    const normalizedNotePath = normalizePathForCompare(notePath);
-    return normalizedNotePath.includes(`/${normalizedFolder}/`);
-  }, [normalizePathForCompare]);
 
   // Tab management functions
   const openInNewTab = useCallback((note: Note) => {
     setTabs(currentTabs => {
-      const existingTabIndex = currentTabs.findIndex(tab => tab.note.path === note.path);
-
-      if (existingTabIndex !== -1) {
-        setActiveTabIndex(existingTabIndex);
-        return currentTabs;
+      const nextState = getOpenInNewTabState(currentTabs, activeTabIndex, note);
+      if (nextState.activeTabIndex !== activeTabIndex) {
+        setActiveTabIndex(nextState.activeTabIndex);
       }
-
-      setActiveTabIndex(currentTabs.length);
-      return [...currentTabs, { note, isDirty: false }];
+      return nextState.tabs;
     });
-  }, []);
+  }, [activeTabIndex]);
 
   const closeTab = useCallback((index: number) => {
     const tabToClose = tabs[index];
+    if (!tabToClose) return;
     
     // Check if tab has unsaved changes
     if (tabToClose.isDirty) {
@@ -265,19 +239,10 @@ function AppContent() {
       }
     }
     
-    const newTabs = tabs.filter((_, i) => i !== index);
-    setTabs(newTabs);
-    
-    // Adjust active tab index
-    if (newTabs.length === 0) {
-      setActiveTabIndex(0);
-    } else if (index === activeTabIndex) {
-      // Closing the active tab
-      const newActiveIndex = index >= newTabs.length ? newTabs.length - 1 : index;
-      setActiveTabIndex(newActiveIndex);
-    } else if (index < activeTabIndex) {
-      // Closing a tab before the active one
-      setActiveTabIndex(activeTabIndex - 1);
+    const nextState = getCloseTabState(tabs, activeTabIndex, index);
+    setTabs(nextState.tabs);
+    if (nextState.activeTabIndex !== activeTabIndex) {
+      setActiveTabIndex(nextState.activeTabIndex);
     }
   }, [tabs, activeTabIndex]);
 
@@ -581,7 +546,7 @@ function AppContent() {
         removeTabs(tab => tab.note.path === deleteDialog.item.path);
       } else {
         await tauriApi.deleteFolder(deleteDialog.item.path);
-        removeTabs(tab => isPathInsideFolder(tab.note.path, deleteDialog.item.path));
+        removeTabs(tab => isNotePathInsideFolder(tab.note.path, deleteDialog.item.path));
       }
       
       // Refresh the notes list and related caches
@@ -687,31 +652,9 @@ function AppContent() {
         }));
       } else {
         const newFolderPath = await tauriApi.renameFolder(renameDialog.oldPath, newName);
-        setTabs(currentTabs => currentTabs.map(tab => {
-          const normalizedTabPath = normalizePathForCompare(tab.note.path);
-          const normalizedOldFolder = normalizePathForCompare(renameDialog.oldPath).replace(/^\/+|\/+$/g, '');
-          const normalizedNewFolder = normalizePathForCompare(newFolderPath).replace(/^\/+|\/+$/g, '');
-
-          if (!normalizedOldFolder) {
-            return tab;
-          }
-
-          const oldSegment = `/${normalizedOldFolder}/`;
-          if (!normalizedTabPath.includes(oldSegment)) {
-            return tab;
-          }
-
-          const newSegment = `/${normalizedNewFolder}/`;
-          const updatedNormalizedPath = normalizedTabPath.replace(oldSegment, newSegment);
-          const updatedPath = tab.note.path.includes('\\')
-            ? updatedNormalizedPath.replace(/\//g, '\\')
-            : updatedNormalizedPath;
-
-          return {
-            ...tab,
-            note: { ...tab.note, path: updatedPath }
-          };
-        }));
+        setTabs(currentTabs =>
+          getRenamedFolderTabs(currentTabs, renameDialog.oldPath, newFolderPath),
+        );
       }
       
       // Refresh the lists

@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "lint": "eslint src --ext .ts,.tsx",
-    "test": "echo \"No tests configured yet\""
+    "test": "rm -rf .tmp-tests && tsc -p tsconfig.test.json && node --test \"tests/**/*.test.js\"",
+    "test:watch": "rm -rf .tmp-tests && tsc -p tsconfig.test.json && node --test --watch \"tests/**/*.test.js\""
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.18.6",
