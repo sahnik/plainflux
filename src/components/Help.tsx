@@ -56,7 +56,7 @@ export const Help: React.FC<HelpProps> = ({ isOpen, onClose }) => {
         </div>
 
         <div className="help-content">
-          <p style={{ margin: '0 0 16px 0', color: 'var(--text-secondary)' }}>Version 0.9.13</p>
+          <p style={{ margin: '0 0 16px 0', color: 'var(--text-secondary)' }}>Version 1.0.0-rc1</p>
       
       <section className="help-section">
         <h2>Git Version Control</h2>

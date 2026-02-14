@@ -13,7 +13,6 @@ import { createNoteLinkExtension } from '../utils/editorNoteLinkExtension';
 import { multiCursorKeymap } from '../utils/multiCursor';
 import { createFoldingExtension } from '../utils/foldingExtension';
 import { scrollToLineAndHighlight, highlightLineExtension } from '../utils/editorScrolling';
-// import { createTransclusionExtension } from '../utils/transclusionExtension'; // Temporarily disabled
 import { tauriApi } from '../api/tauri';
 import { useTheme } from '../contexts/ThemeContext';
 
@@ -96,7 +95,6 @@ export const NoteEditor: React.FC<NoteEditorProps> = ({ note, isPreview, onChang
           (noteName, blockId) => onLinkOpenInNewTabRef.current(noteName, blockId),
           noteExists,
         ),
-        // createTransclusionExtension(onLinkClick), // Temporarily disabled - needs fix
         multiCursorKeymap,
         createFoldingExtension(),
         highlightLineExtension,
