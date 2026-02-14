@@ -1161,7 +1161,10 @@ pub async fn rename_folder(
         .map_err(|_| "Failed to lock cache database")?;
 
     // Remove old cache/metadata entries for all moved notes.
-    let stale_paths: Vec<String> = notes_in_folder.iter().map(|note| note.path.clone()).collect();
+    let stale_paths: Vec<String> = notes_in_folder
+        .iter()
+        .map(|note| note.path.clone())
+        .collect();
     if !stale_paths.is_empty() {
         cache_db.remove_stale_entries(&stale_paths)?;
     }

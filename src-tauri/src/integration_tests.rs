@@ -84,7 +84,9 @@ fn folder_delete_rejects_root_and_traversal_paths() {
     let preview = note_manager::delete_folder("Projects", ws.notes_dir_str())
         .expect("expected valid folder preview");
     assert!(
-        preview.iter().any(|path| path.ends_with("Projects/Task.md")),
+        preview
+            .iter()
+            .any(|path| path.ends_with("Projects/Task.md")),
         "expected preview to include note in target folder"
     );
 
@@ -134,8 +136,8 @@ fn cache_and_fts_track_move_and_rename_without_stale_paths() {
 
     let original_path = ws.write_note("Drafts/Plan.md", "# Plan\n\nkeywordalpha\n");
     let original_title = title_from_path(&original_path);
-    let original_content =
-        note_manager::read_file_with_encoding(&original_path).expect("failed to read original note");
+    let original_content = note_manager::read_file_with_encoding(&original_path)
+        .expect("failed to read original note");
 
     cache_db
         .update_note_cache_with_fts(
@@ -167,7 +169,12 @@ fn cache_and_fts_track_move_and_rename_without_stale_paths() {
         note_manager::read_file_with_encoding(&moved_path).expect("failed to read moved note");
     let moved_title = title_from_path(&moved_path);
     cache_db
-        .update_note_cache_with_fts(&moved_path, &moved_title, &moved_content, ws.notes_dir_str())
+        .update_note_cache_with_fts(
+            &moved_path,
+            &moved_title,
+            &moved_content,
+            ws.notes_dir_str(),
+        )
         .expect("failed to index moved note");
     cache_db
         .set_cached_mtime(&moved_path, 2, 0)
@@ -185,8 +192,8 @@ fn cache_and_fts_track_move_and_rename_without_stale_paths() {
         "fts should not contain stale original path"
     );
 
-    let renamed_path = note_manager::rename_note(&moved_path, "Renamed Plan")
-        .expect("rename note should succeed");
+    let renamed_path =
+        note_manager::rename_note(&moved_path, "Renamed Plan").expect("rename note should succeed");
     cache_db
         .remove_stale_entries(std::slice::from_ref(&moved_path))
         .expect("failed to remove stale moved path");
@@ -254,7 +261,9 @@ fn enhanced_search_reflects_content_updates_and_deletions() {
         note_manager::search_notes_enhanced(ws.notes_dir_str(), "banana", &cache_db)
             .expect("banana search should succeed");
     assert!(
-        banana_results.iter().any(|result| result.note.path == note_path),
+        banana_results
+            .iter()
+            .any(|result| result.note.path == note_path),
         "enhanced search should include note for initial term"
     );
 
@@ -280,7 +289,9 @@ fn enhanced_search_reflects_content_updates_and_deletions() {
         note_manager::search_notes_enhanced(ws.notes_dir_str(), "carrot", &cache_db)
             .expect("carrot search should succeed");
     assert!(
-        carrot_results.iter().any(|result| result.note.path == note_path),
+        carrot_results
+            .iter()
+            .any(|result| result.note.path == note_path),
         "new term should match after content update"
     );
 

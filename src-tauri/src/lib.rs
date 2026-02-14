@@ -4,10 +4,10 @@ mod cache;
 mod commands;
 mod error;
 mod git_manager;
-mod note_manager;
-mod utils;
 #[cfg(test)]
 mod integration_tests;
+mod note_manager;
+mod utils;
 
 use cache::CacheDb;
 use commands::AppState;
@@ -146,8 +146,7 @@ pub fn run() {
             let cache_db = CacheDb::new(&cache_db_path.to_string_lossy())
                 .expect("Failed to initialize cache database");
 
-            let home_dir =
-                dirs::home_dir().unwrap_or_else(|| std::path::PathBuf::from("."));
+            let home_dir = dirs::home_dir().unwrap_or_else(|| std::path::PathBuf::from("."));
             let default_notes_dir = home_dir.join("Notes");
 
             if !default_notes_dir.exists() {
