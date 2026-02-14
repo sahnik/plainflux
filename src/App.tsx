@@ -93,7 +93,7 @@ function AppContent() {
   const [graphSearchTerm, setGraphSearchTerm] = useState('');
   const [graphMaxHops, setGraphMaxHops] = useState(2);
   const didOpenDailyNoteRef = useRef(false);
-  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const saveTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   const selectedNote = tabs[activeTabIndex]?.note ?? null;
 
   const { data: notes = [] } = useQuery({
@@ -319,11 +319,12 @@ function AppContent() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isPreview, selectedNote, showGlobalGraph, showLocalGraph, tabs, activeTabIndex, closeTab, switchTab]);
 
-  // Clean up debounced save timer on unmount
+  // Clean up debounced save timers on unmount
   useEffect(() => {
+    const timers = saveTimersRef.current;
     return () => {
-      if (saveTimerRef.current) {
-        clearTimeout(saveTimerRef.current);
+      for (const timer of timers.values()) {
+        clearTimeout(timer);
       }
     };
   }, []);
@@ -398,12 +399,14 @@ function AppContent() {
     });
 
     // Debounce the actual save to prevent disk writes on every keystroke
-    if (saveTimerRef.current) {
-      clearTimeout(saveTimerRef.current);
+    const existingTimer = saveTimersRef.current.get(notePath);
+    if (existingTimer) {
+      clearTimeout(existingTimer);
     }
-    saveTimerRef.current = setTimeout(() => {
+    saveTimersRef.current.set(notePath, setTimeout(() => {
+      saveTimersRef.current.delete(notePath);
       saveMutation.mutate({ path: notePath, content });
-    }, 500);
+    }, 500));
   }, [activeTabIndex, saveMutation]);
 
   const handleSearch = useCallback(async (query: string) => {

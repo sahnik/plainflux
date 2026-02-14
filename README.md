@@ -2,7 +2,7 @@
 
 A modern, cross-platform note-taking application with backlinks, tags, and knowledge graph visualization. Built with Tauri and React for a native desktop experience.
 
-![Version](https://img.shields.io/badge/version-0.9.11-blue.svg)
+![Version](https://img.shields.io/badge/version-1.0.0--rc1-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 
 ## Features

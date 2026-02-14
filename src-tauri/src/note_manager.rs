@@ -383,15 +383,50 @@ fn extract_search_snippets(content: &str, query_lower: &str) -> Vec<SearchSnippe
 
     for (line_number, line) in content.lines().enumerate() {
         let line_lower = line.to_lowercase();
+        let query_len_lower = query_lower.len();
 
-        // Find all matches in this line
-        let mut start_pos = 0;
-        while let Some(match_pos) = line_lower[start_pos..].find(query_lower) {
-            let actual_pos = start_pos + match_pos;
+        // Find all matches in the lowercased line, then map byte offsets
+        // back to the original string via char counts to avoid panics when
+        // case-folding changes byte lengths (e.g. Turkish İ -> i̇).
+        let mut search_start = 0;
+        while let Some(match_pos_lower) = line_lower[search_start..].find(query_lower) {
+            let actual_pos_lower = search_start + match_pos_lower;
 
-            // Calculate snippet boundaries
-            let snippet_start = actual_pos.saturating_sub(CONTEXT_CHARS);
-            let snippet_end = (actual_pos + query_lower.len() + CONTEXT_CHARS).min(line.len());
+            // Map byte offset in lowercased string to the original string
+            // by counting chars up to the match position, then finding the
+            // corresponding byte offset in the original.
+            let char_offset = line_lower[..actual_pos_lower].chars().count();
+            let actual_pos = line
+                .char_indices()
+                .nth(char_offset)
+                .map(|(i, _)| i)
+                .unwrap_or(line.len());
+
+            // Map the end of the match similarly
+            let match_end_char_offset = line_lower[..actual_pos_lower + query_len_lower]
+                .chars()
+                .count();
+            let match_end = line
+                .char_indices()
+                .nth(match_end_char_offset)
+                .map(|(i, _)| i)
+                .unwrap_or(line.len());
+
+            // Calculate snippet boundaries using char-aware offsets
+            let snippet_start_char = char_offset.saturating_sub(CONTEXT_CHARS);
+            let snippet_start = line
+                .char_indices()
+                .nth(snippet_start_char)
+                .map(|(i, _)| i)
+                .unwrap_or(0);
+
+            let total_chars = line.chars().count();
+            let snippet_end_char = (match_end_char_offset + CONTEXT_CHARS).min(total_chars);
+            let snippet_end = line
+                .char_indices()
+                .nth(snippet_end_char)
+                .map(|(i, _)| i)
+                .unwrap_or(line.len());
 
             // Extract the snippet text
             let mut snippet_text = line[snippet_start..snippet_end].to_string();
@@ -412,11 +447,11 @@ fn extract_search_snippets(content: &str, query_lower: &str) -> Vec<SearchSnippe
                 line_number: line_number + 1, // 1-based line numbers
                 text: snippet_text,
                 match_start: match_start_in_snippet,
-                match_length: query_lower.len(),
+                match_length: match_end - actual_pos,
             });
 
-            // Move past this match to find the next one
-            start_pos = actual_pos + query_lower.len();
+            // Move past this match in the lowercased string
+            search_start = actual_pos_lower + query_len_lower;
         }
     }
 

@@ -142,6 +142,8 @@ pub async fn create_note(filename: String, state: State<'_, AppState>) -> Result
 
     let path_str = path.to_string_lossy().to_string();
 
+    validate_path_security(&path_str, &state.notes_dir).map_err(|e| e.to_string())?;
+
     if path.exists() {
         // Return the existing path instead of an error
         return Ok(path_str);
@@ -319,7 +321,12 @@ pub async fn get_backlinks(
 }
 
 #[tauri::command]
-pub async fn get_outgoing_links(note_path: String) -> Result<Vec<String>, String> {
+pub async fn get_outgoing_links(
+    note_path: String,
+    state: State<'_, AppState>,
+) -> Result<Vec<String>, String> {
+    validate_path_security(&note_path, &state.notes_dir).map_err(|e| e.to_string())?;
+
     use crate::cache::extract_links;
 
     // Read the note content
@@ -757,6 +764,17 @@ pub async fn save_image(
     state: State<'_, AppState>,
 ) -> Result<String, String> {
     validate_path_security(&note_path, &state.notes_dir).map_err(|e| e.to_string())?;
+
+    // Sanitize filename to prevent path traversal
+    let filename = filename
+        .rsplit(['/', '\\'])
+        .next()
+        .unwrap_or(&filename)
+        .to_string();
+    if filename.is_empty() || filename == ".." || filename == "." {
+        return Err("Invalid filename".to_string());
+    }
+
     // Get the directory of the current note
     let note_path_buf = std::path::Path::new(&note_path);
     let note_dir = note_path_buf
@@ -799,6 +817,17 @@ pub async fn save_attachment(
     state: State<'_, AppState>,
 ) -> Result<String, String> {
     validate_path_security(&note_path, &state.notes_dir).map_err(|e| e.to_string())?;
+
+    // Sanitize filename to prevent path traversal
+    let filename = filename
+        .rsplit(['/', '\\'])
+        .next()
+        .unwrap_or(&filename)
+        .to_string();
+    if filename.is_empty() || filename == ".." || filename == "." {
+        return Err("Invalid filename".to_string());
+    }
+
     // Get the directory of the current note
     let note_path_buf = std::path::Path::new(&note_path);
     let note_dir = note_path_buf
@@ -986,6 +1015,8 @@ pub async fn toggle_todo(
     line_number: i32,
     state: State<'_, AppState>,
 ) -> Result<String, String> {
+    validate_path_security(&note_path, &state.notes_dir).map_err(|e| e.to_string())?;
+
     // Extract todo info and toggle state (in a scope to drop the mutex guard)
     let (todo_info, new_state) = {
         let cache_db = state
@@ -1114,6 +1145,12 @@ pub async fn rename_note(
     new_name: String,
     state: State<'_, AppState>,
 ) -> Result<String, String> {
+    validate_path_security(&old_path, &state.notes_dir).map_err(|e| e.to_string())?;
+    // Reject new_name containing path separators or traversal
+    if new_name.contains('/') || new_name.contains('\\') || new_name.contains("..") {
+        return Err("Invalid note name: must not contain path separators".to_string());
+    }
+
     // Rename the file
     let new_path = note_manager::rename_note(&old_path, &new_name)?;
 
