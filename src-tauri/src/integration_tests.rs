@@ -86,7 +86,7 @@ fn folder_delete_rejects_root_and_traversal_paths() {
     assert!(
         preview
             .iter()
-            .any(|path| path.ends_with("Projects/Task.md")),
+            .any(|path| Path::new(path).ends_with("Projects/Task.md")),
         "expected preview to include note in target folder"
     );
 
