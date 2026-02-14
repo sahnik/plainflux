@@ -89,7 +89,8 @@ pub async fn get_notes_list(state: State<'_, AppState>) -> Result<Vec<NoteMetada
 }
 
 #[tauri::command]
-pub async fn read_note(path: String) -> Result<Note, String> {
+pub async fn read_note(path: String, state: State<'_, AppState>) -> Result<Note, String> {
+    validate_path_security(&path, &state.notes_dir).map_err(|e| e.to_string())?;
     note_manager::read_note(&path)
 }
 
@@ -99,6 +100,7 @@ pub async fn save_note(
     content: String,
     state: State<'_, AppState>,
 ) -> Result<(), String> {
+    validate_path_security(&path, &state.notes_dir).map_err(|e| e.to_string())?;
     note_manager::write_note(&path, &content)?;
 
     // Add to recent notes and get title
@@ -167,6 +169,7 @@ pub async fn create_note(filename: String, state: State<'_, AppState>) -> Result
 
 #[tauri::command]
 pub async fn delete_note(path: String, state: State<'_, AppState>) -> Result<(), String> {
+    validate_path_security(&path, &state.notes_dir).map_err(|e| e.to_string())?;
     std::fs::remove_file(&path).map_err(|e| format!("Failed to delete note: {e}"))?;
 
     let cache_db = lock_mutex!(
@@ -181,18 +184,7 @@ pub async fn delete_note(path: String, state: State<'_, AppState>) -> Result<(),
 
 #[tauri::command]
 pub async fn search_notes(query: String, state: State<'_, AppState>) -> Result<Vec<Note>, String> {
-    println!("[COMMAND] search_notes called with query: '{query}'");
-    let notes_dir = &state.notes_dir;
-    println!("[COMMAND] Notes directory: {notes_dir}");
-    let result = note_manager::search_notes(&state.notes_dir, &query);
-    match &result {
-        Ok(notes) => {
-            let count = notes.len();
-            println!("[COMMAND] Search returned {count} results");
-        }
-        Err(e) => println!("[COMMAND] Search error: {e}"),
-    }
-    result
+    note_manager::search_notes(&state.notes_dir, &query)
 }
 
 #[tauri::command]
@@ -200,25 +192,12 @@ pub async fn search_notes_enhanced(
     query: String,
     state: State<'_, AppState>,
 ) -> Result<Vec<note_manager::SearchResult>, String> {
-    println!("[COMMAND] search_notes_enhanced called with query: '{query}'");
-
     let cache_db = lock_mutex!(
         state.cache_db,
         "Cache DB mutex was poisoned during search_notes_enhanced"
     );
 
-    let result = note_manager::search_notes_enhanced(&state.notes_dir, &query, &cache_db);
-
-    match &result {
-        Ok(results) => {
-            let count = results.len();
-            let total_matches: usize = results.iter().map(|r| r.match_count).sum();
-            println!("[COMMAND] Enhanced search returned {count} notes with {total_matches} total matches");
-        }
-        Err(e) => println!("[COMMAND] Enhanced search error: {e}"),
-    }
-
-    result
+    note_manager::search_notes_enhanced(&state.notes_dir, &query, &cache_db)
 }
 
 #[tauri::command]
@@ -775,8 +754,9 @@ pub async fn save_image(
     image_data: Vec<u8>,
     filename: String,
     note_path: String,
-    _state: State<'_, AppState>,
+    state: State<'_, AppState>,
 ) -> Result<String, String> {
+    validate_path_security(&note_path, &state.notes_dir).map_err(|e| e.to_string())?;
     // Get the directory of the current note
     let note_path_buf = std::path::Path::new(&note_path);
     let note_dir = note_path_buf
@@ -816,8 +796,9 @@ pub async fn save_attachment(
     file_data: Vec<u8>,
     filename: String,
     note_path: String,
-    _state: State<'_, AppState>,
+    state: State<'_, AppState>,
 ) -> Result<String, String> {
+    validate_path_security(&note_path, &state.notes_dir).map_err(|e| e.to_string())?;
     // Get the directory of the current note
     let note_path_buf = std::path::Path::new(&note_path);
     let note_dir = note_path_buf
@@ -858,10 +839,11 @@ pub async fn open_file_external(
     file_path: String,
     note_path: String,
     window: tauri::WebviewWindow,
-    _state: State<'_, AppState>,
+    state: State<'_, AppState>,
 ) -> Result<(), String> {
     use tauri_plugin_opener::OpenerExt;
 
+    validate_path_security(&note_path, &state.notes_dir).map_err(|e| e.to_string())?;
     // Get the directory of the current note
     let note_path_buf = std::path::Path::new(&note_path);
     let note_dir = note_path_buf

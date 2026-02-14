@@ -23,10 +23,8 @@ export const tauriApi = {
   },
 
   async searchNotes(query: string): Promise<Note[]> {
-    console.log('[FRONTEND] Searching for:', query);
     try {
       const results = await invoke('search_notes', { query });
-      console.log('[FRONTEND] Search returned', results);
       return results as Note[];
     } catch (error) {
       console.error('[FRONTEND] Search error:', error);
@@ -35,10 +33,8 @@ export const tauriApi = {
   },
 
   async searchNotesEnhanced(query: string): Promise<SearchResult[]> {
-    console.log('[FRONTEND] Enhanced search for:', query);
     try {
       const results = await invoke('search_notes_enhanced', { query });
-      console.log('[FRONTEND] Enhanced search returned', results);
       return results as SearchResult[];
     } catch (error) {
       console.error('[FRONTEND] Enhanced search error:', error);

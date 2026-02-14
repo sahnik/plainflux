@@ -44,40 +44,48 @@ export function createPasteHandler(notePath: string | undefined) {
       if (fileItems.length > 0) {
         event.preventDefault();
 
-        fileItems.forEach(async (item, index) => {
-          const file = item.getAsFile();
-          if (!file) return;
+        (async () => {
+          const basePos = view.state.selection.main.head;
+          let insertOffset = 0;
 
-          try {
-            const buffer = await file.arrayBuffer();
-            const fileData = new Uint8Array(buffer);
-            const fileType = getFileTypeFromExtension(file.name);
+          for (let index = 0; index < fileItems.length; index++) {
+            const item = fileItems[index];
+            const file = item.getAsFile();
+            if (!file) continue;
 
-            let filePath: string;
-            let markdownSyntax: string;
+            try {
+              const buffer = await file.arrayBuffer();
+              const fileData = new Uint8Array(buffer);
+              const fileType = getFileTypeFromExtension(file.name);
 
-            if (fileType.type === 'image') {
-              // Use existing image handler for images
-              filePath = await tauriApi.saveImage(fileData, file.name, notePath);
-              markdownSyntax = `![${file.name}](${filePath})`;
-            } else {
-              // Use new attachment handler for other files
-              filePath = await tauriApi.saveAttachment(fileData, file.name, notePath);
-              markdownSyntax = `[${fileType.icon} ${file.name}](${filePath})`;
+              let filePath: string;
+              let markdownSyntax: string;
+
+              if (fileType.type === 'image') {
+                // Use existing image handler for images
+                filePath = await tauriApi.saveImage(fileData, file.name, notePath);
+                markdownSyntax = `![${file.name}](${filePath})`;
+              } else {
+                // Use new attachment handler for other files
+                filePath = await tauriApi.saveAttachment(fileData, file.name, notePath);
+                markdownSyntax = `[${fileType.icon} ${file.name}](${filePath})`;
+              }
+
+              // Insert at cursor position, offset by previously inserted text
+              const pos = basePos + insertOffset;
+              const insertText = index < fileItems.length - 1 ? `${markdownSyntax}\n` : markdownSyntax;
+
+              view.dispatch({
+                changes: { from: pos, to: pos, insert: insertText },
+                selection: { anchor: pos + insertText.length }
+              });
+
+              insertOffset += insertText.length;
+            } catch (error) {
+              console.error('Failed to save file:', error);
             }
-
-            // Insert at cursor position
-            const pos = view.state.selection.main.head;
-            const insertText = index < fileItems.length - 1 ? `${markdownSyntax}\n` : markdownSyntax;
-
-            view.dispatch({
-              changes: { from: pos, to: pos, insert: insertText },
-              selection: { anchor: pos + insertText.length }
-            });
-          } catch (error) {
-            console.error('Failed to save file:', error);
           }
-        });
+        })();
 
         return true;
       }
@@ -135,40 +143,48 @@ export function createPasteHandler(notePath: string | undefined) {
         // Get drop position
         const pos = view.posAtCoords({ x: event.clientX, y: event.clientY }) || view.state.selection.main.head;
 
-        // Process each file
-        files.forEach(async (file, index) => {
-          try {
-            const buffer = await file.arrayBuffer();
-            const fileData = new Uint8Array(buffer);
-            const fileType = getFileTypeFromExtension(file.name);
+        // Process each file serially to avoid race conditions
+        (async () => {
+          let insertOffset = 0;
 
-            let filePath: string;
-            let markdownSyntax: string;
+          for (let index = 0; index < files.length; index++) {
+            const file = files[index];
+            try {
+              const buffer = await file.arrayBuffer();
+              const fileData = new Uint8Array(buffer);
+              const fileType = getFileTypeFromExtension(file.name);
 
-            if (fileType.type === 'image') {
-              // Use existing image handler for images
-              filePath = await tauriApi.saveImage(fileData, file.name, notePath);
-              markdownSyntax = `![${file.name}](${filePath})`;
-            } else {
-              // Use new attachment handler for other files
-              filePath = await tauriApi.saveAttachment(fileData, file.name, notePath);
-              markdownSyntax = `[${fileType.icon} ${file.name}](${filePath})`;
-            }
+              let filePath: string;
+              let markdownSyntax: string;
 
-            // Insert markdown syntax
-            const insertText = index < files.length - 1 ? `${markdownSyntax}\n` : markdownSyntax;
-
-            view.dispatch({
-              changes: {
-                from: pos + (index > 0 ? 1 : 0),
-                to: pos + (index > 0 ? 1 : 0),
-                insert: insertText
+              if (fileType.type === 'image') {
+                // Use existing image handler for images
+                filePath = await tauriApi.saveImage(fileData, file.name, notePath);
+                markdownSyntax = `![${file.name}](${filePath})`;
+              } else {
+                // Use new attachment handler for other files
+                filePath = await tauriApi.saveAttachment(fileData, file.name, notePath);
+                markdownSyntax = `[${fileType.icon} ${file.name}](${filePath})`;
               }
-            });
-          } catch (error) {
-            console.error('Failed to save file:', error);
+
+              // Insert markdown syntax at drop position, offset by previously inserted text
+              const insertPos = pos + insertOffset;
+              const insertText = index < files.length - 1 ? `${markdownSyntax}\n` : markdownSyntax;
+
+              view.dispatch({
+                changes: {
+                  from: insertPos,
+                  to: insertPos,
+                  insert: insertText
+                }
+              });
+
+              insertOffset += insertText.length;
+            } catch (error) {
+              console.error('Failed to save file:', error);
+            }
           }
-        });
+        })();
 
         return true;
       }

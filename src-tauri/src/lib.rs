@@ -38,7 +38,6 @@ fn sync_cache(state: &AppState) -> Result<()> {
         .into_iter()
         .collect();
 
-    let mut stats = CacheSyncStats::default();
     let mut current_paths: HashSet<String> = HashSet::new();
 
     for note in notes {
@@ -88,14 +87,8 @@ fn sync_cache(state: &AppState) -> Result<()> {
                     eprintln!("Warning: Failed to store mtime for '{}': {e}", note.path);
                 }
 
-                if cached_paths.contains(&note.path) {
-                    stats.updated += 1;
-                } else {
-                    stats.added += 1;
-                }
+                // Cache entry updated/added successfully
             }
-        } else {
-            stats.unchanged += 1;
         }
     }
 
@@ -103,26 +96,12 @@ fn sync_cache(state: &AppState) -> Result<()> {
     let deleted_paths: Vec<String> = cached_paths.difference(&current_paths).cloned().collect();
 
     if !deleted_paths.is_empty() {
-        stats.deleted = deleted_paths.len();
         if let Err(e) = cache_db.remove_stale_entries(&deleted_paths) {
             eprintln!("Warning: Failed to remove stale cache entries: {e}");
         }
     }
 
-    println!(
-        "Cache sync complete: {} added, {} updated, {} deleted, {} unchanged",
-        stats.added, stats.updated, stats.deleted, stats.unchanged
-    );
-
     Ok(())
-}
-
-#[derive(Default)]
-struct CacheSyncStats {
-    added: usize,
-    updated: usize,
-    deleted: usize,
-    unchanged: usize,
 }
 
 /// Force a full cache rebuild (clears all metadata and rebuilds from scratch)
@@ -142,44 +121,57 @@ pub fn force_rebuild_cache(state: &AppState) -> Result<()> {
 
     drop(cache_db); // Release lock before calling sync_cache
 
-    println!("Forcing full cache rebuild...");
     sync_cache(state)
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let app_data_dir = std::path::PathBuf::from(".");
-
-    let cache_db_path = app_data_dir.join("notes_cache.db");
-    let cache_db = CacheDb::new(&cache_db_path.to_string_lossy())
-        .expect("Failed to initialize cache database");
-
-    let home_dir = dirs::home_dir().unwrap_or_else(|| std::path::PathBuf::from("."));
-    let default_notes_dir = home_dir.join("Notes");
-
-    if !default_notes_dir.exists() {
-        std::fs::create_dir_all(&default_notes_dir)
-            .expect("Failed to create default notes directory");
-    }
-
-    let git_manager = GitManager::new(&default_notes_dir.to_string_lossy());
-
-    let app_state = AppState {
-        cache_db: Mutex::new(cache_db),
-        git_manager: Mutex::new(git_manager),
-        notes_dir: default_notes_dir.to_string_lossy().to_string(),
-        recent_notes: Mutex::new(VecDeque::new()),
-    };
-
-    // Sync cache on startup - only updates changed files (non-blocking, don't fail app startup)
-    if let Err(e) = sync_cache(&app_state) {
-        eprintln!("Warning: Failed to sync cache on startup: {e}");
-        // Continue anyway - cache will be rebuilt as notes are accessed
-    }
-
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
-        .manage(app_state)
+        .setup(|app| {
+            use tauri::Manager;
+
+            let app_data_dir = app
+                .path()
+                .app_data_dir()
+                .expect("Failed to resolve app data directory");
+
+            // Create app data dir if it doesn't exist
+            if !app_data_dir.exists() {
+                std::fs::create_dir_all(&app_data_dir)
+                    .expect("Failed to create app data directory");
+            }
+
+            let cache_db_path = app_data_dir.join("notes_cache.db");
+            let cache_db = CacheDb::new(&cache_db_path.to_string_lossy())
+                .expect("Failed to initialize cache database");
+
+            let home_dir =
+                dirs::home_dir().unwrap_or_else(|| std::path::PathBuf::from("."));
+            let default_notes_dir = home_dir.join("Notes");
+
+            if !default_notes_dir.exists() {
+                std::fs::create_dir_all(&default_notes_dir)
+                    .expect("Failed to create default notes directory");
+            }
+
+            let git_manager = GitManager::new(&default_notes_dir.to_string_lossy());
+
+            let app_state = AppState {
+                cache_db: Mutex::new(cache_db),
+                git_manager: Mutex::new(git_manager),
+                notes_dir: default_notes_dir.to_string_lossy().to_string(),
+                recent_notes: Mutex::new(VecDeque::new()),
+            };
+
+            // Sync cache on startup - only updates changed files
+            if let Err(e) = sync_cache(&app_state) {
+                eprintln!("Warning: Failed to sync cache on startup: {e}");
+            }
+
+            app.manage(app_state);
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             commands::get_notes_list,
             commands::read_note,

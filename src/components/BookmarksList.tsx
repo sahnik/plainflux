@@ -201,7 +201,6 @@ export const BookmarksList: React.FC<BookmarksListProps> = ({
                   onClick={(e) => {
                     e.stopPropagation();
                     e.preventDefault();
-                    console.log('Edit button clicked for bookmark:', bookmark.id);
                     setEditingBookmark(bookmark);
                     setEditTitle(bookmark.title || '');
                     setEditDescription(bookmark.description || '');
@@ -216,7 +215,6 @@ export const BookmarksList: React.FC<BookmarksListProps> = ({
                   onClick={(e) => {
                     e.stopPropagation();
                     e.preventDefault();
-                    console.log('Delete button clicked for bookmark:', bookmark.id);
                     setDeletingBookmark(bookmark);
                   }}
                   title="Delete bookmark"
@@ -542,7 +540,6 @@ export const BookmarksList: React.FC<BookmarksListProps> = ({
               <button
                 className="bookmark-delete-btn bookmark-delete-btn-delete"
                 onClick={() => {
-                  console.log('Confirming delete for bookmark:', deletingBookmark.id);
                   onBookmarkDelete(deletingBookmark.id);
                   setDeletingBookmark(null);
                 }}

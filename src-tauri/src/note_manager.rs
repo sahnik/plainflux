@@ -254,18 +254,18 @@ pub fn read_file_with_encoding(path: &str) -> Result<String, String> {
             if e.kind() == std::io::ErrorKind::InvalidData {
                 match fs::read(&path) {
                     Ok(bytes) => {
-                        println!("[READ] Warning: File {path} contains invalid UTF-8, using lossy conversion");
+                        eprintln!("[READ] Warning: File {path} contains invalid UTF-8, using lossy conversion");
                         Ok(String::from_utf8_lossy(&bytes).into_owned())
                     }
                     Err(read_err) => {
                         let err_msg = format!("Failed to read file {path}: {read_err}");
-                        println!("[READ] ERROR: {err_msg}");
+                        eprintln!("[READ] ERROR: {err_msg}");
                         Err(err_msg)
                     }
                 }
             } else {
                 let err_msg = format!("Failed to read file {path}: {e}");
-                println!("[READ] ERROR: {err_msg}");
+                eprintln!("[READ] ERROR: {err_msg}");
                 Err(err_msg)
             }
         }
@@ -273,34 +273,23 @@ pub fn read_file_with_encoding(path: &str) -> Result<String, String> {
 }
 
 pub fn search_notes(base_path: &str, query: &str) -> Result<Vec<Note>, String> {
-    println!("[SEARCH] Starting search for query: '{query}'");
-    println!("[SEARCH] Base path: {base_path}");
-
     let mut results = Vec::new();
     let query_lower = query.to_lowercase();
 
     let base_path_buf = Path::new(base_path);
-
-    let mut total_files = 0;
-    let mut md_files = 0;
-    let mut skipped_files = 0;
-    let mut read_errors = 0;
-    let mut matched_files = 0;
 
     for entry in WalkDir::new(base_path)
         .follow_links(true)
         .into_iter()
         .filter_map(|e| {
             if let Err(ref err) = e {
-                println!("[SEARCH] WalkDir error: {err}");
+                eprintln!("[SEARCH] WalkDir error: {err}");
             }
             e.ok()
         })
     {
-        total_files += 1;
         let path = entry.path();
         if path.extension().and_then(|s| s.to_str()) == Some("md") {
-            md_files += 1;
             // Skip notes in .plainflux and images folders
             if let Ok(relative_path) = path.strip_prefix(base_path_buf) {
                 let skip_note = relative_path.components().any(|component| {
@@ -315,36 +304,21 @@ pub fn search_notes(base_path: &str, query: &str) -> Result<Vec<Note>, String> {
                 });
 
                 if skip_note {
-                    skipped_files += 1;
-                    println!(
-                        "[SEARCH] Skipping file in excluded folder: {}",
-                        path.display()
-                    );
                     continue;
                 }
             }
 
             let path_str = path.to_string_lossy();
 
-            // Check for potential path encoding issues
-            if path_str.contains('�') {
-                println!("[SEARCH] WARNING: Path contains replacement character, may have encoding issues: {path_str}");
-            }
-
             match read_file_with_encoding(&path_str) {
                 Ok(content) => {
                     if content.to_lowercase().contains(&query_lower) {
-                        matched_files += 1;
-                        let path_display = path.display();
-                        println!("[SEARCH] Match found in: {path_display}");
                         match read_note(&path.to_string_lossy()) {
                             Ok(note) => {
-                                let title = &note.title;
-                                println!("[SEARCH] Successfully read note: {title}");
                                 results.push(note);
                             }
                             Err(e) => {
-                                println!(
+                                eprintln!(
                                     "[SEARCH] ERROR reading matched note {}: {}",
                                     path.display(),
                                     e
@@ -354,8 +328,7 @@ pub fn search_notes(base_path: &str, query: &str) -> Result<Vec<Note>, String> {
                     }
                 }
                 Err(e) => {
-                    read_errors += 1;
-                    println!(
+                    eprintln!(
                         "[SEARCH] ERROR reading file content {}: {}",
                         path.display(),
                         e
@@ -365,9 +338,6 @@ pub fn search_notes(base_path: &str, query: &str) -> Result<Vec<Note>, String> {
         }
     }
 
-    let results_len = results.len();
-    println!("[SEARCH] Search complete. Total files: {total_files}, MD files: {md_files}, Skipped: {skipped_files}, Read errors: {read_errors}, Matches: {matched_files}, Results: {results_len}");
-
     Ok(results)
 }
 
@@ -376,14 +346,8 @@ pub fn search_notes_enhanced(
     query: &str,
     cache_db: &crate::cache::CacheDb,
 ) -> Result<Vec<SearchResult>, String> {
-    println!("[SEARCH_ENHANCED] Starting enhanced search for query: '{query}'");
-
     // Use FTS5 to get matching note paths
     let note_paths = cache_db.search_notes_fts(query)?;
-    println!(
-        "[SEARCH_ENHANCED] FTS5 returned {} matches",
-        note_paths.len()
-    );
 
     let mut results = Vec::new();
     let query_lower = query.to_lowercase();
@@ -405,15 +369,11 @@ pub fn search_notes_enhanced(
                 }
             }
             Err(e) => {
-                println!("[SEARCH_ENHANCED] ERROR reading note {note_path}: {e}");
+                eprintln!("[SEARCH_ENHANCED] ERROR reading note {note_path}: {e}");
             }
         }
     }
 
-    println!(
-        "[SEARCH_ENHANCED] Search complete. Found {} results",
-        results.len()
-    );
     Ok(results)
 }
 

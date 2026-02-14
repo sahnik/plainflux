@@ -27,24 +27,29 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, onL
   const noteExistsRef = React.useRef<{ [key: string]: boolean }>({});
   const containerRef = React.useRef<HTMLDivElement>(null);
   const [transcludedContent, setTranscludedContent] = React.useState<{ [key: string]: string }>({});
-  
+  const requestedTransclusions = React.useRef<Set<string>>(new Set());
+
   // Load transcluded content
   React.useEffect(() => {
     const transclusionRegex = /!\[\[([^\]]+)\]\]/g;
     const matches = [...content.matchAll(transclusionRegex)];
 
+    // Reset tracked requests when content changes to allow re-fetching
+    requestedTransclusions.current = new Set();
+
     matches.forEach(async (match) => {
       const link = match[1];
-      if (!transcludedContent[link]) {
-        try {
-          const resolvedContent = await tauriApi.resolveTransclusion(link);
-          setTranscludedContent(prev => ({ ...prev, [link]: resolvedContent }));
-        } catch (error) {
-          setTranscludedContent(prev => ({ ...prev, [link]: `Error: ${error}` }));
-        }
+      if (requestedTransclusions.current.has(link)) return;
+      requestedTransclusions.current.add(link);
+
+      try {
+        const resolvedContent = await tauriApi.resolveTransclusion(link);
+        setTranscludedContent(prev => ({ ...prev, [link]: resolvedContent }));
+      } catch (error) {
+        setTranscludedContent(prev => ({ ...prev, [link]: `Error: ${error}` }));
       }
     });
-  }, [content, transcludedContent]);
+  }, [content]);
 
   // Scroll to first search match when search term changes
   React.useEffect(() => {

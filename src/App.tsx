@@ -22,6 +22,7 @@ import { TemplateSettings } from './components/TemplateSettings';
 import { Settings } from './components/Settings';
 import { TabBar } from './components/TabBar';
 import { RecentNotes } from './components/RecentNotes';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { useWindowState } from './hooks/useWindowState';
@@ -92,6 +93,7 @@ function AppContent() {
   const [graphSearchTerm, setGraphSearchTerm] = useState('');
   const [graphMaxHops, setGraphMaxHops] = useState(2);
   const didOpenDailyNoteRef = useRef(false);
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const selectedNote = tabs[activeTabIndex]?.note ?? null;
 
   const { data: notes = [] } = useQuery({
@@ -165,16 +167,22 @@ function AppContent() {
       queryClient.invalidateQueries({ queryKey: ['filteredGraph'] });
       queryClient.invalidateQueries({ queryKey: ['localGraph'] });
 
-      // Mark the tab as clean after successful save
+      // Mark the tab as clean only if content still matches what was saved.
+      // If the user typed more after the debounced save was triggered but before
+      // it completed, the tab content is ahead of what was saved and isDirty
+      // must remain true so a subsequent save picks up the new changes.
       setTabs(currentTabs => {
         const tabIndex = currentTabs.findIndex(tab => tab.note.path === variables.path);
-        if (tabIndex !== -1) {
+        if (tabIndex !== -1 && currentTabs[tabIndex].note.content === variables.content) {
           const updatedTabs = [...currentTabs];
-          updatedTabs[tabIndex].isDirty = false;
+          updatedTabs[tabIndex] = { ...updatedTabs[tabIndex], isDirty: false };
           return updatedTabs;
         }
         return currentTabs;
       });
+    },
+    onError: (error, variables) => {
+      console.error(`Failed to save ${variables.path}:`, error);
     },
   });
 
@@ -311,6 +319,15 @@ function AppContent() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isPreview, selectedNote, showGlobalGraph, showLocalGraph, tabs, activeTabIndex, closeTab, switchTab]);
 
+  // Clean up debounced save timer on unmount
+  useEffect(() => {
+    return () => {
+      if (saveTimerRef.current) {
+        clearTimeout(saveTimerRef.current);
+      }
+    };
+  }, []);
+
   // Reset scrollToBlockId after a brief delay to allow scrolling to complete
   useEffect(() => {
     if (scrollToBlockId) {
@@ -380,8 +397,13 @@ function AppContent() {
       return updatedTabs;
     });
 
-    // Save with explicit path to avoid closure issues
-    saveMutation.mutate({ path: notePath, content });
+    // Debounce the actual save to prevent disk writes on every keystroke
+    if (saveTimerRef.current) {
+      clearTimeout(saveTimerRef.current);
+    }
+    saveTimerRef.current = setTimeout(() => {
+      saveMutation.mutate({ path: notePath, content });
+    }, 500);
   }, [activeTabIndex, saveMutation]);
 
   const handleSearch = useCallback(async (query: string) => {
@@ -1132,11 +1154,13 @@ function AppContent() {
 
 function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <ThemeProvider>
-        <AppContent />
-      </ThemeProvider>
-    </QueryClientProvider>
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <ThemeProvider>
+          <AppContent />
+        </ThemeProvider>
+      </QueryClientProvider>
+    </ErrorBoundary>
   );
 }
 
