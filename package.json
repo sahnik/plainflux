@@ -10,8 +10,8 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "lint": "eslint src --ext .ts,.tsx",
-    "test": "rm -rf .tmp-tests && tsc -p tsconfig.test.json && node --test \"tests/**/*.test.js\"",
-    "test:watch": "rm -rf .tmp-tests && tsc -p tsconfig.test.json && node --test --watch \"tests/**/*.test.js\""
+    "test": "node -e \"require('fs').rmSync('.tmp-tests',{recursive:true,force:true})\" && tsc -p tsconfig.test.json && node --test \"./tests/**/*.test.js\"",
+    "test:watch": "node -e \"require('fs').rmSync('.tmp-tests',{recursive:true,force:true})\" && tsc -p tsconfig.test.json && node --test --watch \"./tests/**/*.test.js\""
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.18.6",
